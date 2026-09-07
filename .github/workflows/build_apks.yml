@@ -1,43 +1,26 @@
 name: Build APKs
 
-# Matrix build of the 4 Banglar Voice Flutter apps on every push/tag.
-# Turnkey: keystore (.jks) + key.properties commit করা আছে — তাই কোনো secret ছাড়াই
-# সাইনড APK তৈরি হয়। চাইলে secrets.KEYSTORE_* দিয়ে override করা যায়।
+# Sequential build of the 4 Banglar Voice Flutter apps on every push/tag.
+# Why sequential (not a 4-job matrix): on GitHub's free runners, 3-4 heavy
+# Flutter+Gradle builds running in PARALLEL starve each other's CPU and hang
+# in "flutter build apk" with no log output for hours. Running all 4 apps in
+# ONE job, one after another, reuses the same runner's Gradle/Flutter cache,
+# so builds 2-4 are much faster and never contend.
+# Turnkey: keystore (.jks) + key.properties are committed — no secrets needed.
 on:
   push:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
-# একই ref-এ একাধিক push হলে পুরনো রান auto-cancel হয়ে নতুন রান চলে
-# (এতে duplicate parallel build-এর কারণে job গুলো "cancelled" দেখানো বন্ধ হয়)
+# একই ref-এ একাধিক push হলে পুরোনো রান auto-cancel হয়ে নতুন রান চলে।
 concurrency:
   group: apk-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - app: reader_app
-            target: lib/main.dart
-            apk_name: reader
-            label: 'বাংলার ভয়েস'
-          - app: admin_app
-            target: lib/main_admin.dart
-            apk_name: admin
-            label: 'বাংলার ভয়েস অ্যাডমিন'
-          - app: reporter_app
-            target: lib/main_reporter.dart
-            apk_name: reporter
-            label: 'বাংলার ভয়েস রিপোর্টার'
-          - app: tv_app
-            target: lib/main_tv.dart
-            apk_name: tv
-            label: 'বাংলার ভয়েস টিভি'
+    timeout-minutes: 120
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,31 +30,45 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Pub get (app + shared package)
-        working-directory: mobile_monorepo/apps/${{ matrix.app }}
-        run: flutter pub get
-
-      # Signing: each app's android/key.properties + android/app/keystore/*.jks are COMMITTED (turnkey).
-      # Secrets override removed — heredoc inside a YAML block scalar broke parsing.
-      - name: Verify keystore present
-        working-directory: mobile_monorepo/apps/${{ matrix.app }}
+      - name: Build all 4 APKs (sequential, one runner)
         run: |
-          test -f android/key.properties && echo "key.properties OK"
-          test -f android/app/keystore/banglar-voice-release.jks && echo "keystore OK"
+          set -euo pipefail
+          apps=(reader_app admin_app reporter_app tv_app)
+          targets=(lib/main.dart lib/main_admin.dart lib/main_reporter.dart lib/main_tv.dart)
+          names=(reader admin reporter tv)
+          mkdir -p apks
+          for i in 0 1 2 3; do
+            app="${apps[$i]}"
+            target="${targets[$i]}"
+            out="${names[$i]}"
+            echo "============================================================"
+            echo ">>> BUILDING $app  (target: $target)"
+            echo "============================================================"
+            cd "mobile_monorepo/apps/$app"
+            flutter pub get
+            # Turnkey signing: committed keystore + key.properties
+            test -f android/key.properties && echo "key.properties OK"
+            test -f android/app/keystore/banglar-voice-release.jks && echo "keystore OK"
+            flutter build apk --release --target "$target"
+            cp build/app/outputs/flutter-apk/app-release.apk "../../../apks/banglar-voice-$out-v1.0.0.apk"
+            cd ../../..
+            ls -la apks/
+          done
 
-      - name: Build release APK
-        working-directory: mobile_monorepo/apps/${{ matrix.app }}
-        run: flutter build apk --release --target ${{ matrix.target }}
-
-      - name: Rename artifact
+      - name: Verify 4 APKs present
         run: |
-          mv mobile_monorepo/apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk \
-             banglar-voice-${{ matrix.apk_name }}-v1.0.0.apk
+          cd apks
+          ls -la
+          test -f banglar-voice-reader-v1.0.0.apk || { echo "MISSING reader APK"; exit 1; }
+          test -f banglar-voice-admin-v1.0.0.apk || { echo "MISSING admin APK"; exit 1; }
+          test -f banglar-voice-reporter-v1.0.0.apk || { echo "MISSING reporter APK"; exit 1; }
+          test -f banglar-voice-tv-v1.0.0.apk || { echo "MISSING tv APK"; exit 1; }
+          echo "ALL 4 APKs OK"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: banglar-voice-${{ matrix.apk_name }}
-          path: banglar-voice-${{ matrix.apk_name }}-v1.0.0.apk
+          name: banglar-voice-apks
+          path: apks/*.apk
           retention-days: 30
 
   release:
@@ -83,13 +80,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: banglar-voice-*
-          merge-multiple: true
+          name: banglar-voice-apks
           path: apks
 
       - name: Create/update GitHub Release with 4 APKs
         run: |
           cd apks
+          ls -la
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" *.apk --clobber
           else
