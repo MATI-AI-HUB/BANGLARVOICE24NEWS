@@ -46,3 +46,6 @@ mobile_monorepo/**/android/local.properties
 .idea/
 .vscode/
 *.swp
+
+# --- TS build cache ---
+*.tsbuildinfo
