@@ -1,0 +1,16 @@
+name: bv_shared
+description: Banglar Voice shared models/api/theme/widgets
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+Disallow: /search
+Disallow: /admin
+
+Sitemap: https://banglarvoice24news.com/sitemap.xml

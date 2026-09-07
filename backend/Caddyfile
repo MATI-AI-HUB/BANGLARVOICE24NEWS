@@ -1,0 +1,34 @@
+# Banglar Voice — Caddy reverse proxy with auto-HTTPS, gzip + rate limiting.
+# Deploy on a 1GB-RAM VPS in front of PocketBase (127.0.0.1:8090).
+#
+# Usage: replace example.com with your real domain, then `caddy run`.
+
+news.example.com {
+	encode gzip
+
+	# PocketBase admin UI + API
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8090
+	}
+	handle /_/* {
+		reverse_proxy 127.0.0.1:8090
+	}
+	handle {
+		# Static SPA / assets can be served by the Next.js frontend; when the
+		# backend domain is only for API + admin, drop the file_server below.
+		root * /srv/www
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Basic rate limiting on auth/public write endpoints (DDoS guard).
+	@auth_heavy path /api/collections/*/records
+	rate_limit @auth_heavy zone auth_zone 20r/s burst 40
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

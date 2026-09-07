@@ -1,0 +1,16 @@
+name: reporter_app
+description: Banglar Voice Field Journalist App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  bv_shared:
+    path: ../../packages/bv_shared
+
+flutter:
+  uses-material-design: true

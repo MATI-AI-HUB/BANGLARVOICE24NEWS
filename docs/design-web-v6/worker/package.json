@@ -1,0 +1,24 @@
+{
+  "name": "banglar-voice-newsroom-worker",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Banglar Voice fully autonomous 24/7 newsroom pipeline — collects public RSS, rewrites stories into original copyright-free Bangla, sources CC0 media, and broadcasts approved items to the website + social platforms + Telegram, with Telegram as the editorial control plane.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "worker": "node dist/main.js",
+    "worker:dry": "npm run build && node dist/main.js --dry-run",
+    "worker:once": "npm run build && node dist/main.js --once",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.111.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

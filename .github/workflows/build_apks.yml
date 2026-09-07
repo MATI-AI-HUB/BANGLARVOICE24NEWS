@@ -1,0 +1,83 @@
+name: Build APKs
+
+# Matrix build of the 4 Banglar Voice Flutter apps on every push/tag.
+# Turnkey: keystore (.jks) + key.properties commit করা আছে — তাই কোনো secret ছাড়াই
+# সাইনড APK তৈরি হয়। চাইলে secrets.KEYSTORE_* দিয়ে override করা যায়।
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: reader_app
+            target: lib/main.dart
+            apk_name: reader
+            label: 'বাংলার ভয়েস'
+          - app: admin_app
+            target: lib/main_admin.dart
+            apk_name: admin
+            label: 'বাংলার ভয়েস অ্যাডমিন'
+          - app: reporter_app
+            target: lib/main_reporter.dart
+            apk_name: reporter
+            label: 'বাংলার ভয়েস রিপোর্টার'
+          - app: tv_app
+            target: lib/main_tv.dart
+            apk_name: tv
+            label: 'বাংলার ভয়েস টিভি'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get (app + shared package)
+        working-directory: mobile_monorepo/apps/${{ matrix.app }}
+        run: flutter pub get
+
+      - name: Prepare signing (committed keystore; optional secret override)
+        working-directory: mobile_monorepo/apps/${{ matrix.app }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          # ডিফল্ট: commit করা keystore/key.properties-ই ব্যবহার হবে (turnkey)।
+          # Secrets সেট করা থাকলে override:
+          if [ -n "$KEYSTORE_B64" ]; then
+            mkdir -p android/app/keystore
+            echo "$KEYSTORE_B64" | base64 -d > android/app/keystore/banglar-voice-release.jks
+          fi
+          if [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
+            cat > android/key.properties <<EOF
+            storePassword=${KEYSTORE_PASSWORD}
+            keyPassword=${KEY_PASSWORD}
+            keyAlias=banglarvoice
+            storeFile=app/keystore/banglar-voice-release.jks
+            EOF
+          fi
+          ls -la android/app/keystore/ && echo "key.properties present: $(test -f android/key.properties && echo yes || echo no)"
+
+      - name: Build release APK
+        working-directory: mobile_monorepo/apps/${{ matrix.app }}
+        run: flutter build apk --release --target ${{ matrix.target }}
+
+      - name: Rename artifact
+        run: |
+          mv mobile_monorepo/apps/${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk \
+             banglar-voice-${{ matrix.apk_name }}-v1.0.0.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: banglar-voice-${{ matrix.apk_name }}
+          path: banglar-voice-${{ matrix.apk_name }}-v1.0.0.apk
+          retention-days: 30

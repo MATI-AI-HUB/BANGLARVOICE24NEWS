@@ -1,0 +1,48 @@
+# --- Root ignore ---
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+.env
+.env.local
+!.env.example
+
+# --- Backend ---
+backend/pb_data/
+backend/pb_data_test/
+backend/pb_public/
+backend/pb_migrations/*.bak
+backend/bv-pocketbase
+*.db
+*.db-shm
+*.db-wal
+
+# --- Frontend ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+
+# --- Flutter / Dart ---
+mobile_monorepo/**/build/
+mobile_monorepo/**/.dart_tool/
+mobile_monorepo/**/.flutter-plugins*
+mobile_monorepo/**/.packages
+mobile_monorepo/**/.pub-cache/
+mobile_monorepo/**/android/.gradle/
+mobile_monorepo/**/android/local.properties
+*.iml
+
+# --- Android build output ---
+*.apk
+*.aab
+*.ap_
+
+# --- Signing: turnkey APK build-এর জন্য keystore/key.properties commit হয় (ইচ্ছাকৃত) ---
+# পুরনো ignore নিয়ম সরানো হয়েছে — .jks এবং key.properties এখন versioned।
+# পাবলিক প্রকাশের আগে নিজের নতুন keystore বানান (android_keystore/README.md দেখুন)।
+
+# --- Editor ---
+.idea/
+.vscode/
+*.swp
