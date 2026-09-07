@@ -2,6 +2,7 @@ import { api } from '../lib/api';
 import type { Metadata } from 'next';
 import { HeroBentoGrid } from '../components/hero-bento';
 import { LatestGrid } from '../components/latest-grid';
+import { CategoryModules } from '../components/category-modules';
 import { AudioPlayerWidget } from '../components/audio-player';
 
 export const revalidate = 60; // ISR — rebuild at most once per minute
@@ -68,10 +69,12 @@ export default async function HomePage() {
       <HeroBentoGrid articles={feed.map(toBento)} />
 
       {feed.length > 3 && (
-        <section id="latest" className="mt-14 scroll-mt-24">
+        <section id="latest" className="mt-14 scroll-mt-24" aria-labelledby="latest-heading">
           <LatestGrid articles={feed.map(toBento)} />
         </section>
       )}
+
+      {feed.length >= 6 && <CategoryModules articles={feed.map(toBento)} />}
 
       {items.length === 0 && !error && (
         <p className="py-10 text-center text-neutral-400">কোনো প্রকাশিত সংবাদ নেই।</p>

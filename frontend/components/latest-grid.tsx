@@ -34,7 +34,7 @@ export function LatestGrid({ articles }: { articles: Article[] }) {
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <h2 className="mr-2 font-serifbn text-2xl font-extrabold leading-none tracking-tight text-ink dark:text-paper">
+        <h2 id="latest-heading" className="mr-2 font-serifbn text-2xl font-extrabold leading-none tracking-tight text-ink dark:text-paper">
           সর্বশেষ সংবাদ
         </h2>
         <div className="flex max-w-full flex-wrap gap-1.5">

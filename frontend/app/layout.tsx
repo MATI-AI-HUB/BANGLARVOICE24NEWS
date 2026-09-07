@@ -34,12 +34,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   year: 'numeric',
                 })}
               </time>
-              <nav className="hidden items-center gap-1 text-sm font-semibold md:flex">
+              <nav className="hidden items-center gap-1 text-sm font-semibold md:flex" aria-label="প্রধান নেভিগেশন">
                 <a
                   href="/#latest"
                   className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
                 >
                   সর্বশেষ
+                </a>
+                <a
+                  href="/#cat-politics"
+                  className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
+                >
+                  রাজনীতি
+                </a>
+                <a
+                  href="/#cat-economy"
+                  className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
+                >
+                  অর্থনীতি
                 </a>
                 <a
                   href="/#trending"
