@@ -8,18 +8,27 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Seamless BBC-style breaking-news ticker (see BreakingMarquee). */
-@keyframes bv-marquee {
+/* Seamless breaking-news ticker (see BreakingMarquee).
+   The text is repeated 3x, so translating -33.3333% loops seamlessly.
+   `marquee` is also referenced by Tailwind's arbitrary animation utility
+   (animate-[marquee_30s_linear_infinite]) on the inner text div. */
+@keyframes marquee {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(-33.3333%);
   }
 }
 
+/* Inner ticker track — ONLY this element animates; hover pauses it.
+   The flex-1 clipping track and the BREAKING badge are never animated. */
 .marquee-track {
-  animation: bv-marquee 45s linear infinite;
+  animation: marquee 30s linear infinite;
+}
+
+.group:hover .marquee-track {
+  animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
