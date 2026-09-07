@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
 import { ThemeToggle } from '../components/theme-toggle';
 import { BreakingMarquee } from '../components/breaking-marquee';
 import '../styles/globals.css';
@@ -23,7 +25,7 @@ const organizationLd = {
   name: 'বাংলার ভয়েস',
   alternateName: 'Banglar Voice',
   url: process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com',
-  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'}/logo.png`,
+  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'}/banglar-voice-logo.png`,
   sameAs: [],
 };
 
@@ -46,7 +48,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-paper text-ink antialiased dark:bg-ink dark:text-paper">
         <header className="sticky top-0 z-50 border-b border-border bg-paper/90 backdrop-blur dark:bg-ink/90">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-            <a href="/" className="font-serifbn text-2xl font-extrabold tracking-tight text-primary">বাংলার ভয়েস</a>
+            <Link
+              href="/"
+              className="inline-flex shrink-0 items-center"
+              aria-label="বাংলার ভয়েস — হোমপেজ"
+            >
+              <Image
+                src="/banglar-voice-logo.png"
+                alt="Banglar Voice — বাংলার ভয়েস"
+                width={320}
+                height={108}
+                priority
+                className="h-[44px] w-auto object-contain"
+              />
+            </Link>
             <div className="flex items-center gap-3">
               <time
                 dateTime={new Date().toISOString().slice(0, 10)}
@@ -94,7 +109,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="mt-16 border-t border-border bg-muted dark:bg-neutral-950">
           <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-3">
             <div>
-              <div className="font-serifbn text-lg font-extrabold text-primary">বাংলার ভয়েস</div>
+              <Link href="/" className="inline-flex items-center">
+                <Image
+                  src="/banglar-voice-logo.png"
+                  alt="Banglar Voice — বাংলার ভয়েস"
+                  width={240}
+                  height={81}
+                  className="h-[34px] w-auto object-contain"
+                />
+              </Link>
               <p className="mt-2 max-w-xs text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
                 স্বাধীন সংবাদ প্রচারে নির্বাক — বাংলাদেশ ও বিশ্ব, নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য
                 সাংবাদিকতা।

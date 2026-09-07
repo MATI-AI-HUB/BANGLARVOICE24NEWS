@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="420" viewBox="0 0 1240 420" role="img" aria-label="Banglar Voice logo">
+  <defs>
+    <style>
+      .eng { font-family: 'Hind Siliguri', 'DejaVu Sans', sans-serif; font-weight: 700; }
+      .bn  { font-family: 'Hind Siliguri', 'DejaVu Sans', sans-serif; font-weight: 700; }
+    </style>
+  </defs>
+
+  <!-- ============ ICON GROUP ============ -->
+  <g transform="translate(96,58)">
+
+    <!-- Mic capsule (red) -->
+    <path d="M150 35 C212 35 242 92 242 152 C242 212 206 248 150 248 C94 248 58 212 58 152 C58 92 88 35 150 35 Z"
+          fill="#CC0000"/>
+
+    <!-- Stylized Bengal region outline (white fill + navy stroke) -->
+    <path d="M110 84
+             C118 70 136 64 152 66
+             C170 68 184 78 190 92
+             C196 108 199 124 197 140
+             C200 152 199 166 192 176
+             L186 170
+             C190 182 186 194 176 198
+             C170 200 166 194 162 188
+             C160 198 152 204 144 200
+             C138 196 136 188 132 182
+             C124 190 114 184 112 172
+             C108 160 110 148 106 138
+             C102 126 102 112 106 100
+             C104 92 104 88 110 84 Z"
+          fill="#FFFFFF" stroke="#0A1931" stroke-width="3.5" stroke-linejoin="round"/>
+
+    <!-- River/network hint (navy) -->
+    <path d="M150 70 C144 92 156 108 150 128 C146 144 152 160 148 178"
+          fill="none" stroke="#0A1931" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+
+    <!-- Capital dot (navy) -->
+    <circle cx="147" cy="168" r="6" fill="#0A1931"/>
+
+    <!-- Mic handle (navy) -->
+    <path d="M132 244 L132 288 C132 300 140 306 150 306 C160 306 168 300 168 288 L168 244 Z" fill="#0A1931"/>
+    <rect x="138" y="252" width="24" height="5" rx="2.5" fill="#FFFFFF" opacity="0.9"/>
+
+    <!-- Sound waves (voice) -->
+    <path d="M266 118 A46 46 0 0 1 266 164" fill="none" stroke="#CC0000" stroke-width="7" stroke-linecap="round"/>
+    <path d="M280 102 A66 66 0 0 1 280 180" fill="none" stroke="#0A1931" stroke-width="7" stroke-linecap="round"/>
+    <path d="M294 86 A86 86 0 0 1 294 196" fill="none" stroke="#CC0000" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <!-- ============ WORDMARK GROUP ============ -->
+  <g transform="translate(540,70)">
+    <!-- English -->
+    <text x="0" y="0" class="eng" font-size="76" fill="#0A1931" letter-spacing="-1.5">Banglar Voice</text>
+
+    <!-- Bengali -->
+    <text x="0" y="88" class="bn" font-size="64" fill="#CC0000">বাংলার ভয়েস</text>
+
+    <!-- Red rule -->
+    <rect x="0" y="122" width="120" height="8" rx="4" fill="#CC0000"/>
+
+    <!-- Tagline -->
+    <text x="0" y="172" class="eng" font-size="26" fill="#0A1931" opacity="0.68" letter-spacing="4">সংবাদ · ভিডিও · পডকাস্ট</text>
+    <text x="470" y="172" class="eng" font-size="18" fill="#0A1931" opacity="0.5" letter-spacing="1.1">News · Video · Podcast</text>
+  </g>
+</svg>
