@@ -59,11 +59,11 @@ jobs:
           fi
           if [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
             cat > android/key.properties <<EOF
-            storePassword=${KEYSTORE_PASSWORD}
-            keyPassword=${KEY_PASSWORD}
-            keyAlias=banglarvoice
-            storeFile=app/keystore/banglar-voice-release.jks
-            EOF
+storePassword=${KEYSTORE_PASSWORD}
+keyPassword=${KEY_PASSWORD}
+keyAlias=banglarvoice
+storeFile=app/keystore/banglar-voice-release.jks
+EOF
           fi
           ls -la android/app/keystore/ && echo "key.properties present: $(test -f android/key.properties && echo yes || echo no)"
 
@@ -81,3 +81,29 @@ jobs:
           name: banglar-voice-${{ matrix.apk_name }}
           path: banglar-voice-${{ matrix.apk_name }}-v1.0.0.apk
           retention-days: 30
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: banglar-voice-*
+          merge-multiple: true
+          path: apks
+
+      - name: Create/update GitHub Release with 4 APKs
+        run: |
+          cd apks
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" *.apk --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" *.apk \
+              --title "Banglar Voice ${GITHUB_REF_NAME}" \
+              --notes "4টি সাইনড APK (reader / admin / reporter / tv) — ${GITHUB_REF_NAME}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
