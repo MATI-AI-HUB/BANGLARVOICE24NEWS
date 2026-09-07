@@ -8,6 +8,40 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Seamless BBC-style breaking-news ticker (see BreakingMarquee). */
+@keyframes bv-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: bv-marquee 45s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+::selection {
+  background: rgba(196, 30, 30, 0.18);
+}
+
+/* Accessible keyboard focus — visible on both themes. */
+:focus-visible {
+  outline: 2px solid #c41e1e;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 body {
   font-family: 'Hind Siliguri', system-ui, sans-serif;
 }

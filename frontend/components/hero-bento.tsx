@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-type Article = {
+export type Article = {
   id?: string;
   slug?: string;
   title: string;
@@ -184,7 +184,7 @@ export function HeroBentoGrid({ articles }: { articles: Article[] }) {
             <ArticleCard key={a.id ?? a.slug ?? a.title} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
           ))}
         </div>
-        <div className="rounded-2xl border border-border bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <div id="trending" className="scroll-mt-24 rounded-2xl border border-border bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
           <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-neutral-500">
             🔥 ট্রেন্ডিং
           </h4>
