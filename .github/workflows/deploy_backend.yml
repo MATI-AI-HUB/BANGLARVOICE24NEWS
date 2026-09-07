@@ -37,6 +37,7 @@ jobs:
             docker pull ${{ env.IMAGE }}
             docker compose up -d --remove-orphans backend
             # Run migrations inside the container, then bounce behind Caddy.
-            docker exec bv-backend ./pocketbase migrate up
+            # Custom binary (main.go) — stock ./pocketbase does NOT exist in the image.
+            docker exec bv-backend ./bv-pocketbase migrate up
             docker restart bv-backend
             curl -fsS http://127.0.0.1:8090/api/health || exit 1
