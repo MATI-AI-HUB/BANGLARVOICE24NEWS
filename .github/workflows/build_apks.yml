@@ -78,6 +78,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Required: gh release needs a git repo to resolve GITHUB_REF_NAME/tag.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: banglar-voice-apks
