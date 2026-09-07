@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: subosito/flutter-action@v2
         with:
@@ -65,7 +65,7 @@ jobs:
           test -f banglar-voice-tv-v1.0.0.apk || { echo "MISSING tv APK"; exit 1; }
           echo "ALL 4 APKs OK"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: banglar-voice-apks
           path: apks/*.apk
@@ -79,9 +79,9 @@ jobs:
       contents: write
     steps:
       # Required: gh release needs a git repo to resolve GITHUB_REF_NAME/tag.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: banglar-voice-apks
           path: apks
