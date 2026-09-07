@@ -8,8 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# GHCR image names must be LOWERCASE; github.repository contains the mixed-case
+# "Banglarvoice-apps" so the raw value is rejected by docker. Use the lowercase slug.
 env:
-  IMAGE: ghcr.io/${{ github.repository }}/bv-backend:latest
+  IMAGE: ghcr.io/hizlanews46-design/banglarvoice-apps/bv-backend:latest
 
 jobs:
   deploy:

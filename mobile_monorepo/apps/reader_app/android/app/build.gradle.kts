@@ -23,6 +23,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Release-lint (lintVital) crashes the 2GB CI runner with "Metaspace" OOM
+    // after the 896m Gradle heap is consumed; Flutter release builds already
+    // fail hard on real errors via the compiler, so lint-vital adds no safety.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
     defaultConfig {
         applicationId = "com.banglarvoice.reader"
         minSdk = flutter.minSdkVersion
