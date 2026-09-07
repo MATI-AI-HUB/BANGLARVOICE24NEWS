@@ -9,8 +9,15 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# একই ref-এ একাধিক push হলে পুরনো রান auto-cancel হয়ে নতুন রান চলে
+# (এতে duplicate parallel build-এর কারণে job গুলো "cancelled" দেখানো বন্ধ হয়)
+concurrency:
+  group: apk-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
