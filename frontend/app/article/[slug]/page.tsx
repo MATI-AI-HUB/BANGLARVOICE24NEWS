@@ -5,13 +5,27 @@ import { AudioPlayerWidget } from '../../../components/audio-player';
 
 export const revalidate = 60;
 
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com';
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   try {
     const a = await api.article(params.slug);
+    const image = a.featured_image
+      ? { url: a.featured_image, alt: a.title_bn }
+      : undefined;
     return {
       title: a.title_bn,
       description: a.dek_bn || a.seo_description,
-      openGraph: { title: a.title_bn, description: a.dek_bn, type: 'article' },
+      alternates: { canonical: `/article/${params.slug}` },
+      openGraph: {
+        title: a.title_bn,
+        description: a.dek_bn,
+        type: 'article',
+        locale: 'bn_BD',
+        publishedTime: a.published_at,
+        authors: a.author_name ? [a.author_name] : undefined,
+        images: image ? [image] : undefined,
+      },
     };
   } catch {
     return { title: 'পাতা নেই' };
@@ -28,8 +42,28 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
   const narrateText = `${a.title_bn}। ${a.dek_bn || ''} ${(a.body_bn || '').replace(/<[^>]*>/g, ' ')}`;
 
+  const newsArticleLd = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: a.title_bn,
+    description: a.dek_bn || a.seo_description,
+    datePublished: a.published_at || undefined,
+    author: { '@type': 'Person', name: a.author_name || 'বাংলার ভয়েস ডেস্ক' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'বাংলার ভয়েস',
+      logo: { '@type': 'ImageObject', url: `${BASE}/logo.png` },
+    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${BASE}/article/${a.slug}` },
+    image: a.featured_image || undefined,
+  };
+
   return (
     <article className="mx-auto max-w-3xl px-4 py-10 pb-28">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleLd) }}
+      />
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary">
         <span>{a.category}</span>
         {typeof a.bias_index === 'number' && (

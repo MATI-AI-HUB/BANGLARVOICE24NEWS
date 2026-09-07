@@ -47,24 +47,46 @@ function biasBadge(bias?: number) {
   );
 }
 
+function placeholderGradient(seed = ''): string {
+  // Deterministic subtle gradient from any seed — no external images, no CLS.
+  const palettes = [
+    'from-red-100 via-rose-50 to-orange-100',
+    'from-sky-100 via-indigo-50 to-blue-100',
+    'from-emerald-100 via-teal-50 to-lime-100',
+    'from-violet-100 via-purple-50 to-fuchsia-100',
+    'from-amber-100 via-yellow-50 to-orange-100',
+    'from-cyan-100 via-sky-50 to-blue-100',
+  ];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
+}
+
 function ZeroClsImg({ src, alt, className }: { src?: string; alt: string; className?: string }) {
-  // Zero-CLS image: fixed aspect container + object-cover. No src => skeleton stays.
+  // Zero-CLS image: fixed aspect container + object-cover.
+  // No src (or load error) => deterministic gradient art + category glyph stays.
+  const grad = placeholderGradient(alt);
   return (
-    <div className={`relative overflow-hidden bg-neutral-200 dark:bg-neutral-800 ${className ?? 'aspect-[16/9] w-full'}`}>
+    <div
+      className={`relative overflow-hidden bg-gradient-to-br ${grad} dark:from-neutral-800 dark:via-neutral-800 dark:to-neutral-700 ${className ?? 'aspect-[16/9] w-full'}`}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src || ''}
         alt={alt}
         loading="lazy"
-        className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${src ? 'opacity-100' : 'opacity-0'}`}
+        className={`relative z-10 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${src ? 'opacity-100' : 'opacity-0'}`}
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.display = 'none';
         }}
       />
       {!src && (
-        <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
-          <span className="text-xs">ছবি আসছে…</span>
-        </div>
+        <span
+          aria-hidden
+          className="absolute inset-0 grid select-none place-items-center font-serifbn text-4xl font-extrabold text-black/20 dark:text-white/15"
+        >
+          {(alt || 'বাংলার ভয়েস').slice(0, 1)}
+        </span>
       )}
     </div>
   );
@@ -134,15 +156,17 @@ export function ArticleCard({ article, href }: { article: Article; href: string 
 }
 
 /** Ranked list item for the "ট্রেন্ডিং" column. */
-export function TrendingItem({ rank, article, href }: { rank: number; article: Article; href: string }) {
+export function TrendingItem({ rank, article, href }: { rank?: number; article: Article; href: string }) {
   return (
     <a
       href={href}
       className="group flex items-start gap-3 rounded-xl p-2 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
     >
-      <span className="font-serifbn text-2xl font-extrabold leading-none text-neutral-300 dark:text-neutral-600">
-        {String(rank).padStart(2, '0')}
-      </span>
+      {rank !== undefined && (
+        <span className="font-serifbn text-2xl font-extrabold leading-none text-neutral-300 dark:text-neutral-600">
+          {String(rank).padStart(2, '0')}
+        </span>
+      )}
       <div className="min-w-0">
         <h4 className="line-clamp-2 text-sm font-bold leading-snug text-ink group-hover:text-primary dark:text-paper">
           {article.title}
@@ -159,9 +183,21 @@ export function TrendingItem({ rank, article, href }: { rank: number; article: A
  * (passed as props) so ISR caching applies once.
  */
 export function HeroBentoGrid({ articles }: { articles: Article[] }) {
+  // Tabbed right rail: "সর্বশেষ" (recency) vs "ট্রেন্ডিং" (by bias, desc).
+  const [tab, setTab] = useState<'latest' | 'trending'>('latest');
   const lead = articles[0];
   const secondary = articles.slice(1, 3);
-  const trending = articles.slice(3, 10);
+  const sortedByTime = [...articles].sort((a, b) => {
+    const ta = a.published_at ? new Date(a.published_at).getTime() : 0;
+    const tb = b.published_at ? new Date(b.published_at).getTime() : 0;
+    return tb - ta;
+  });
+  const railItems =
+    tab === 'trending'
+      ? [...articles]
+          .sort((a, b) => (b.bias_index ?? 50) - (a.bias_index ?? 50))
+          .slice(3, 9)
+      : sortedByTime.slice(1, 7);
 
   if (!lead) {
     return (
@@ -184,13 +220,45 @@ export function HeroBentoGrid({ articles }: { articles: Article[] }) {
             <ArticleCard key={a.id ?? a.slug ?? a.title} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
           ))}
         </div>
-        <div id="trending" className="scroll-mt-24 rounded-2xl border border-border bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-          <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-neutral-500">
-            🔥 ট্রেন্ডিং
-          </h4>
+        <div
+          id="trending"
+          className="scroll-mt-24 rounded-2xl border border-border bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+        >
+          <div
+            role="tablist"
+            aria-label="পাশের কলাম"
+            className="mb-2 flex gap-1 rounded-full bg-muted p-1 dark:bg-neutral-800"
+          >
+            {(
+              [
+                ['latest', 'সর্বশেষ'],
+                ['trending', 'ট্রেন্ডিং'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={`flex-1 rounded-full px-3 py-1 text-xs font-bold transition-colors ${
+                  tab === key
+                    ? 'bg-white text-ink shadow-sm dark:bg-neutral-900 dark:text-paper'
+                    : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-col gap-1">
-            {trending.map((a, i) => (
-              <TrendingItem key={a.id ?? a.slug ?? a.title} rank={i + 1} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
+            {railItems.map((a, i) => (
+              <TrendingItem
+                key={a.id ?? a.slug ?? a.title}
+                rank={tab === 'trending' ? i + 1 : undefined}
+                article={a}
+                href={`/article/${a.slug ?? a.id ?? ''}`}
+              />
             ))}
           </div>
         </div>

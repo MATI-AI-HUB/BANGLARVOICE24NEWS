@@ -10,4 +10,16 @@ export const api = {
     if (!r.ok) throw new Error('article fetch failed');
     return r.json();
   },
+  // Live-blog timeline: { entries: [{ id, body_bn, author, created_at }] }
+  async live() {
+    const r = await fetch(`${this.base}/api/public/live.json`, { next: { revalidate: 45 } });
+    if (!r.ok) throw new Error('live fetch failed');
+    return r.json();
+  },
+  // Video hub: { videos: [{ id, title_bn, category, thumbnail_url, embed_url, is_live }] }
+  async videos() {
+    const r = await fetch(`${this.base}/api/public/videos.json`, { next: { revalidate: 60 } });
+    if (!r.ok) throw new Error('videos fetch failed');
+    return r.json();
+  },
 };

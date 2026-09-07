@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ArticleCard, type Article } from './hero-bento';
+import { AdSlot } from './ad-slot';
 
 const ALL = ''; // sentinel: show every category
 
@@ -30,6 +31,12 @@ export function LatestGrid({ articles }: { articles: Article[] }) {
     [articles, active],
   );
   const shown = list.slice(0, 12);
+  // Insert a labelled "বিজ্ঞাপন" slot after every 6 items in the feed.
+  const cells: (Article | 'ad')[] = [];
+  shown.forEach((a, i) => {
+    cells.push(a);
+    if ((i + 1) % 6 === 0 && i < shown.length - 1) cells.push('ad');
+  });
 
   return (
     <>
@@ -68,9 +75,15 @@ export function LatestGrid({ articles }: { articles: Article[] }) {
         </div>
       </div>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {shown.map((a) => (
-          <ArticleCard key={a.id ?? a.slug ?? a.title} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
-        ))}
+        {cells.map((c, i) =>
+          c === 'ad' ? (
+            <div key={`ad-${i}`} className="col-span-full my-2">
+              <AdSlot format="leaderboard" />
+            </div>
+          ) : (
+            <ArticleCard key={c.id ?? c.slug ?? c.title} article={c} href={`/article/${c.slug ?? c.id ?? ''}`} />
+          ),
+        )}
       </div>
     </>
   );

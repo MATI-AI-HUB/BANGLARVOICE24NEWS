@@ -6,6 +6,25 @@ import '../styles/globals.css';
 export const metadata: Metadata = {
   title: { default: 'বাংলার ভয়েস', template: '%s — বাংলার ভয়েস' },
   description: 'স্বাধীন সংবাদ প্রকাশে নির্বীক — Banglar Voice autonomous Bangla news platform',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'),
+  alternates: { canonical: '/' },
+  openGraph: {
+    siteName: 'বাংলার ভয়েস',
+    title: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্বাক',
+    description: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
+    locale: 'bn_BD',
+    type: 'website',
+  },
+};
+
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type': 'NewsMediaOrganization',
+  name: 'বাংলার ভয়েস',
+  alternateName: 'Banglar Voice',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com',
+  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'}/logo.png`,
+  sameAs: [],
 };
 
 export const viewport: Viewport = {
@@ -18,6 +37,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="bn" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
+      </head>
       <body className="bg-paper text-ink antialiased dark:bg-ink dark:text-paper">
         <header className="sticky top-0 z-50 border-b border-border bg-paper/90 backdrop-blur dark:bg-ink/90">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">

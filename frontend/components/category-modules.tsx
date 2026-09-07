@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { ArticleCard, type Article } from './hero-bento';
+import { AdSlot } from './ad-slot';
 
 /**
  * CategoryModules — DW/AJ-inspired data-driven "বিভাগ অনুযায়ী" rows.
@@ -70,9 +71,16 @@ export function CategoryModules({ articles }: { articles: Article[] }) {
 
   return (
     <div className="mt-16 space-y-14">
-      {modules.map(([category, list]) => {
+      {modules.map(([category, list], mi) => {
         const slug = categorySlug(category);
         const headingId = `h-${slug}`;
+        // In-category ad divider after every 6 items (only when row has >6).
+        const items = list.slice(0, 8);
+        const cells: (Article | 'ad')[] = [];
+        items.forEach((a, i) => {
+          cells.push(a);
+          if ((i + 1) % 6 === 0 && i < items.length - 1) cells.push('ad');
+        });
         return (
           <section key={slug} id={`cat-${slug}`} aria-labelledby={headingId} className="scroll-mt-24">
             <div className="mb-5 flex items-center gap-3 border-b border-border pb-3 dark:border-neutral-800">
@@ -85,9 +93,19 @@ export function CategoryModules({ articles }: { articles: Article[] }) {
               </h2>
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {list.slice(0, 4).map((a) => (
-                <ArticleCard key={a.id ?? a.slug ?? a.title} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
-              ))}
+              {cells.map((a, i) =>
+                a === 'ad' ? (
+                  <div key={`ad-${slug}-${i}`} className="col-span-full my-1">
+                    <AdSlot format="leaderboard" />
+                  </div>
+                ) : (
+                  <ArticleCard
+                    key={a.id ?? a.slug ?? a.title}
+                    article={a}
+                    href={`/article/${a.slug ?? a.id ?? ''}`}
+                  />
+                ),
+              )}
             </div>
           </section>
         );
