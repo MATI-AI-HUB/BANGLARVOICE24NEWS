@@ -44,28 +44,13 @@ jobs:
         working-directory: mobile_monorepo/apps/${{ matrix.app }}
         run: flutter pub get
 
-      - name: Prepare signing (committed keystore; optional secret override)
+      # Signing: each app's android/key.properties + android/app/keystore/*.jks are COMMITTED (turnkey).
+      # Secrets override removed — heredoc inside a YAML block scalar broke parsing.
+      - name: Verify keystore present
         working-directory: mobile_monorepo/apps/${{ matrix.app }}
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          # ডিফল্ট: commit করা keystore/key.properties-ই ব্যবহার হবে (turnkey)।
-          # Secrets সেট করা থাকলে override:
-          if [ -n "$KEYSTORE_B64" ]; then
-            mkdir -p android/app/keystore
-            echo "$KEYSTORE_B64" | base64 -d > android/app/keystore/banglar-voice-release.jks
-          fi
-          if [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
-            cat > android/key.properties <<EOF
-storePassword=${KEYSTORE_PASSWORD}
-keyPassword=${KEY_PASSWORD}
-keyAlias=banglarvoice
-storeFile=app/keystore/banglar-voice-release.jks
-EOF
-          fi
-          ls -la android/app/keystore/ && echo "key.properties present: $(test -f android/key.properties && echo yes || echo no)"
+          test -f android/key.properties && echo "key.properties OK"
+          test -f android/app/keystore/banglar-voice-release.jks && echo "keystore OK"
 
       - name: Build release APK
         working-directory: mobile_monorepo/apps/${{ matrix.app }}
