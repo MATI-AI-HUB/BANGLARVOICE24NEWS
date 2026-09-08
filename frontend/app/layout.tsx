@@ -4,6 +4,7 @@ import '../styles/globals.css';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { CookieBanner } from '../components/CookieBanner';
+import { LearningHub } from '../components/learning-hub';
 
 /* Self-hosted Google Fonts (next/font) — no external stylesheet, no CLS from
    font swap, works in the Vercel build. */
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Footer />
         <CookieBanner />
+        <LearningHub />
       </body>
     </html>
   );

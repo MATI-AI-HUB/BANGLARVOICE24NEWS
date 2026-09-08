@@ -14,6 +14,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -135,6 +136,17 @@ func ensureCollections(app *pocketbase.PocketBase) error {
 		&core.TextField{Name: "name_en", Max: 150},
 		&core.TextField{Name: "slug", Max: 200},
 		&core.TextField{Name: "desk", Max: 200},
+	); err != nil {
+		return err
+	}
+
+	// epaper_editions — daily auto-generated e-paper archive (worker epaper-cron).
+	if err := create("epaper_editions",
+		&core.TextField{Name: "edition_date", Required: true, Max: 20},
+		&core.TextField{Name: "title", Max: 300},
+		&core.EditorField{Name: "html"},
+		&core.TextField{Name: "pdf_url", Max: 500},
+		&core.NumberField{Name: "article_count", OnlyInt: true},
 	); err != nil {
 		return err
 	}
@@ -590,6 +602,82 @@ func registerRoutes(app *pocketbase.PocketBase, se *core.ServeEvent) {
 			"cron": "ai_ingest */5 * * * *", "mem_hint": "idle ~30-50MB",
 			"api_key_providers": len(apiKeyCache.keys),
 		})
+	})
+
+	// ---- Newsroom ingest (worker Publisher -> backend) ----
+	// The worker's publishArticle POSTs finished articles here. Protected by
+	// an env-based ingest key (NEWSROOM_INGEST_KEY); no secrets hardcoded.
+	se.Router.POST("/api/newsroom/ingest", func(e *core.RequestEvent) error {
+		want := envOr("NEWSROOM_INGEST_KEY", "change-me")
+		got := e.Request.Header.Get("x-ingest-key")
+		if got == "" || got != want {
+			return apis.NewForbiddenError("invalid ingest key", nil)
+		}
+		var body struct {
+			Title    string `json:"title"`
+			Slug     string `json:"slug"`
+			Excerpt  string `json:"excerpt"`
+			Content  string `json:"content"`
+			Category string `json:"category"`
+			Author   string `json:"author"`
+			Status   string `json:"status"`
+		}
+		if err := e.BindBody(&body); err != nil {
+			return apis.NewBadRequestError("invalid body", err)
+		}
+		if body.Title == "" {
+			return apis.NewBadRequestError("title required", nil)
+		}
+		col, err := app.FindCollectionByNameOrId("articles")
+		if err != nil {
+			return apis.NewNotFoundError("articles collection missing", err)
+		}
+		rec := core.NewRecord(col)
+		rec.Set("title_bn", body.Title)
+		rec.Set("title", body.Title)
+		rec.Set("slug", body.Slug)
+		rec.Set("summary", body.Excerpt)
+		rec.Set("body_bn", body.Content)
+		rec.Set("category", body.Category)
+		rec.Set("author_name", body.Author)
+		rec.Set("status", body.Status)
+		if err := app.Save(rec); err != nil {
+			return apis.NewBadRequestError("save failed", err)
+		}
+		return e.JSON(200, map[string]any{"ok": true, "id": rec.Id})
+	})
+
+	// ---- E-paper archive (worker epaper-cron -> backend) ----
+	se.Router.POST("/api/newsroom/epaper", func(e *core.RequestEvent) error {
+		want := envOr("NEWSROOM_INGEST_KEY", "change-me")
+		got := e.Request.Header.Get("x-ingest-key")
+		if got == "" || got != want {
+			return apis.NewForbiddenError("invalid ingest key", nil)
+		}
+		var body struct {
+			EditionDate  string `json:"edition_date"`
+			Title        string `json:"title"`
+			HTML         string `json:"html"`
+			PDFURL       string `json:"pdf_url"`
+			ArticleCount int    `json:"article_count"`
+		}
+		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+			return apis.NewBadRequestError("invalid body", err)
+		}
+		col, err := app.FindCollectionByNameOrId("epaper_editions")
+		if err != nil {
+			return apis.NewNotFoundError("epaper_editions collection missing", err)
+		}
+		rec := core.NewRecord(col)
+		rec.Set("edition_date", body.EditionDate)
+		rec.Set("title", body.Title)
+		rec.Set("html", body.HTML)
+		rec.Set("pdf_url", body.PDFURL)
+		rec.Set("article_count", body.ArticleCount)
+		if err := app.Save(rec); err != nil {
+			return apis.NewBadRequestError("save failed", err)
+		}
+		return e.JSON(200, map[string]any{"ok": true, "id": rec.Id})
 	})
 }
 
