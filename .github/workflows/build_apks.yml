@@ -1,11 +1,13 @@
 name: Build APKs
 
-# Sequential build of the 4 Banglar Voice Flutter apps on every push/tag.
-# Why sequential (not a 4-job matrix): on GitHub's free runners, 3-4 heavy
+# Sequential build of the 5 Banglar Voice Flutter apps on every push/tag.
+# Why sequential (not a 4/5-job matrix): on GitHub's free runners, heavy
 # Flutter+Gradle builds running in PARALLEL starve each other's CPU and hang
-# in "flutter build apk" with no log output for hours. Running all 4 apps in
-# ONE job, one after another, reuses the same runner's Gradle/Flutter cache,
-# so builds 2-4 are much faster and never contend.
+# in "flutter build apk" with no log output for hours. Running apps one after
+# another reuses the same runner's Gradle/Flutter cache, so later builds are
+# much faster and never contend.
+# studio_app (Breaking Live Studio control room) is built in its OWN job so a
+# problem there can never break the 4 main apps' build, and vice versa.
 # Turnkey: keystore (.jks) + key.properties are committed — no secrets needed.
 on:
   push:
@@ -71,8 +73,47 @@ jobs:
           path: apks/*.apk
           retention-days: 30
 
+  # studio_app built separately so it can never break / be broken by the 4-app job.
+  build-studio:
+    timeout-minutes: 120
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build studio APK (Breaking Live Studio)
+        run: |
+          set -euo pipefail
+          cd mobile_monorepo/apps/studio_app
+          flutter pub get
+          # Turnkey signing: committed keystore + key.properties
+          test -f android/key.properties && echo "key.properties OK"
+          test -f android/app/keystore/banglar-voice-release.jks && echo "keystore OK"
+          flutter build apk --release --target lib/main_studio.dart
+          mkdir -p ../../../apks
+          cp build/app/outputs/flutter-apk/app-release.apk ../../../apks/banglar-voice-studio-v1.0.0.apk
+          cd ../../..
+          ls -la apks/
+
+      - name: Verify studio APK present
+        run: |
+          cd apks
+          ls -la
+          test -f banglar-voice-studio-v1.0.0.apk || { echo "MISSING studio APK"; exit 1; }
+          echo "ALL 5 APKs OK (studio included)"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: banglar-voice-studio-apk
+          path: apks/*.apk
+          retention-days: 30
+
   release:
-    needs: build
+    needs: [build, build-studio]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -81,12 +122,14 @@ jobs:
       # Required: gh release needs a git repo to resolve GITHUB_REF_NAME/tag.
       - uses: actions/checkout@v7
 
+      # Merge both artifacts (4-app + studio) into one apks/ folder.
       - uses: actions/download-artifact@v8
         with:
-          name: banglar-voice-apks
+          pattern: banglar-voice-*
           path: apks
+          merge-multiple: true
 
-      - name: Create/update GitHub Release with 4 APKs
+      - name: Create/update GitHub Release with 5 APKs
         run: |
           cd apks
           ls -la
@@ -95,7 +138,7 @@ jobs:
           else
             gh release create "${GITHUB_REF_NAME}" *.apk \
               --title "Banglar Voice ${GITHUB_REF_NAME}" \
-              --notes "4টি সাইনড APK (reader / admin / reporter / tv) — ${GITHUB_REF_NAME}"
+              --notes "5টি সাইনড APK (reader / admin / reporter / tv / studio) — ${GITHUB_REF_NAME}"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
