@@ -65,6 +65,10 @@ export default async function HomePage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 pb-28">
       <section className="mb-10 text-center">
+        <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-primary dark:border-white/10 dark:bg-neutral-800">
+          <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-primary" />
+          বাংলার ভয়েস
+        </p>
         <h1 className="font-serifbn text-4xl font-extrabold leading-tight md:text-5xl">
           স্বাধীন সংবাদ প্রচারে নির্বাক
         </h1>
