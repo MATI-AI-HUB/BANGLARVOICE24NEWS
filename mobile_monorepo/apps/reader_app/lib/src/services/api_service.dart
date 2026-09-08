@@ -30,8 +30,8 @@ class FeedResult {
 ///  * typed [FetchException] with a user-friendly Bengali message.
 class ApiService {
   ApiService({http.Client? client, String? baseOverride})
-      : _client = client ?? http.Client(),
-        _base = baseOverride ?? AppConfig.currentBase;
+    : _client = client ?? http.Client(),
+      _base = baseOverride ?? AppConfig.currentBase;
 
   final http.Client _client;
   final String _base;
@@ -51,8 +51,10 @@ class ApiService {
   Future<FeedResult> fetchFeed({bool allowCache = true}) async {
     final cacheKey = _cacheKey(_base, AppConfig.feedPath);
     try {
-      final body = await _getWithRetry(AppConfig.feedPath,
-          accept: 'application/feed+json, application/json');
+      final body = await _getWithRetry(
+        AppConfig.feedPath,
+        accept: 'application/feed+json, application/json',
+      );
       final feed = Feed.fromJson(jsonDecode(body) as Map<String, dynamic>);
       await _saveCache(cacheKey, body);
       return FeedResult._(feed);
@@ -62,7 +64,9 @@ class ApiService {
         final cached = await _loadCache(cacheKey);
         if (cached != null) {
           try {
-            final feed = Feed.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+            final feed = Feed.fromJson(
+              jsonDecode(cached) as Map<String, dynamic>,
+            );
             return FeedResult._(feed, fromCache: true, attempts: e.attempts);
           } catch (_) {
             // Corrupt cache — fall through to rethrow.
@@ -76,13 +80,17 @@ class ApiService {
   /// Live-blog endpoint — may not exist yet on the backend; safe fallback to [].
   Future<List<LiveEntry>> fetchLive() async {
     try {
-      final body = await _getWithRetry(AppConfig.livePath,
-          accept: 'application/json');
+      final body = await _getWithRetry(
+        AppConfig.livePath,
+        accept: 'application/json',
+      );
       await _saveCache(_cacheKey(_base, AppConfig.livePath), body);
       final decoded = jsonDecode(body);
       return _parseLiveList(decoded);
     } catch (e) {
-      if (e is FetchException && e.statusCode == null && e.attempts >= _maxAttempts) {
+      if (e is FetchException &&
+          e.statusCode == null &&
+          e.attempts >= _maxAttempts) {
         // Offline — serve cached live entries if any.
         final cached = await _loadCache(_cacheKey(_base, AppConfig.livePath));
         if (cached != null) {
@@ -98,13 +106,17 @@ class ApiService {
   /// Video endpoint — may not exist yet on the backend; safe fallback to [].
   Future<List<VideoItem>> fetchVideos() async {
     try {
-      final body = await _getWithRetry(AppConfig.videoPath,
-          accept: 'application/json');
+      final body = await _getWithRetry(
+        AppConfig.videoPath,
+        accept: 'application/json',
+      );
       await _saveCache(_cacheKey(_base, AppConfig.videoPath), body);
       final decoded = jsonDecode(body);
       return _parseVideoList(decoded);
     } catch (e) {
-      if (e is FetchException && e.statusCode == null && e.attempts >= _maxAttempts) {
+      if (e is FetchException &&
+          e.statusCode == null &&
+          e.attempts >= _maxAttempts) {
         final cached = await _loadCache(_cacheKey(_base, AppConfig.videoPath));
         if (cached != null) {
           try {
@@ -119,10 +131,14 @@ class ApiService {
   /// Quick health check used by the Settings "পরীক্ষা করুন" button.
   /// Returns a friendly status line, or throws [FetchException].
   Future<String> ping() async {
-    final body = await _getWithRetry(AppConfig.feedPath,
-        accept: 'application/feed+json, application/json');
+    final body = await _getWithRetry(
+      AppConfig.feedPath,
+      accept: 'application/feed+json, application/json',
+    );
     final map = jsonDecode(body);
-    final items = map is Map<String, dynamic> ? (map['items'] as List? ?? []) : [];
+    final items = map is Map<String, dynamic>
+        ? (map['items'] as List? ?? [])
+        : [];
     return 'সার্ভার সক্রিয় — ${items.length}টি সংবাদ পাওয়া গেছে';
   }
 
@@ -130,8 +146,7 @@ class ApiService {
   // Internals
   // ---------------------------------------------------------------------
 
-  Future<String> _getWithRetry(String path,
-      {required String accept}) async {
+  Future<String> _getWithRetry(String path, {required String accept}) async {
     var attempt = 0;
     FetchException? last;
     while (attempt < _maxAttempts) {
@@ -155,10 +170,7 @@ class ApiService {
           attempts: attempt,
         );
       } catch (e) {
-        last = FetchException(
-          _friendlyNetworkMessage(e),
-          attempts: attempt,
-        );
+        last = FetchException(_friendlyNetworkMessage(e), attempts: attempt);
       }
       if (attempt < _maxAttempts) {
         await Future<void>.delayed(_backoffDelay(attempt));

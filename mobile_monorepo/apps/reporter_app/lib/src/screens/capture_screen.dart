@@ -70,9 +70,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
         );
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.label)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.label)));
     }
   }
 
@@ -109,7 +109,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
               padding: const EdgeInsets.only(right: 12),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1D4ED8),
                     borderRadius: BorderRadius.circular(20),
@@ -151,10 +154,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         _mode == CaptureMode.photo
                             ? Icons.photo_camera
                             : _mode == CaptureMode.video
-                                ? Icons.videocam
-                                : _mode == CaptureMode.audio
-                                    ? Icons.mic
-                                    : Icons.notes,
+                            ? Icons.videocam
+                            : _mode == CaptureMode.audio
+                            ? Icons.mic
+                            : Icons.notes,
                         size: 64,
                         color: Colors.white24,
                       ),
@@ -169,7 +172,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       left: 16,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.red.shade700,
                           borderRadius: BorderRadius.circular(20),
@@ -197,7 +202,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     right: 16,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black45,
                         borderRadius: BorderRadius.circular(20),
@@ -233,8 +240,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.schedule,
-                                size: 13, color: Colors.white70),
+                            Icon(
+                              Icons.schedule,
+                              size: 13,
+                              color: Colors.white70,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               _timestamp,
@@ -277,9 +287,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               'অটো ট্যাগ: ${role == ReporterRole.staff ? "স্টাফ" : "নাগরিক সাংবাদিক"} মোড',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -303,9 +313,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                           height: 66,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _recording
-                                ? Colors.red.shade900
-                                : kBrandRed,
+                            color: _recording ? Colors.red.shade900 : kBrandRed,
                             border: Border.all(color: Colors.white, width: 3),
                             boxShadow: [
                               BoxShadow(
@@ -324,8 +332,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                   )
-                                : const Icon(Icons.circle,
-                                    color: Colors.white, size: 26),
+                                : const Icon(
+                                    Icons.circle,
+                                    color: Colors.white,
+                                    size: 26,
+                                  ),
                           ),
                         ),
                       ),
@@ -334,19 +345,22 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.touch_app,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.primary),
+                            Icon(
+                              Icons.touch_app,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                             const SizedBox(height: 2),
                             Text(
                               _mode == CaptureMode.text
                                   ? 'টেক্সটে যাবে'
                                   : _recording
-                                      ? 'রেকর্ডিং চলছে…'
-                                      : 'ট্যাপ = ${_mode.label}',
+                                  ? 'রেকর্ডিং চলছে…'
+                                  : 'ট্যাপ = ${_mode.label}',
                               style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -376,8 +390,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed:
-                              _aiBusy ? null : () => _aiAction('summary'),
+                          onPressed: _aiBusy
+                              ? null
+                              : () => _aiAction('summary'),
                           icon: const Icon(Icons.auto_awesome, size: 18),
                           label: const Text('AI সারাংশ'),
                           style: OutlinedButton.styleFrom(
@@ -420,10 +435,7 @@ class _GridOverlay extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          Container(
-            color: Colors.white12,
-            height: 1,
-          ),
+          Container(color: Colors.white12, height: 1),
           const Spacer(),
           Row(
             children: [

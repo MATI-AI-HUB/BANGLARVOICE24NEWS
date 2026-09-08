@@ -14,16 +14,16 @@ enum StudioRole { director, editor, reporter }
 
 extension StudioRoleX on StudioRole {
   String get code => switch (this) {
-        StudioRole.director => 'director',
-        StudioRole.editor => 'editor',
-        StudioRole.reporter => 'reporter',
-      };
+    StudioRole.director => 'director',
+    StudioRole.editor => 'editor',
+    StudioRole.reporter => 'reporter',
+  };
 
   String get label => switch (this) {
-        StudioRole.director => 'নিউজ ডিরেক্টর',
-        StudioRole.editor => 'এডিটর',
-        StudioRole.reporter => 'রিপোর্টার',
-      };
+    StudioRole.director => 'নিউজ ডিরেক্টর',
+    StudioRole.editor => 'এডিটর',
+    StudioRole.reporter => 'রিপোর্টার',
+  };
 
   /// Directors are pre-granted Live Permission in the demo/dev gate; editors
   /// and reporters must be explicitly granted by the Editorial App.
@@ -51,34 +51,34 @@ class StudioSession {
   /// Honest UI-preview session (never creates a real stream). Used so the full
   /// studio flow can be demonstrated before LiveKit/backend are provisioned.
   factory StudioSession.demo() => const StudioSession(
-        name: 'প্রিভিউ অপারেটর',
-        phone: 'demo',
-        role: StudioRole.director,
-        livePermission: true,
-        desk: 'লাইভ ডেস্ক',
-      );
+    name: 'প্রিভিউ অপারেটর',
+    phone: 'demo',
+    role: StudioRole.director,
+    livePermission: true,
+    desk: 'লাইভ ডেস্ক',
+  );
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'phone': phone,
-        'role': role.code,
-        'live_permission': livePermission,
-        'desk': desk,
-      };
+    'name': name,
+    'phone': phone,
+    'role': role.code,
+    'live_permission': livePermission,
+    'desk': desk,
+  };
 
   factory StudioSession.fromJson(Map<String, dynamic> j) => StudioSession(
-        name: (j['name'] ?? '').toString(),
-        phone: (j['phone'] ?? '').toString(),
-        role: _roleFromCode((j['role'] ?? 'reporter').toString()),
-        livePermission: j['live_permission'] == true,
-        desk: j['desk']?.toString(),
-      );
+    name: (j['name'] ?? '').toString(),
+    phone: (j['phone'] ?? '').toString(),
+    role: _roleFromCode((j['role'] ?? 'reporter').toString()),
+    livePermission: j['live_permission'] == true,
+    desk: j['desk']?.toString(),
+  );
 
   static StudioRole _roleFromCode(String c) => switch (c) {
-        'director' => StudioRole.director,
-        'editor' => StudioRole.editor,
-        _ => StudioRole.reporter,
-      };
+    'director' => StudioRole.director,
+    'editor' => StudioRole.editor,
+    _ => StudioRole.reporter,
+  };
 }
 
 class StudioSessionStore {
@@ -108,8 +108,8 @@ class StudioSessionStore {
         role: sp.getString(_kRole) == 'director'
             ? StudioRole.director
             : sp.getString(_kRole) == 'editor'
-                ? StudioRole.editor
-                : StudioRole.reporter,
+            ? StudioRole.editor
+            : StudioRole.reporter,
         livePermission: sp.getBool(_kLive) ?? false,
         desk: sp.getString(_kDesk),
       );

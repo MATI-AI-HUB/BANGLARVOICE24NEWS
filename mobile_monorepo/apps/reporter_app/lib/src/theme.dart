@@ -18,7 +18,9 @@ ThemeData buildReporterTheme(Brightness brightness) {
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: isDark ? const Color(0xFF0B1220) : const Color(0xFFFAF9F7),
+    scaffoldBackgroundColor: isDark
+        ? const Color(0xFF0B1220)
+        : const Color(0xFFFAF9F7),
   );
   return base.copyWith(
     appBarTheme: AppBarTheme(
@@ -48,22 +50,30 @@ ThemeData buildReporterTheme(Brightness brightness) {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE8E4DF),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE8E4DF),
         ),
       ),
     ),
     dividerTheme: DividerThemeData(
-      color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFECEAE6),
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : const Color(0xFFECEAE6),
     ),
     chipTheme: base.chipTheme.copyWith(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       side: BorderSide(
-        color: isDark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFFE2DEDA),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.15)
+            : const Color(0xFFE2DEDA),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: isDark ? const Color(0xFF24304F) : const Color(0xFF24304F),
+      backgroundColor: isDark
+          ? const Color(0xFF24304F)
+          : const Color(0xFF24304F),
       contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
     ),
     inputDecorationTheme: InputDecorationTheme(

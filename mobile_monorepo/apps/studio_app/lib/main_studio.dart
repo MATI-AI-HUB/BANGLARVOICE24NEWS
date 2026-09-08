@@ -21,7 +21,9 @@ Future<void> main() async {
   SupabaseCore.realtimeChannel(
     name: 'live_sessions',
     table: 'live_sessions',
-    onEvent: () => debugPrint('live_sessions changed → refresh studio state'),
+    onEvent: () {
+      /* live_sessions changed → refresh studio state */
+    },
   );
 }
 
@@ -69,9 +71,7 @@ class _StudioEntryState extends State<StudioEntry> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final s = StudioSessionStore.current;
     if (s == null) return const _GateScreen();
@@ -104,9 +104,9 @@ class _GateScreenState extends State<_GateScreen> {
       desk: _role == StudioRole.director ? 'লাইভ ডেস্ক' : null,
     );
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const StudioEntry()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const StudioEntry()));
   }
 
   @override
@@ -124,12 +124,18 @@ class _GateScreenState extends State<_GateScreen> {
                 children: [
                   const _BrandMark(),
                   const SizedBox(height: 24),
-                  Text('স্টুডিওতে প্রবেশ', textAlign: TextAlign.center, style: t.textTheme.headlineSmall),
+                  Text(
+                    'স্টুডিওতে প্রবেশ',
+                    textAlign: TextAlign.center,
+                    style: t.textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     'লগইন গেট — প্রোডাকশনে Live Permission আসবে এডিটোরিয়াল অ্যাপ থেকে',
                     textAlign: TextAlign.center,
-                    style: t.textTheme.bodySmall?.copyWith(color: Colors.white60),
+                    style: t.textTheme.bodySmall?.copyWith(
+                      color: Colors.white60,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   TextField(
@@ -149,7 +155,10 @@ class _GateScreenState extends State<_GateScreen> {
                       prefixIcon: Icon(Icons.badge_outlined),
                     ),
                     items: StudioRole.values
-                        .map((r) => DropdownMenuItem(value: r, child: Text(r.label)))
+                        .map(
+                          (r) =>
+                              DropdownMenuItem(value: r, child: Text(r.label)),
+                        )
                         .toList(),
                     onChanged: (v) => setState(() {
                       if (v == null) return;
@@ -173,13 +182,17 @@ class _GateScreenState extends State<_GateScreen> {
                     ),
                     onPressed: _enter,
                     icon: const Icon(Icons.login),
-                    label: const Text('প্রবেশ করুন', style: TextStyle(fontSize: 16)),
+                    label: const Text(
+                      'প্রবেশ করুন',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () => Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
-                        builder: (_) => LiveSetupScreen(session: StudioSession.demo()),
+                        builder: (_) =>
+                            LiveSetupScreen(session: StudioSession.demo()),
                       ),
                     ),
                     icon: const Icon(Icons.preview_outlined),
@@ -212,7 +225,10 @@ class _NoLivePermissionScreen extends StatelessWidget {
               children: [
                 const Icon(Icons.lock_outline, size: 64, color: Colors.white38),
                 const SizedBox(height: 16),
-                Text('লাইভ অনুমতি নেই', style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  'লাইভ অনুমতি নেই',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   '${session.name} (${session.role.label}) — Go Live কেবলমাত্র '
@@ -224,7 +240,8 @@ class _NoLivePermissionScreen extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () => Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
-                      builder: (_) => LiveSetupScreen(session: StudioSession.demo()),
+                      builder: (_) =>
+                          LiveSetupScreen(session: StudioSession.demo()),
                     ),
                   ),
                   icon: const Icon(Icons.preview_outlined),

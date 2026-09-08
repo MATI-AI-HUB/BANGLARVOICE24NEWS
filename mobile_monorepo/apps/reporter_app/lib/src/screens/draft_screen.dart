@@ -72,9 +72,9 @@ class _DraftScreenState extends State<DraftScreen> {
     final s = SessionStore.current;
     if (s == null) return;
     if (_title.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('শিরোনাম লিখুন')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('শিরোনাম লিখুন')));
       return;
     }
     setState(() {
@@ -92,8 +92,12 @@ class _DraftScreenState extends State<DraftScreen> {
       sourceName: _sourceName.text.trim().isEmpty
           ? s.name
           : _sourceName.text.trim(),
-      sourcePhone: _sourcePhone.text.trim().isEmpty ? null : _sourcePhone.text.trim(),
-      locationTag: _location.text.trim().isEmpty ? 'অজানা অবস্থান' : _location.text.trim(),
+      sourcePhone: _sourcePhone.text.trim().isEmpty
+          ? null
+          : _sourcePhone.text.trim(),
+      locationTag: _location.text.trim().isEmpty
+          ? 'অজানা অবস্থান'
+          : _location.text.trim(),
       placeLabel: _location.text.trim().isEmpty ? null : _location.text.trim(),
       mediaPath: _mediaLabel,
       mediaType: _mode,
@@ -125,8 +129,8 @@ class _DraftScreenState extends State<DraftScreen> {
         content: Text(
           sentOnline
               ? (needsApproval
-                  ? 'পাঠানো হয়েছে — এডিটর অনুমোদনের অপেক্ষায় (pending)'
-                  : 'পাঠানো হয়েছে — পাবলিশ রিকোয়েস্ট জমা হয়েছে')
+                    ? 'পাঠানো হয়েছে — এডিটর অনুমোদনের অপেক্ষায় (pending)'
+                    : 'পাঠানো হয়েছে — পাবলিশ রিকোয়েস্ট জমা হয়েছে')
               : 'অফলাইন সেভ — পরে অটো সেন্ড হবে',
         ),
       ),
@@ -155,7 +159,9 @@ class _DraftScreenState extends State<DraftScreen> {
                 Icon(
                   isOnline ? Icons.wifi : Icons.cloud_off,
                   size: 16,
-                  color: isOnline ? const Color(0xFF0E7490) : const Color(0xFFB45309),
+                  color: isOnline
+                      ? const Color(0xFF0E7490)
+                      : const Color(0xFFB45309),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -165,7 +171,9 @@ class _DraftScreenState extends State<DraftScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isOnline ? const Color(0xFF0E7490) : const Color(0xFFB45309),
+                    color: isOnline
+                        ? const Color(0xFF0E7490)
+                        : const Color(0xFFB45309),
                   ),
                 ),
               ],
@@ -186,10 +194,7 @@ class _DraftScreenState extends State<DraftScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    _mode?.icon ?? Icons.attach_file,
-                    color: kBrandRed,
-                  ),
+                  Icon(_mode?.icon ?? Icons.attach_file, color: kBrandRed),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -197,7 +202,11 @@ class _DraftScreenState extends State<DraftScreen> {
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
-                  const Icon(Icons.check_circle, size: 18, color: Color(0xFF15803D)),
+                  const Icon(
+                    Icons.check_circle,
+                    size: 18,
+                    color: Color(0xFF15803D),
+                  ),
                 ],
               ),
             ),

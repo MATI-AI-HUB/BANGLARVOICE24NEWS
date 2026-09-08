@@ -15,7 +15,9 @@ Future<void> main() async {
   SupabaseCore.realtimeChannel(
     name: 'field_reports',
     table: 'field_reports',
-    onEvent: () => debugPrint('field_reports changed → refresh approval queue'),
+    onEvent: () {
+      /* field_reports changed → refresh approval queue */
+    },
   );
 }
 
@@ -27,7 +29,10 @@ class BvAdminApp extends StatelessWidget {
     return MaterialApp(
       title: 'বাংলার ভয়েস — অ্যাডমিন',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFFC41E1E), useMaterial3: true),
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFFC41E1E),
+        useMaterial3: true,
+      ),
       home: const AdminHome(),
     );
   }
@@ -49,17 +54,16 @@ class _AdminHomeState extends State<AdminHome> {
       appBar: AppBar(title: const Text('বাংলার ভয়েস — সম্পাদকীয় কমান্ড')),
       body: IndexedStack(
         index: _tab,
-        children: const [
-          _ApprovalQueue(),
-          _ApiStatus(),
-          _VpsHealth(),
-        ],
+        children: const [_ApprovalQueue(), _ApiStatus(), _VpsHealth()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.pending_actions), label: 'অনুমোদন'),
+          NavigationDestination(
+            icon: Icon(Icons.pending_actions),
+            label: 'অনুমোদন',
+          ),
           NavigationDestination(icon: Icon(Icons.key), label: 'এপিআই কী'),
           NavigationDestination(icon: Icon(Icons.monitor_heart), label: 'VPS'),
         ],
@@ -100,7 +104,11 @@ class _ApprovalQueue extends StatelessWidget {
                     icon: const Icon(Icons.check_circle, color: Colors.green),
                     tooltip: 'অনুমোদন ও প্রকাশ',
                     onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('প্রকাশ অনুরোধ পাঠানো হয়েছে (মক — ব্যাকএন্ড প্রয়োজন)')),
+                      const SnackBar(
+                        content: Text(
+                          'প্রকাশ অনুরোধ পাঠানো হয়েছে (মক — ব্যাকএন্ড প্রয়োজন)',
+                        ),
+                      ),
                     ),
                   ),
                   IconButton(
@@ -126,9 +134,19 @@ class _ApiStatus extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _card('Tier 1 — Groq', 'llama-3.3-70b-versatile', 'চালু ✓', Colors.green),
+        _card(
+          'Tier 1 — Groq',
+          'llama-3.3-70b-versatile',
+          'চালু ✓',
+          Colors.green,
+        ),
         _card('Tier 2 — Gemini', 'gemini-1.5-flash', 'চালু ✓', Colors.green),
-        _card('Tier 3 — Cloudflare', '@cf/meta/llama-3.1-8b', 'চালু ✓', Colors.green),
+        _card(
+          'Tier 3 — Cloudflare',
+          '@cf/meta/llama-3.1-8b',
+          'চালু ✓',
+          Colors.green,
+        ),
         const SizedBox(height: 16),
         Text(
           'হট-সোয়াপ: api_configurations সংগ্রহে কী বদলালেই ক্যাশে রিফ্রেশ হয় — রিস্টার্ট লাগে না।\n\n'
@@ -142,10 +160,16 @@ class _ApiStatus extends StatelessWidget {
   Widget _card(String name, String model, String status, Color color) {
     return Card(
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: color.withValues(alpha: .2), child: Icon(Icons.cloud_done, color: color)),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: .2),
+          child: Icon(Icons.cloud_done, color: color),
+        ),
         title: Text(name),
         subtitle: Text(model),
-        trailing: Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        trailing: Text(
+          status,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }

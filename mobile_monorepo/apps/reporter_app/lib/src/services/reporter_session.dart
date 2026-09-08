@@ -30,22 +30,22 @@ class ReporterSession {
   bool get canPublishDirectly => role.isStaff && verified;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'phone': phone,
-        'role': role.code,
-        'verified': verified,
-        'desk': desk,
-      };
+    'name': name,
+    'phone': phone,
+    'role': role.code,
+    'verified': verified,
+    'desk': desk,
+  };
 
   factory ReporterSession.fromJson(Map<String, dynamic> j) => ReporterSession(
-        name: (j['name'] ?? '').toString(),
-        phone: (j['phone'] ?? '').toString(),
-        role: (j['role'] ?? 'citizen').toString() == 'staff'
-            ? ReporterRole.staff
-            : ReporterRole.citizen,
-        verified: j['verified'] == true,
-        desk: j['desk']?.toString(),
-      );
+    name: (j['name'] ?? '').toString(),
+    phone: (j['phone'] ?? '').toString(),
+    role: (j['role'] ?? 'citizen').toString() == 'staff'
+        ? ReporterRole.staff
+        : ReporterRole.citizen,
+    verified: j['verified'] == true,
+    desk: j['desk']?.toString(),
+  );
 }
 
 class SessionStore {

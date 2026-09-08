@@ -32,7 +32,8 @@ import '../../core/supabase_client.dart';
 class FieldReportStatus {
   static const draft = 'draft';
   static const pendingReview = 'pending_review';
-  static const approvedForLive = 'approved_for_live'; // editor approved → breaking/live
+  static const approvedForLive =
+      'approved_for_live'; // editor approved → breaking/live
   static const published = 'published';
   static const rejected = 'rejected';
 }

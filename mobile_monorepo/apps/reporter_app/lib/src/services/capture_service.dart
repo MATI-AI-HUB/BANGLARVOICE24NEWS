@@ -66,7 +66,12 @@ class LocationResult {
   final String label; // e.g. "📍 ঘোড়াঘাট, দিনাজপুর"
   final String rawTag;
 
-  const LocationResult({this.lat, this.lng, required this.label, required this.rawTag});
+  const LocationResult({
+    this.lat,
+    this.lng,
+    required this.label,
+    required this.rawTag,
+  });
 }
 
 class LocationService {

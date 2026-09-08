@@ -27,9 +27,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _continue() async {
     if (_name.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('আপনার নাম লিখুন')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('আপনার নাম লিখুন')));
       return;
     }
     final session = ReporterSession(
@@ -43,9 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     await SessionStore.save(session);
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainShell()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
     }
   }
 
@@ -195,10 +195,7 @@ class _RoleCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                icon,
-                color: selected ? kBrandRed : scheme.onSurfaceVariant,
-              ),
+              Icon(icon, color: selected ? kBrandRed : scheme.onSurfaceVariant),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

@@ -57,9 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<FeedItem> _visibleItems(List<FeedItem> items) {
     if (_selectedCategory == 0) return items;
     final label = _categories[_selectedCategory];
-    return items
-        .where((e) => e.tags.any((t) => t.contains(label)))
-        .toList();
+    return items.where((e) => e.tags.any((t) => t.contains(label))).toList();
   }
 
   void _openSettings() {
@@ -74,9 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _open(FeedItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ArticleDetailScreen(item: item)),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ArticleDetailScreen(item: item)));
   }
 
   @override
@@ -167,7 +165,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     SliverList.separated(
                       itemCount: items.length,
                       separatorBuilder: (_, __) => Divider(
-                          height: 1, color: Theme.of(context).dividerColor),
+                        height: 1,
+                        color: Theme.of(context).dividerColor,
+                      ),
                       itemBuilder: (context, i) {
                         final item = items[i];
                         return NewsCard(
@@ -301,18 +301,19 @@ class _CategoryChips extends StatelessWidget {
               color: active
                   ? Colors.white
                   : dark
-                      ? const Color(0xFFF2EEE6)
-                      : BvColors.ink,
+                  ? const Color(0xFFF2EEE6)
+                  : BvColors.ink,
             ),
             selectedColor: BvColors.primary,
-            backgroundColor:
-                dark ? const Color(0xFF26231F) : const Color(0xFFF2EEE6),
+            backgroundColor: dark
+                ? const Color(0xFF26231F)
+                : const Color(0xFFF2EEE6),
             side: BorderSide(
               color: active
                   ? BvColors.primary
                   : dark
-                      ? const Color(0xFF33302C)
-                      : BvColors.line,
+                  ? const Color(0xFF33302C)
+                  : BvColors.line,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 6),
           );

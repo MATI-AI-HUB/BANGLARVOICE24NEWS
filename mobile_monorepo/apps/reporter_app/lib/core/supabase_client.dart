@@ -35,7 +35,8 @@ class SupabaseClientHolder {
   /// once; throws nothing when env is absent (callers check [isConfigured]).
   static Future<void> ensureInitialized() async {
     if (_client != null) return;
-    if (!isConfigured) return; // no keys → stay uninitialized, caller falls back
+    if (!isConfigured)
+      return; // no keys → stay uninitialized, caller falls back
     await Supabase.initialize(
       url: ReporterConfig.supabaseUrl,
       publishableKey: ReporterConfig.supabaseAnonKey,

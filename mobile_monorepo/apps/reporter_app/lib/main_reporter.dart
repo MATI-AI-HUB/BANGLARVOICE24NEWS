@@ -13,7 +13,10 @@ class BvReporterApp extends StatelessWidget {
     return MaterialApp(
       title: 'বাংলার ভয়েস — ফিল্ড রিপোর্টার',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFFC41E1E), useMaterial3: true),
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFFC41E1E),
+        useMaterial3: true,
+      ),
       home: const ReporterHome(),
     );
   }
@@ -39,7 +42,11 @@ class _ReporterHomeState extends State<ReporterHome> {
     if (_recording) {
       // In a full build, wire: SpeechToText().initialize() -> listen(onResult:…)
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ভয়েস রেকর্ডিং শুরু হয়েছে (স্পিচ-টু-টেক্সট প্লাগইন সংযুক্ত করুন)')),
+        const SnackBar(
+          content: Text(
+            'ভয়েস রেকর্ডিং শুরু হয়েছে (স্পিচ-টু-টেক্সট প্লাগইন সংযুক্ত করুন)',
+          ),
+        ),
       );
     }
   }
@@ -54,7 +61,11 @@ class _ReporterHomeState extends State<ReporterHome> {
     // Real call: POST $BvApi.base/api/collections/articles/records
     // with { title_bn, body_bn, status:'draft', source_title:'field-report' }.
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('ড্রাফট পাঠানো হয়েছে — ব্যাকএন্ড সংযুক্ত হলে স্বয়ংক্রিয়ভাবে জমা হবে। [${BvApi.base}]')),
+      SnackBar(
+        content: Text(
+          'ড্রাফট পাঠানো হয়েছে — ব্যাকএন্ড সংযুক্ত হলে স্বয়ংক্রিয়ভাবে জমা হবে। [${BvApi.base}]',
+        ),
+      ),
     );
     _title.clear();
     _body.clear();
@@ -95,7 +106,11 @@ class _ReporterHomeState extends State<ReporterHome> {
               const SizedBox(width: 8),
               IconButton.filledTonal(
                 onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('মিডিয়া সংযুক্তি — কম-নেটওয়ার্কে অটো-কমপ্রেস')),
+                  const SnackBar(
+                    content: Text(
+                      'মিডিয়া সংযুক্তি — কম-নেটওয়ার্কে অটো-কমপ্রেস',
+                    ),
+                  ),
                 ),
                 icon: const Icon(Icons.photo_camera_outlined),
               ),

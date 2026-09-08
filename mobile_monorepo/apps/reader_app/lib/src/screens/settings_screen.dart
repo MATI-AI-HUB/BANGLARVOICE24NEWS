@@ -5,7 +5,11 @@ import '../config.dart';
 import '../services/api_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.isDark, required this.onDarkChanged});
+  const SettingsScreen({
+    super.key,
+    required this.isDark,
+    required this.onDarkChanged,
+  });
   final bool isDark;
   final ValueChanged<bool> onDarkChanged;
 
@@ -110,7 +114,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+      ..showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+      );
   }
 
   @override
@@ -124,7 +130,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 8),
           SwitchListTile(
             secondary: Icon(
-              widget.isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              widget.isDark
+                  ? Icons.dark_mode_rounded
+                  : Icons.light_mode_rounded,
               color: scheme.primary,
             ),
             title: const Text('ডার্ক মোড'),
@@ -150,12 +158,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(width: 8),
                 const Text(
                   'সার্ভার / API',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 0.4),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
                 ),
                 if (isOverride) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: scheme.tertiaryContainer,
                       borderRadius: BorderRadius.circular(4),
@@ -202,7 +217,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.network_check_rounded, size: 16),
-                  label: Text(_testing ? 'পরীক্ষা চলছে…' : 'সংযোগ পরীক্ষা করুন'),
+                  label: Text(
+                    _testing ? 'পরীক্ষা চলছে…' : 'সংযোগ পরীক্ষা করুন',
+                  ),
                 ),
                 if (isOverride)
                   TextButton.icon(
@@ -229,7 +246,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      _testOk ? Icons.check_circle_rounded : Icons.error_rounded,
+                      _testOk
+                          ? Icons.check_circle_rounded
+                          : Icons.error_rounded,
                       size: 18,
                       color: _testOk ? scheme.primary : scheme.error,
                     ),
@@ -253,7 +272,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: Icon(Icons.info_outline_rounded, color: scheme.primary),
             title: const Text('অ্যাপের তথ্য'),
-            subtitle: Text('${AppConfig.appNameBn} · সংস্করণ $_version ($_build)'),
+            subtitle: Text(
+              '${AppConfig.appNameBn} · সংস্করণ $_version ($_build)',
+            ),
           ),
           const Divider(height: 1),
           ListTile(

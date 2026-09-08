@@ -61,20 +61,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 : '${session.phone} · ${session.role.label}',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
-                              color: (session.role.isStaff
-                                      ? const Color(0xFF1D4ED8)
-                                      : const Color(0xFFB45309))
-                                  .withValues(alpha: 0.12),
+                              color:
+                                  (session.role.isStaff
+                                          ? const Color(0xFF1D4ED8)
+                                          : const Color(0xFFB45309))
+                                      .withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -94,8 +97,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   child: Text(
                                     session.role.isStaff
                                         ? (session.desk != null
-                                            ? 'ভেরিফাইড স্টাফ · ${session.desk}'
-                                            : 'ভেরিফাইড স্টাফ')
+                                              ? 'ভেরিফাইড স্টাফ · ${session.desk}'
+                                              : 'ভেরিফাইড স্টাফ')
                                         : 'নাগরিক সাংবাদিক — এডিটর অ্যাপ্রুভাল',
                                     style: TextStyle(
                                       fontSize: 11,

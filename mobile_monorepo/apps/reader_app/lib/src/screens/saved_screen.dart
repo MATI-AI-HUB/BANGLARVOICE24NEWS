@@ -75,7 +75,8 @@ class _SavedScreenState extends State<SavedScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  if (fromCache) BvOfflineBanner(attempts: result?.attempts ?? 1),
+                  if (fromCache)
+                    BvOfflineBanner(attempts: result?.attempts ?? 1),
                   const SizedBox(height: 100),
                   const BvEmpty(
                     title: 'কোনো সংবাদ সংরক্ষিত নেই',

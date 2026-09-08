@@ -155,3 +155,32 @@ npm run build && npm start
 4. **AI কী (ঐচ্ছিক)** — `api_configurations` কালেকশনে Groq/Gemini/OpenAI কী দিলে summarize-এ LLM ব্যবহৃত হবে (কী ছাড়াই dek/extractive fallback চলে)
 5. **অ্যাপে API URL** — reader_app-এর config-এ `http://localhost:8090`-এর বদলে লাইভ `https://api.banglarvoice.com` বসান; তারপর APK আবার বিল্ড/CI থেকে নিন
 6. **মিডিয়া/CDN (ঐচ্ছিক)** — ছবির জন্য WebP + CDN; এখন demo ছবি `picsum.photos` fallback ব্যবহার করে
+
+---
+
+## 🕐 Last 10 Hours Changelog (2026-09-08 — Production)
+
+গত ১০ ঘণ্টায় **১৮টি commit, ১০০টি ফাইল** বদলেছে (+১৪,৯২৬ / −৮১২) — পুরো প্ল্যাটফর্ম production-ready করা হয়েছে:
+
+### Frontend (Next.js — ২৪ ফাইল)
+- BBC/NYT-level homepage polish — `hero-bento`, `latest-grid`, `breaking-ticker` (marquee overlap fix: z-20, −33.33%)
+- Brand red `#CC0000` styling — live-blog, video-hub, hero active-tab
+- Breaking ticker → live Supabase (`breaking_ticker` table), fail-এ fallback text
+- `app/error.tsx` + `app/not-found.tsx` — ErrorBoundary/404 (production)
+- `.env`-only config — `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.example`)
+
+### Mobile — ৫টি Flutter অ্যাপ (mobile_monorepo)
+- `supabase_core.dart` — JS-style `.on()` → Dart `.onPostgresChanges()` fix (৫-app build ভাঙছিল)
+- Supabase wiring — breaking_ticker / field_reports / live_sessions Realtime subscriptions
+- `reporter_app` — field report submit → Supabase (+PocketBase, feature-flagged)
+- `studio_app` — Breaking Live Studio control room (নতুন app, ৫ম)
+- 4× `debugPrint` সরানো; সব ৫ app `flutter analyze` → No issues found!
+
+### Supabase (৯ ফাইল) + Backend (PocketBase Go)
+- ৭ টেবিল schema + RLS policies + Realtime + edge functions (`supabase/schema.sql`)
+- Backend `go build` ✅ — `serve`/`migrate` verified (CORS, rate limit, health)
+
+### CI/CD & Ops
+- `build_apks.yml` — ৪-অ্যাপ job + **studio-র আলাদা `build-studio` job** + `release` job (tag push → GitHub Release)
+- `.gitattributes` (LFS reserved) + `.gitignore` hardening (`google-services.json` blocked)
+- Security scan: `sk_live` / `service_role` / `BEGIN PRIVATE KEY` → **০ hit**

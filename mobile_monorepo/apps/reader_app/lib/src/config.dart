@@ -22,7 +22,9 @@ class AppConfig {
 
   /// Currently active base URL. Defaults to compile-time override, then the
   /// production origin, then any user override from [AppSettings.load].
-  static String currentBase = _definedBase.isNotEmpty ? _definedBase : defaultApiBase;
+  static String currentBase = _definedBase.isNotEmpty
+      ? _definedBase
+      : defaultApiBase;
 
   /// JSON Feed v1.1 endpoint — used by the "Latest" tab.
   static const String feedPath = '/api/public/feed.json';
@@ -41,9 +43,8 @@ class AppConfig {
   static String get liveUrl => '${_trim(currentBase)}$livePath';
   static String get videoUrl => '${_trim(currentBase)}$videoPath';
 
-  static String _trim(String base) => base.endsWith('/')
-      ? base.substring(0, base.length - 1)
-      : base;
+  static String _trim(String base) =>
+      base.endsWith('/') ? base.substring(0, base.length - 1) : base;
 
   /// Normalizes a user-entered base URL: adds https:// when no scheme,
   /// strips trailing slashes. Returns null when input looks invalid.
@@ -94,8 +95,9 @@ class AppSettings {
 
   /// Clears the override so the app falls back to the production default.
   static Future<void> resetApiBase() async {
-    AppConfig.currentBase =
-        AppConfig._definedBase.isNotEmpty ? AppConfig._definedBase : AppConfig.defaultApiBase;
+    AppConfig.currentBase = AppConfig._definedBase.isNotEmpty
+        ? AppConfig._definedBase
+        : AppConfig.defaultApiBase;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(AppConfig._prefsKey);

@@ -47,15 +47,18 @@ class BvError extends StatelessWidget {
           children: [
             Icon(Icons.wifi_off_rounded, size: 44, color: scheme.primary),
             const SizedBox(height: 12),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 6),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
               OutlinedButton.icon(
@@ -84,20 +87,26 @@ class BvEmpty extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.newspaper_rounded,
-                size: 44, color: Theme.of(context).colorScheme.outline),
+            Icon(
+              Icons.newspaper_rounded,
+              size: 44,
+              color: Theme.of(context).colorScheme.outline,
+            ),
             const SizedBox(height: 12),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
-              Text(subtitle!,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                subtitle!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ],
           ],
         ),
@@ -114,8 +123,16 @@ class CategoryTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = live ? BvColors.primary : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2825) : BvColors.muted);
-    final fg = live ? Colors.white : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFFF2EEE6) : BvColors.ink);
+    final bg = live
+        ? BvColors.primary
+        : (Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2A2825)
+              : BvColors.muted);
+    final fg = live
+        ? Colors.white
+        : (Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFFF2EEE6)
+              : BvColors.ink);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -129,19 +146,24 @@ class CategoryTag extends StatelessWidget {
             Container(
               width: 6,
               height: 6,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
             ),
             const SizedBox(width: 4),
           ],
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: fg,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
-              )),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: fg,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+            ),
+          ),
         ],
       ),
     );
@@ -162,7 +184,11 @@ class BvOfflineBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
       child: Row(
         children: [
-          Icon(Icons.cloud_off_rounded, size: 15, color: scheme.onTertiaryContainer),
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 15,
+            color: scheme.onTertiaryContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -203,14 +229,16 @@ class BvHeader extends StatelessWidget implements PreferredSizeWidget {
       titleSpacing: 16,
       bottom: bottom,
       title: title != null
-          ? Text(title!,
+          ? Text(
+              title!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: dark ? const Color(0xFFF2EEE6) : BvColors.ink,
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-              ))
+              ),
+            )
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -222,11 +250,14 @@ class BvHeader extends StatelessWidget implements PreferredSizeWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Center(
-                    child: Text('ব',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900)),
+                    child: Text(
+                      'ব',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -240,7 +271,10 @@ class BvHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1.5,
+                  ),
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(3),
@@ -257,10 +291,7 @@ class BvHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ],
             ),
-      actions: [
-        if (trailing != null) trailing!,
-        const SizedBox(width: 4),
-      ],
+      actions: [if (trailing != null) trailing!, const SizedBox(width: 4)],
     );
   }
 }
@@ -302,7 +333,11 @@ class BvSectionTitle extends StatelessWidget {
             const Spacer(),
             Text(
               actionLabel!,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scheme.primary),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: scheme.primary,
+              ),
             ),
             const SizedBox(width: 2),
             Icon(Icons.chevron_right_rounded, size: 16, color: scheme.primary),
@@ -421,18 +456,24 @@ class NewsCard extends StatelessWidget {
                   child: Image.network(
                     imageUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _thumbFallback(context, scheme),
+                    errorBuilder: (_, __, ___) =>
+                        _thumbFallback(context, scheme),
                     loadingBuilder: (context, child, progress) {
                       if (progress == null) return child;
-                      return Container(color: dark ? const Color(0xFF2A2825) : BvColors.muted);
+                      return Container(
+                        color: dark ? const Color(0xFF2A2825) : BvColors.muted,
+                      );
                     },
                   ),
                 ),
               ),
             ] else ...[
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded,
-                  color: scheme.outlineVariant, size: 20),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: scheme.outlineVariant,
+                size: 20,
+              ),
             ],
           ],
         ),
@@ -480,7 +521,9 @@ class HeroArticleCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark ? const Color(0xFF1D1C1A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: dark ? const Color(0xFF33302C) : BvColors.line),
+        border: Border.all(
+          color: dark ? const Color(0xFF33302C) : BvColors.line,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: dark ? 0.3 : 0.05),
@@ -501,11 +544,14 @@ class HeroArticleCard extends StatelessWidget {
                   ? Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _fallback(context, scheme, showPlay: false),
+                      errorBuilder: (_, __, ___) =>
+                          _fallback(context, scheme, showPlay: false),
                       loadingBuilder: (context, child, progress) {
                         if (progress == null) return child;
                         return Container(
-                          color: dark ? const Color(0xFF26231F) : BvColors.muted,
+                          color: dark
+                              ? const Color(0xFF26231F)
+                              : BvColors.muted,
                           child: const Center(
                             child: SizedBox(
                               width: 22,
@@ -530,7 +576,10 @@ class HeroArticleCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           timeLabel,
-                          style: TextStyle(fontSize: 11.5, color: scheme.outline),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: scheme.outline,
+                          ),
                         ),
                       ),
                     ],
@@ -550,7 +599,11 @@ class HeroArticleCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.person_outline_rounded, size: 13, color: scheme.primary),
+                        Icon(
+                          Icons.person_outline_rounded,
+                          size: 13,
+                          color: scheme.primary,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           author!,
@@ -572,14 +625,26 @@ class HeroArticleCard extends StatelessWidget {
     );
   }
 
-  Widget _fallback(BuildContext context, ColorScheme scheme, {required bool showPlay}) {
+  Widget _fallback(
+    BuildContext context,
+    ColorScheme scheme, {
+    required bool showPlay,
+  }) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       color: dark ? const Color(0xFF26231F) : const Color(0xFFEFEAE0),
       child: Center(
         child: showPlay
-            ? Icon(Icons.play_circle_outline_rounded, size: 40, color: scheme.outlineVariant)
-            : Icon(Icons.article_outlined, size: 34, color: scheme.outlineVariant),
+            ? Icon(
+                Icons.play_circle_outline_rounded,
+                size: 40,
+                color: scheme.outlineVariant,
+              )
+            : Icon(
+                Icons.article_outlined,
+                size: 34,
+                color: scheme.outlineVariant,
+              ),
       ),
     );
   }
@@ -595,13 +660,13 @@ class FeedSkeleton extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final base = dark ? const Color(0xFF26231F) : const Color(0xFFEFEAE0);
     Widget bar(double width, double height) => Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: base,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: base,
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
     return ListView.builder(
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

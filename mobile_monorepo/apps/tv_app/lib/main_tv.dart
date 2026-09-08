@@ -14,7 +14,9 @@ Future<void> main() async {
   SupabaseCore.realtimeChannel(
     name: 'breaking_ticker',
     table: 'breaking_ticker',
-    onEvent: () => debugPrint('breaking_ticker changed → ticker will refresh'),
+    onEvent: () {
+      /* breaking_ticker changed → ticker will refresh */
+    },
   );
 }
 
@@ -106,14 +108,18 @@ class _TvHomeState extends State<TvHome> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFC41E1E).withValues(alpha: .4),
+                                  color: const Color(
+                                    0xFFC41E1E,
+                                  ).withValues(alpha: .4),
                                   blurRadius: 60,
                                   spreadRadius: 8,
                                 ),
                               ],
                             ),
                             child: Icon(
-                              _playing ? Icons.graphic_eq : Icons.play_arrow_rounded,
+                              _playing
+                                  ? Icons.graphic_eq
+                                  : Icons.play_arrow_rounded,
                               color: Colors.white,
                               size: 110,
                             ),
@@ -125,23 +131,37 @@ class _TvHomeState extends State<TvHome> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _playing ? 'লাইভ স্ট্রিম চলছে' : 'ট্যাপ করে চালু করুন',
-                            style: const TextStyle(color: Colors.white54, fontSize: 18),
+                            _playing
+                                ? 'লাইভ স্ট্রিম চলছে'
+                                : 'ট্যাপ করে চালু করুন',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 18,
+                            ),
                           ),
                           const SizedBox(height: 28),
                           FilledButton.icon(
                             style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 48,
+                                vertical: 20,
+                              ),
                               textStyle: const TextStyle(fontSize: 22),
                             ),
-                            onPressed: () => setState(() => _playing = !_playing),
-                            icon: Icon(_playing ? Icons.stop : Icons.play_arrow),
+                            onPressed: () =>
+                                setState(() => _playing = !_playing),
+                            icon: Icon(
+                              _playing ? Icons.stop : Icons.play_arrow,
+                            ),
                             label: Text(_playing ? 'থামান' : 'চালু করুন'),
                           ),
                           const SizedBox(height: 12),
                           const Text(
                             'Stream URL: https://stream.banglarvoice.com/live (আসল URL বসান)',
-                            style: TextStyle(color: Colors.white38, fontSize: 14),
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
@@ -162,7 +182,10 @@ class _TvHomeState extends State<TvHome> {
                         children: [
                           const Text(
                             'আজকের সম্প্রচার',
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           for (final (t, name) in [
@@ -175,9 +198,21 @@ class _TvHomeState extends State<TvHome> {
                           ])
                             ListTile(
                               contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.schedule, color: Colors.white54),
-                              title: Text(name, style: const TextStyle(fontSize: 20)),
-                              trailing: Text(t, style: const TextStyle(color: Colors.white54, fontSize: 18)),
+                              leading: const Icon(
+                                Icons.schedule,
+                                color: Colors.white54,
+                              ),
+                              title: Text(
+                                name,
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                              trailing: Text(
+                                t,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 18,
+                                ),
+                              ),
                             ),
                         ],
                       ),

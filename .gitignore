@@ -38,6 +38,12 @@ mobile_monorepo/**/android/local.properties
 *.aab
 *.ap_
 
+# --- Secrets (defense-in-depth) ---
+# NOTE: .jks + key.properties are DELIBERATELY committed for turnkey CI signing
+# while this repo is PRIVATE (see android_keystore/README.md). google-services.json
+# would be a NEW secret per-app (Firebase) — block it by default; none exists today.
+**/google-services.json
+
 # --- Signing: turnkey APK build-এর জন্য keystore/key.properties commit হয় (ইচ্ছাকৃত) ---
 # পুরনো ignore নিয়ম সরানো হয়েছে — .jks এবং key.properties এখন versioned।
 # পাবলিক প্রকাশের আগে নিজের নতুন keystore বানান (android_keystore/README.md দেখুন)।

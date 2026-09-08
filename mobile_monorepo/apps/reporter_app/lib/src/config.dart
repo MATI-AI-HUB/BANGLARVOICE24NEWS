@@ -20,17 +20,22 @@ class ReporterConfig {
 
   /// Where field reports are POSTed by OfflineQueue when online.
   /// Points at the PocketBase articles REST API with an `articles` collection.
-  static String get submitEndpoint => '$apiBase/api/collections/articles/records';
+  static String get submitEndpoint =>
+      '$apiBase/api/collections/articles/records';
 
   // --- Supabase migration (feature-flagged) ---------------------------------
   // The app historically submits through the PocketBase-style REST endpoint
   // above. These knobs let a build flip to Supabase (supabase_flutter) without
   // removing the PocketBase path. Supply at build time:
   //   flutter build apk --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
-  static const String supabaseUrl =
-      String.fromEnvironment('SUPABASE_URL', defaultValue: '');
-  static const String supabaseAnonKey =
-      String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
 
   /// Master switch: true → OfflineQueue posts via
   /// `supabase.from('field_reports').insert(...)`; false → existing
@@ -47,16 +52,19 @@ class ReporterConfig {
 
   /// AI orchestration endpoint — expected contract documented in
   /// README_REPORTER.md. When empty the app falls back to local-only (no AI).
-  static const String aiProcessReportEndpoint =
-      String.fromEnvironment('BV_AI_PROCESS_URL');
+  static const String aiProcessReportEndpoint = String.fromEnvironment(
+    'BV_AI_PROCESS_URL',
+  );
 
   /// If set, the capture screen shows the AI helper buttons (transcribe /
   /// summarize) and calls [aiProcessReportEndpoint] on submit.
   static bool get aiEnabled => aiProcessReportEndpoint.isNotEmpty;
 
   /// Live YouTube stream used by the Live TV screen (privacy-enhanced embed).
-  static const String liveYouTubeId =
-      String.fromEnvironment('BV_LIVE_YOUTUBE_ID', defaultValue: '');
+  static const String liveYouTubeId = String.fromEnvironment(
+    'BV_LIVE_YOUTUBE_ID',
+    defaultValue: '',
+  );
 
   /// Local-only mode: no network calls are attempted for submit when true.
   static const bool forceOffline = false;

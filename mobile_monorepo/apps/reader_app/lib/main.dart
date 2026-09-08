@@ -16,7 +16,8 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final savedDark = prefs.getBool('dark_mode');
   final systemDark =
-      WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+      Brightness.dark;
   await AppSettings.load(); // restore persisted API base override
   // Same shared Supabase project as the other four apps (no-op until dart-defines).
   // (Wraps Supabase.initialize — see packages/supabase_core.)
@@ -26,7 +27,9 @@ Future<void> main() async {
   SupabaseCore.realtimeChannel(
     name: 'breaking_ticker',
     table: 'breaking_ticker',
-    onEvent: () => debugPrint('breaking_ticker changed → ticker will refresh'),
+    onEvent: () {
+      /* breaking_ticker changed → ticker will refresh */
+    },
   );
 }
 
@@ -61,7 +64,11 @@ class _BvAppState extends State<BvApp> {
 }
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, required this.onDarkChanged, required this.isDark});
+  const HomeShell({
+    super.key,
+    required this.onDarkChanged,
+    required this.isDark,
+  });
   final ValueChanged<bool> onDarkChanged;
   final bool isDark;
 
@@ -82,7 +89,10 @@ class _HomeShellState extends State<HomeShell> {
           const LiveScreen(),
           const CategoriesScreen(),
           const SavedScreen(),
-          SettingsScreen(isDark: widget.isDark, onDarkChanged: widget.onDarkChanged),
+          SettingsScreen(
+            isDark: widget.isDark,
+            onDarkChanged: widget.onDarkChanged,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(

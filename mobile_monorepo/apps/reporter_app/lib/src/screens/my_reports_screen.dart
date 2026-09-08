@@ -36,8 +36,8 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     if (mounted) setState(() {});
   }
 
-  String _time(DateTime t) => DateFormat('d MMM yyyy, h:mm a', 'bn_BD')
-      .format(t.toLocal());
+  String _time(DateTime t) =>
+      DateFormat('d MMM yyyy, h:mm a', 'bn_BD').format(t.toLocal());
 
   Future<void> _sync() async {
     await OfflineQueue.instance.syncNow();
@@ -67,10 +67,15 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                     alignment: Alignment.centerLeft,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: (online ? const Color(0xFF0E7490) : const Color(0xFFB45309))
-                            .withValues(alpha: 0.15),
+                        color:
+                            (online
+                                    ? const Color(0xFF0E7490)
+                                    : const Color(0xFFB45309))
+                                .withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -79,8 +84,9 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                           Icon(
                             online ? Icons.cloud_done : Icons.cloud_off,
                             size: 14,
-                            color:
-                                online ? const Color(0xFF0E7490) : const Color(0xFFB45309),
+                            color: online
+                                ? const Color(0xFF0E7490)
+                                : const Color(0xFFB45309),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -189,7 +195,9 @@ class _ReportCard extends StatelessWidget {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1EEEA),
                       borderRadius: BorderRadius.circular(6),
@@ -238,24 +246,35 @@ class _ReportCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.person_outline, size: 14, color: Colors.black45),
+                  const Icon(
+                    Icons.person_outline,
+                    size: 14,
+                    color: Colors.black45,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       report.sourceName,
                       style: const TextStyle(
-                          fontSize: 12, color: Colors.black54),
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
                     ),
                   ),
-                  Icon(Icons.location_on_outlined,
-                      size: 14, color: Colors.black45),
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 14,
+                    color: Colors.black45,
+                  ),
                   const SizedBox(width: 2),
                   Flexible(
                     child: Text(
                       report.locationTag,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 12, color: Colors.black54),
+                        fontSize: 12,
+                        color: Colors.black54,
+                      ),
                     ),
                   ),
                   if (report.mediaType != null) ...[
@@ -341,16 +360,23 @@ class _ReportDetailSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.person_outline, size: 15, color: Colors.black54),
+                const Icon(
+                  Icons.person_outline,
+                  size: 15,
+                  color: Colors.black54,
+                ),
                 const SizedBox(width: 5),
-                Text(report.sourceName,
-                    style: const TextStyle(
-                        fontSize: 13, color: Colors.black54)),
+                Text(
+                  report.sourceName,
+                  style: const TextStyle(fontSize: 13, color: Colors.black54),
+                ),
                 const SizedBox(width: 12),
                 const Icon(Icons.schedule, size: 14, color: Colors.black45),
                 const SizedBox(width: 4),
                 Text(
-                  DateFormat('d MMM yyyy, h:mm a').format(report.capturedAt.toLocal()),
+                  DateFormat(
+                    'd MMM yyyy, h:mm a',
+                  ).format(report.capturedAt.toLocal()),
                   style: const TextStyle(fontSize: 12, color: Colors.black45),
                 ),
               ],
@@ -359,8 +385,10 @@ class _ReportDetailSheet extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1EEEA),
                     borderRadius: BorderRadius.circular(6),
@@ -368,7 +396,9 @@ class _ReportDetailSheet extends StatelessWidget {
                   child: Text(
                     report.category,
                     style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -393,14 +423,16 @@ class _ReportDetailSheet extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined,
-                    size: 15, color: Colors.black54),
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 15,
+                  color: Colors.black54,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     report.locationTag,
-                    style: const TextStyle(
-                        fontSize: 13, color: Colors.black54),
+                    style: const TextStyle(fontSize: 13, color: Colors.black54),
                   ),
                 ),
               ],
@@ -423,9 +455,10 @@ class _ReportDetailSheet extends StatelessWidget {
               Text(
                 'GPS: ${report.lat!.toStringAsFixed(5)}, ${report.lng!.toStringAsFixed(5)}',
                 style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black45,
-                    fontFamily: 'monospace'),
+                  fontSize: 12,
+                  color: Colors.black45,
+                  fontFamily: 'monospace',
+                ),
               ),
             ],
             const SizedBox(height: 18),

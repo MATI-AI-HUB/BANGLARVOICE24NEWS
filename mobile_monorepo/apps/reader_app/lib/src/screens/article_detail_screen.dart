@@ -30,16 +30,26 @@ class ArticleDetailScreen extends StatelessWidget {
           IconButton(
             tooltip: 'শেয়ার করুন',
             onPressed: () async {
-              final url = item.url.isNotEmpty ? item.url : '${AppConfig.defaultApiBase}/news';
-              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              final url = item.url.isNotEmpty
+                  ? item.url
+                  : '${AppConfig.defaultApiBase}/news';
+              await launchUrl(
+                Uri.parse(url),
+                mode: LaunchMode.externalApplication,
+              );
             },
             icon: const Icon(Icons.share_outlined, size: 21),
           ),
           IconButton(
             tooltip: 'ব্রাউজারে খুলুন',
             onPressed: () async {
-              final url = item.url.isNotEmpty ? item.url : '${AppConfig.defaultApiBase}/news';
-              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              final url = item.url.isNotEmpty
+                  ? item.url
+                  : '${AppConfig.defaultApiBase}/news';
+              await launchUrl(
+                Uri.parse(url),
+                mode: LaunchMode.externalApplication,
+              );
             },
             icon: const Icon(Icons.open_in_new_rounded, size: 20),
           ),
@@ -55,7 +65,9 @@ class ArticleDetailScreen extends StatelessWidget {
                 item.imageUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  color: dark ? const Color(0xFF26231F) : const Color(0xFFEFEAE0),
+                  color: dark
+                      ? const Color(0xFF26231F)
+                      : const Color(0xFFEFEAE0),
                 ),
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
@@ -80,7 +92,10 @@ class ArticleDetailScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    CategoryTag(label: item.categoryLabel, live: item.isLiveLike),
+                    CategoryTag(
+                      label: item.categoryLabel,
+                      live: item.isLiveLike,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -99,15 +114,18 @@ class ArticleDetailScreen extends StatelessWidget {
                 Text(
                   item.title,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontSize: 26,
-                        height: 1.32,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontSize: 26,
+                    height: 1.32,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 if (item.summary != null && item.summary!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: dark ? const Color(0xFF26231F) : BvColors.muted,
                       borderRadius: BorderRadius.circular(8),
@@ -118,10 +136,10 @@ class ArticleDetailScreen extends StatelessWidget {
                     child: Text(
                       item.summary!,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.w700,
-                            height: 1.6,
-                          ),
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w700,
+                        height: 1.6,
+                      ),
                     ),
                   ),
                 ],
@@ -147,14 +165,15 @@ class ArticleDetailScreen extends StatelessWidget {
                         children: [
                           Text(
                             item.authorName!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                           Text(
                             'বাংলার ভয়েস',
-                            style: TextStyle(fontSize: 11.5, color: scheme.outline),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: scheme.outline,
+                            ),
                           ),
                         ],
                       ),
@@ -176,9 +195,9 @@ class ArticleDetailScreen extends StatelessWidget {
                       child: Text(
                         p,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontSize: 17,
-                              height: 1.9,
-                            ),
+                          fontSize: 17,
+                          height: 1.9,
+                        ),
                       ),
                     ),
                   ),
@@ -186,8 +205,13 @@ class ArticleDetailScreen extends StatelessWidget {
                 Center(
                   child: OutlinedButton.icon(
                     onPressed: () async {
-                      final url = item.url.isNotEmpty ? item.url : '${AppConfig.defaultApiBase}/news';
-                      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                      final url = item.url.isNotEmpty
+                          ? item.url
+                          : '${AppConfig.defaultApiBase}/news';
+                      await launchUrl(
+                        Uri.parse(url),
+                        mode: LaunchMode.externalApplication,
+                      );
                     },
                     icon: const Icon(Icons.open_in_new_rounded, size: 16),
                     label: const Text('ওয়েবসাইটে পড়ুন'),

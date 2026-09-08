@@ -51,7 +51,9 @@ class CategoriesScreen extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => CategoryFeedScreen(category: c)),
+                MaterialPageRoute(
+                  builder: (_) => CategoryFeedScreen(category: c),
+                ),
               ),
               child: Container(
                 decoration: BoxDecoration(
@@ -145,8 +147,11 @@ class _CategoryFeedScreenState extends State<CategoryFeedScreen> {
           final fromCache = result?.fromCache ?? false;
           final label = widget.category;
           final items = (result?.feed.items ?? [])
-              .where((e) =>
-                  e.tags.any((t) => t.contains(label)) || e.categoryLabel == label)
+              .where(
+                (e) =>
+                    e.tags.any((t) => t.contains(label)) ||
+                    e.categoryLabel == label,
+              )
               .toList();
           if (items.isEmpty) {
             return RefreshIndicator(
@@ -154,7 +159,8 @@ class _CategoryFeedScreenState extends State<CategoryFeedScreen> {
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  if (fromCache) BvOfflineBanner(attempts: result?.attempts ?? 1),
+                  if (fromCache)
+                    BvOfflineBanner(attempts: result?.attempts ?? 1),
                   const SizedBox(height: 120),
                   const BvEmpty(
                     title: 'এই ক্যাটাগরিতে এখনো পোস্ট নেই',

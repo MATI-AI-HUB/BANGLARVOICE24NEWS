@@ -154,17 +154,20 @@ class OfflineQueue extends ChangeNotifier {
         await SupabaseClientHolder.ensureInitialized();
         final client = SupabaseClientHolder.client;
         if (client == null) return false;
-        await client.from('field_reports').insert({
-          'title': r.title,
-          'description': r.body,
-          'location': r.placeLabel ?? r.locationTag,
-          'lat': r.lat,
-          'lng': r.lng,
-          'captured_at': r.capturedAt.toUtc().toIso8601String(),
-          'media_urls': r.mediaPath == null ? const [] : [r.mediaPath!],
-          // status defaults to 'draft' server-side; reporter_id is taken from
-          // the authenticated Supabase session by the RLS policy.
-        }).timeout(const Duration(seconds: 15));
+        await client
+            .from('field_reports')
+            .insert({
+              'title': r.title,
+              'description': r.body,
+              'location': r.placeLabel ?? r.locationTag,
+              'lat': r.lat,
+              'lng': r.lng,
+              'captured_at': r.capturedAt.toUtc().toIso8601String(),
+              'media_urls': r.mediaPath == null ? const [] : [r.mediaPath!],
+              // status defaults to 'draft' server-side; reporter_id is taken from
+              // the authenticated Supabase session by the RLS policy.
+            })
+            .timeout(const Duration(seconds: 15));
         return true;
       } catch (_) {
         return false; // offline / RLS-denied / misconfigured → stays queued

@@ -21,7 +21,13 @@ class Destination {
   final String bnLabel;
   final IconData icon;
   bool enabled;
-  Destination({required this.id, required this.label, required this.bnLabel, required this.icon, this.enabled = false});
+  Destination({
+    required this.id,
+    required this.label,
+    required this.bnLabel,
+    required this.icon,
+    this.enabled = false,
+  });
 }
 
 class GoLivePanel extends StatefulWidget {
@@ -33,10 +39,30 @@ class GoLivePanel extends StatefulWidget {
 
 class _GoLivePanelState extends State<GoLivePanel> {
   final List<Destination> _destinations = [
-    Destination(id: 'web', label: 'Website Live Player', bnLabel: 'ওয়েবসাইট লাইভ প্লেয়ার', icon: Icons.language),
-    Destination(id: 'push', label: 'App Push Alert', bnLabel: 'অ্যাপ পুশ অ্যালার্ট', icon: Icons.notifications_active_outlined),
-    Destination(id: 'fb', label: 'Facebook Page', bnLabel: 'ফেসবুক পেজ', icon: Icons.video_library_outlined),
-    Destination(id: 'yt', label: 'YouTube Live', bnLabel: 'ইউটিউব লাইভ', icon: Icons.ondemand_video),
+    Destination(
+      id: 'web',
+      label: 'Website Live Player',
+      bnLabel: 'ওয়েবসাইট লাইভ প্লেয়ার',
+      icon: Icons.language,
+    ),
+    Destination(
+      id: 'push',
+      label: 'App Push Alert',
+      bnLabel: 'অ্যাপ পুশ অ্যালার্ট',
+      icon: Icons.notifications_active_outlined,
+    ),
+    Destination(
+      id: 'fb',
+      label: 'Facebook Page',
+      bnLabel: 'ফেসবুক পেজ',
+      icon: Icons.video_library_outlined,
+    ),
+    Destination(
+      id: 'yt',
+      label: 'YouTube Live',
+      bnLabel: 'ইউটিউব লাইভ',
+      icon: Icons.ondemand_video,
+    ),
   ];
 
   bool _live = false;
@@ -53,7 +79,15 @@ class _GoLivePanelState extends State<GoLivePanel> {
   ];
 
   static const _badWords = [
-    'মূর্খ', 'বোকা', 'ওসব', 'হালা', 'গাধা', 'চুষে', 'fuck', 'shit', 'bitch',
+    'মূর্খ',
+    'বোকা',
+    'ওসব',
+    'হালা',
+    'গাধা',
+    'চুষে',
+    'fuck',
+    'shit',
+    'bitch',
   ];
 
   String _filter(String raw) {
@@ -84,14 +118,15 @@ class _GoLivePanelState extends State<GoLivePanel> {
   }
 
   Future<void> _openControls() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LiveControlsScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const LiveControlsScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    final mm = '${(_elapsed ~/ 60).toString().padLeft(2, '0')}:${(_elapsed % 60).toString().padLeft(2, '0')}';
+    final mm =
+        '${(_elapsed ~/ 60).toString().padLeft(2, '0')}:${(_elapsed % 60).toString().padLeft(2, '0')}';
     return Scaffold(
       backgroundColor: const Color(0xFF060D1E),
       appBar: AppBar(
@@ -105,28 +140,47 @@ class _GoLivePanelState extends State<GoLivePanel> {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: .06),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.visibility_outlined, color: Colors.white.withValues(alpha: .7), size: 18),
+                      Icon(
+                        Icons.visibility_outlined,
+                        color: Colors.white.withValues(alpha: .7),
+                        size: 18,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         '$_viewers দর্শক',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       const SizedBox(width: 6),
-                      Text('(ডেমো কাউন্টার)', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: .4))),
+                      Text(
+                        '(ডেমো কাউন্টার)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white.withValues(alpha: .4),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: _live ? studioRed : Colors.white10,
                   borderRadius: BorderRadius.circular(12),
@@ -137,40 +191,70 @@ class _GoLivePanelState extends State<GoLivePanel> {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox(width: 6),
-                      Text('LIVE $mm', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                      Text(
+                        'LIVE $mm',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                        ),
+                      ),
                     ] else
-                      const Text('প্রস্তুত', style: TextStyle(fontSize: 13, color: Colors.white60)),
+                      const Text(
+                        'প্রস্তুত',
+                        style: TextStyle(fontSize: 13, color: Colors.white60),
+                      ),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const Text('গন্তব্য (Destination)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+          const Text(
+            'গন্তব্য (Destination)',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 8),
           ..._destinations.map((d) {
             final wired = d.id == 'web' || d.id == 'push'
                 ? true
                 : d.id == 'fb'
-                    ? StudioConfig.hasRtmpIngest
-                    : StudioConfig.hasRtmpIngest;
+                ? StudioConfig.hasRtmpIngest
+                : StudioConfig.hasRtmpIngest;
             return Card(
               color: Colors.white.withValues(alpha: .05),
               margin: const EdgeInsets.only(bottom: 8),
               child: CheckboxListTile(
                 value: d.enabled,
                 onChanged: (v) => setState(() => d.enabled = v ?? false),
-                secondary: Icon(d.icon, color: d.enabled ? studioRed : Colors.white38),
-                title: Text(d.bnLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                secondary: Icon(
+                  d.icon,
+                  color: d.enabled ? studioRed : Colors.white38,
+                ),
+                title: Text(
+                  d.bnLabel,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 subtitle: Row(
                   children: [
                     if (!wired)
                       const NotWiredChip(text: 'RTMP কী API Vault থেকে লাগবে')
                     else
-                      Text(d.label, style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                      Text(
+                        d.label,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white38,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -180,8 +264,15 @@ class _GoLivePanelState extends State<GoLivePanel> {
           // Live comments feed with AI bad-word auto-filter
           Row(
             children: [
-              const Expanded(child: Text('লাইভ কমেন্ট (AI অটো-ফিল্টার চালু)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800))),
-              const NotWiredChip(text: 'ফিল্টার লোকাল — ব্যাকএন্ড মডারেশন আসবে'),
+              const Expanded(
+                child: Text(
+                  'লাইভ কমেন্ট (AI অটো-ফিল্টার চালু)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const NotWiredChip(
+                text: 'ফিল্টার লোকাল — ব্যাকএন্ড মডারেশন আসবে',
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -199,9 +290,22 @@ class _GoLivePanelState extends State<GoLivePanel> {
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   children: [
-                    CircleAvatar(radius: 10, backgroundColor: const Color(0xFF0A1931), child: const Icon(Icons.person, size: 12, color: Colors.white54)),
+                    CircleAvatar(
+                      radius: 10,
+                      backgroundColor: const Color(0xFF0A1931),
+                      child: const Icon(
+                        Icons.person,
+                        size: 12,
+                        color: Colors.white54,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_comments[i], style: const TextStyle(fontSize: 12.5))),
+                    Expanded(
+                      child: Text(
+                        _comments[i],
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -222,14 +326,21 @@ class _GoLivePanelState extends State<GoLivePanel> {
                     isDense: true,
                     filled: true,
                     fillColor: Color(0xFF13203B),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0A1931)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0A1931),
+                ),
                 onPressed: () {},
                 child: const Icon(Icons.send, size: 16),
               ),
@@ -244,7 +355,10 @@ class _GoLivePanelState extends State<GoLivePanel> {
               ),
               onPressed: _goLive,
               icon: const Icon(Icons.cell_tower),
-              label: const Text('🚨 গো লাইভ (১০ সেকেন্ড)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+              label: const Text(
+                '🚨 গো লাইভ (১০ সেকেন্ড)',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+              ),
             )
           else ...[
             FilledButton.icon(
@@ -254,11 +368,17 @@ class _GoLivePanelState extends State<GoLivePanel> {
               ),
               onPressed: _openControls,
               icon: const Icon(Icons.settings_remote),
-              label: const Text('লাইভ কন্ট্রোলে যান', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              label: const Text(
+                'লাইভ কন্ট্রোলে যান',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
             ),
             const SizedBox(height: 8),
             if (!StudioConfig.hasRtmpIngest && !StudioConfig.hasLiveKit)
-              const NotWiredChip(text: 'ডেমো-লাইভ মোড: প্রকৃত স্ট্রিম শুরু হয়নি (LiveKit/RTMP কী লাগবে)'),
+              const NotWiredChip(
+                text:
+                    'ডেমো-লাইভ মোড: প্রকৃত স্ট্রিম শুরু হয়নি (LiveKit/RTMP কী লাগবে)',
+              ),
           ],
         ],
       ),

@@ -55,10 +55,17 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
         content: TextField(
           controller: c,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'ব্রেকিং টেক্সট লিখুন…', filled: true, fillColor: Color(0xFF0A1931)),
+          decoration: const InputDecoration(
+            hintText: 'ব্রেকিং টেক্সট লিখুন…',
+            filled: true,
+            fillColor: Color(0xFF0A1931),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('বাতিল')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('বাতিল'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: studioRed),
             onPressed: () {
@@ -85,21 +92,45 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('AI পাইপলাইন অটো-জেনারেট করবে:', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+            const Text(
+              'AI পাইপলাইন অটো-জেনারেট করবে:',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+            ),
             const SizedBox(height: 8),
-            const Text('• শিরোনাম (বাংলা + ইংরেজি)', style: TextStyle(fontSize: 12, color: Colors.white70)),
-            const Text('• বিবরণ + ট্যাগ', style: TextStyle(fontSize: 12, color: Colors.white70)),
-            const Text('• থাম্বনেইল (WebP)', style: TextStyle(fontSize: 12, color: Colors.white70)),
-            const Text('• ভিডিও আর্টিকেল ড্রাফ্ট (এডিটর অ্যাপে)', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            const Text(
+              '• শিরোনাম (বাংলা + ইংরেজি)',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+            const Text(
+              '• বিবরণ + ট্যাগ',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+            const Text(
+              '• থাম্বনেইল (WebP)',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
+            const Text(
+              '• ভিডিও আর্টিকেল ড্রাফ্ট (এডিটর অ্যাপে)',
+              style: TextStyle(fontSize: 12, color: Colors.white70),
+            ),
             const SizedBox(height: 10),
             if (StudioConfig.hasEndLiveDraft)
-              const Text('✅ BV_AI_ENDLIVE_URL সেট — শেষ হলে ড্রাফ্ট তৈরি হবে।', style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80)))
+              const Text(
+                '✅ BV_AI_ENDLIVE_URL সেট — শেষ হলে ড্রাফ্ট তৈরি হবে।',
+                style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80)),
+              )
             else
-              const NotWiredChip(text: 'এন্ডলাইভ হুক খালি — এখন ড্রাফ্ট তৈরি হবে না (BV_AI_ENDLIVE_URL সেট করুন)'),
+              const NotWiredChip(
+                text:
+                    'এন্ডলাইভ হুক খালি — এখন ড্রাফ্ট তৈরি হবে না (BV_AI_ENDLIVE_URL সেট করুন)',
+              ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('চালিয়ে যান')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('চালিয়ে যান'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: studioRed),
             onPressed: () => Navigator.pop(ctx, true),
@@ -115,7 +146,8 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mm = '${(_elapsed ~/ 60).toString().padLeft(2, '0')}:${(_elapsed % 60).toString().padLeft(2, '0')}';
+    final mm =
+        '${(_elapsed ~/ 60).toString().padLeft(2, '0')}:${(_elapsed % 60).toString().padLeft(2, '0')}';
     return Scaffold(
       backgroundColor: const Color(0xFF060D1E),
       appBar: AppBar(
@@ -125,12 +157,22 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
             Container(
               width: 9,
               height: 9,
-              decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEF4444),
+                shape: BoxShape.circle,
+              ),
             ),
             const SizedBox(width: 8),
             const Text('লাইভ কন্ট্রোল'),
             const SizedBox(width: 8),
-            Text('LIVE $mm', style: const TextStyle(fontSize: 12, color: Colors.white54, fontWeight: FontWeight.w700)),
+            Text(
+              'LIVE $mm',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white54,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
@@ -147,7 +189,9 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
           StudioActionTile(
             icon: Icons.map_outlined,
             label: 'রিপোর্টারের লোকেশন ম্যাপ',
-            hint: _mapOpen ? 'ম্যাপ খোলা — Dhaka 23.8103, 90.4125' : 'লাইভ লোকেশন ওভারলে দেখান',
+            hint: _mapOpen
+                ? 'ম্যাপ খোলা — Dhaka 23.8103, 90.4125'
+                : 'লাইভ লোকেশন ওভারলে দেখান',
             iconColor: _mapOpen ? const Color(0xFF4ADE80) : null,
             onTap: _toggleMap,
           ),
@@ -168,9 +212,18 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xCC0A1931), borderRadius: BorderRadius.circular(6)),
-                      child: const Text('লোকেশন প্রিভিউ (GPS সার্ভিস লাগবে)', style: TextStyle(fontSize: 10, color: Colors.white60)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xCC0A1931),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'লোকেশন প্রিভিউ (GPS সার্ভিস লাগবে)',
+                        style: TextStyle(fontSize: 10, color: Colors.white60),
+                      ),
                     ),
                   ),
                   Center(
@@ -178,8 +231,17 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.location_on, color: studioRed, size: 40),
-                        const Text('ঢাকা', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                        const Text('23.8103° N, 90.4125° E', style: TextStyle(fontSize: 11, color: Colors.white54)),
+                        const Text(
+                          'ঢাকা',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const Text(
+                          '23.8103° N, 90.4125° E',
+                          style: TextStyle(fontSize: 11, color: Colors.white54),
+                        ),
                       ],
                     ),
                   ),
@@ -201,9 +263,19 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.auto_awesome, color: Color(0xFFCC0000), size: 18),
+                    Icon(
+                      Icons.auto_awesome,
+                      color: Color(0xFFCC0000),
+                      size: 18,
+                    ),
                     SizedBox(width: 6),
-                    Text('২৪/৭ AI — লাইভে', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text(
+                      '২৪/৭ AI — লাইভে',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -239,20 +311,36 @@ class _LiveControlsScreenState extends State<LiveControlsScreen> {
     );
   }
 
-  Widget _aiRow({required IconData icon, required String label, required bool wired, String extra = ''}) {
+  Widget _aiRow({
+    required IconData icon,
+    required String label,
+    required bool wired,
+    String extra = '',
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: wired ? const Color(0xFF4ADE80) : Colors.white24),
+          Icon(
+            icon,
+            size: 16,
+            color: wired ? const Color(0xFF4ADE80) : Colors.white24,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               label + extra,
-              style: TextStyle(fontSize: 12.5, color: wired ? Colors.white : Colors.white38),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: wired ? Colors.white : Colors.white38,
+              ),
             ),
           ),
-          if (!wired) const Text('কী নেই', style: TextStyle(fontSize: 10, color: Colors.white24)),
+          if (!wired)
+            const Text(
+              'কী নেই',
+              style: TextStyle(fontSize: 10, color: Colors.white24),
+            ),
         ],
       ),
     );

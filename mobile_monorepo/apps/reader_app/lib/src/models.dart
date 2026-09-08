@@ -113,17 +113,27 @@ class FeedItem {
   bool get isLiveLike {
     final t = title.toLowerCase();
     return tags.any((tag) {
-      final l = tag.toLowerCase();
-      return l.contains('লাইভ') || l.contains('live') || l.contains('ব্রেকিং') || l.contains('breaking');
-    }) || t.contains('লাইভ') || t.contains('live') || t.contains('ব্রেকিং') || t.contains('সরাসরি');
+          final l = tag.toLowerCase();
+          return l.contains('লাইভ') ||
+              l.contains('live') ||
+              l.contains('ব্রেকিং') ||
+              l.contains('breaking');
+        }) ||
+        t.contains('লাইভ') ||
+        t.contains('live') ||
+        t.contains('ব্রেকিং') ||
+        t.contains('সরাসরি');
   }
 
   bool get isVideoLike {
     final t = title.toLowerCase();
     return tags.any((tag) {
-      final l = tag.toLowerCase();
-      return l.contains('ভিডিও') || l.contains('video');
-    }) || t.contains('ভিডিও') || t.contains('video') || t.contains('দেখুন');
+          final l = tag.toLowerCase();
+          return l.contains('ভিডিও') || l.contains('video');
+        }) ||
+        t.contains('ভিডিও') ||
+        t.contains('video') ||
+        t.contains('দেখুন');
   }
 
   String get publishedLabel {
@@ -146,7 +156,11 @@ class FeedItem {
     if (minutes < 1) return '১ মিনিট পড়া';
     // Bengali digits for polish.
     const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    final digits = minutes.toString().split('').map((c) => bengali[int.parse(c)]).join();
+    final digits = minutes
+        .toString()
+        .split('')
+        .map((c) => bengali[int.parse(c)])
+        .join();
     return '$digits মিনিট পড়া';
   }
 }
@@ -173,7 +187,8 @@ class LiveEntry {
       author: json['author'] as String? ?? '',
       imageUrl: json['image_url'] as String?,
       createdAt:
-          DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 }

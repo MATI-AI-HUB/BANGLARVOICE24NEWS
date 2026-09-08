@@ -41,8 +41,8 @@ class _BvReporterAppState extends State<BvReporterApp> {
       darkTheme: buildReporterTheme(Brightness.dark),
       home: _ready
           ? (SessionStore.current == null
-              ? const LoginScreen()
-              : const MainShell())
+                ? const LoginScreen()
+                : const MainShell())
           : const Scaffold(body: Center(child: CircularProgressIndicator())),
     );
   }

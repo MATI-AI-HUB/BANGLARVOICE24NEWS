@@ -21,7 +21,10 @@ class StudioStepRail extends StatelessWidget {
       children: List.generate(steps.length * 2 - 1, (i) {
         if (i.isOdd) {
           return Expanded(
-            child: Container(height: 2, color: i ~/ 2 < current - 1 ? studioRed : Colors.white12),
+            child: Container(
+              height: 2,
+              color: i ~/ 2 < current - 1 ? studioRed : Colors.white12,
+            ),
           );
         }
         final idx = i ~/ 2 + 1;
@@ -35,7 +38,11 @@ class StudioStepRail extends StatelessWidget {
           ),
           child: Text(
             steps[idx - 1],
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
         );
       }),
@@ -46,7 +53,10 @@ class StudioStepRail extends StatelessWidget {
 /// "কী নেই" honest status chip for unprovisioned infrastructure.
 class NotWiredChip extends StatelessWidget {
   final String text;
-  const NotWiredChip({super.key, this.text = 'ব্যাকএন্ড/কী প্রোভিশন করা হয়নি'});
+  const NotWiredChip({
+    super.key,
+    this.text = 'ব্যাকএন্ড/কী প্রোভিশন করা হয়নি',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +65,9 @@ class NotWiredChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF59E0B).withValues(alpha: .15),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: .5)),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: .5),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -65,7 +77,11 @@ class NotWiredChip extends StatelessWidget {
           Flexible(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 11, color: Color(0xFFFDE68A), fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFFFDE68A),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -119,10 +135,21 @@ class StudioActionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(hint,
-                        style: TextStyle(fontSize: 11.5, color: Colors.white.withValues(alpha: .55))),
+                    Text(
+                      hint,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white.withValues(alpha: .55),
+                      ),
+                    ),
                   ],
                 ),
               ),
