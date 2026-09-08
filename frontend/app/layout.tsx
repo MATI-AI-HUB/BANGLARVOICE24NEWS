@@ -3,6 +3,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from '../components/theme-toggle';
 import { BreakingMarquee } from '../components/breaking-marquee';
+import { Footer } from '../components/Footer';
+import { CookieBanner } from '../components/CookieBanner';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
@@ -106,60 +108,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <BreakingMarquee />
         </header>
         {children}
-        <footer className="mt-16 border-t border-border bg-muted dark:bg-neutral-950">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-3">
-            <div>
-              <Link href="/" className="inline-flex items-center">
-                <Image
-                  src="/banglar-voice-logo.png"
-                  alt="Banglar Voice — বাংলার ভয়েস"
-                  width={240}
-                  height={81}
-                  className="h-[34px] w-auto object-contain"
-                />
-              </Link>
-              <p className="mt-2 max-w-xs text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
-                স্বাধীন সংবাদ প্রচারে নির্বাক — বাংলাদেশ ও বিশ্ব, নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য
-                সাংবাদিকতা।
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-500">
-                সেকশন
-              </h4>
-              <ul className="mt-3 space-y-2 text-sm">
-                <li>
-                  <a className="text-neutral-700 transition-colors hover:text-primary dark:text-neutral-300" href="/#latest">
-                    সর্বশেষ সংবাদ
-                  </a>
-                </li>
-                <li>
-                  <a className="text-neutral-700 transition-colors hover:text-primary dark:text-neutral-300" href="/#trending">
-                    ট্রেন্ডিং
-                  </a>
-                </li>
-                <li>
-                  <a className="text-neutral-700 transition-colors hover:text-primary dark:text-neutral-300" href="/article/demo-1">
-                    আর্টিকেল
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-500">
-                প্ল্যাটফর্ম
-              </h4>
-              <ul className="mt-3 space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
-                <li>মোবাইল অ্যাপ: রিডার, অ্যাডমিন, রিপোর্টার, টিভি</li>
-                <li>ওয়েব: Next.js ISR + PocketBase</li>
-                <li>অডিও: বাংলা টেক্সট-টু-স্পিচ</li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-border/70 py-5 text-center text-xs text-neutral-500 dark:border-neutral-800">
-            © ২০২৬ বাংলার ভয়েস — স্বাধীন প্রকাশনায় নির্বীক · Powered by PocketBase + Next.js ISR
-          </div>
-        </footer>
+        <Footer />
+        <CookieBanner />
       </body>
     </html>
   );
