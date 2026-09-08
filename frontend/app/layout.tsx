@@ -59,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 width={320}
                 height={108}
                 priority
-                className="h-[44px] w-auto object-contain"
+                className="h-[44px] md:h-[58px] lg:h-[62px] w-auto object-contain"
               />
             </Link>
             <div className="flex items-center gap-3">

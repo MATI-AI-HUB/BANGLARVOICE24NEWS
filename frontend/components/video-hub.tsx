@@ -60,8 +60,8 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
         <h2 id="videohub-heading" className="flex items-center gap-2 font-serifbn text-2xl font-extrabold tracking-tight">
           <span aria-hidden>🎬</span> ভিডিও ও পডকাস্ট
         </h2>
-        <span className="flex items-center gap-1.5 rounded-full bg-red-600/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-red-400">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" aria-hidden />
+        <span className="flex items-center gap-1.5 rounded-full bg-[#CC0000] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" aria-hidden />
           লাইভ হাব
         </span>
       </div>
@@ -72,7 +72,7 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
           <div className="relative overflow-hidden rounded-2xl border border-white/10">
             <Thumb src={feature?.thumbnail_url} alt={feature?.title_bn || 'ভিডিও'} />
             {feature?.is_live && (
-              <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded bg-red-600 px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest">
+              <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded bg-[#CC0000] px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" aria-hidden />
                 Live
               </span>
@@ -107,7 +107,7 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
               </div>
               <div className="min-w-0">
                 {v.is_live && (
-                  <span className="mb-1 inline-block rounded bg-red-600 px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-widest">
+                  <span className="mb-1 inline-block rounded bg-[#CC0000] px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-widest">
                     Live
                   </span>
                 )}

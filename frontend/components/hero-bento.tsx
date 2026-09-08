@@ -35,7 +35,7 @@ function biasBadge(bias?: number) {
       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
       : v < 65
         ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-        : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+        : 'bg-[#CC0000]/10 text-[#CC0000] dark:bg-[#CC0000]/25 dark:text-[#CC0000]';
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}
@@ -50,7 +50,7 @@ function biasBadge(bias?: number) {
 function placeholderGradient(seed = ''): string {
   // Deterministic subtle gradient from any seed — no external images, no CLS.
   const palettes = [
-    'from-red-100 via-rose-50 to-orange-100',
+    'from-[#E5E2DE] via-[#F5F2ED] to-[#C5A880]/30',
     'from-sky-100 via-indigo-50 to-blue-100',
     'from-emerald-100 via-teal-50 to-lime-100',
     'from-violet-100 via-purple-50 to-fuchsia-100',
