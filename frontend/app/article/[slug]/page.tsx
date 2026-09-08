@@ -115,6 +115,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
       <AudioPlayerWidget text={narrateText} title={a.title_bn} />
 
+      {/* Share buttons at the end of the article, before related articles */}
+      <div className="mt-10 border-t border-border pt-6 dark:border-white/10">
+        <ShareButtons title={a.title_bn} />
+      </div>
+
       <RelatedArticles currentSlug={a.slug} category={a.category} />
     </article>
   );
