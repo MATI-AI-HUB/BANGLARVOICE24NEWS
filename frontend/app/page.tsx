@@ -82,6 +82,38 @@ export default async function HomePage() {
       {/* 60% lead + stacked secondary + tabbed right rail (সর্বশেষ/ট্রেন্ডিং) */}
       <HeroBentoGrid articles={feed.map(toBento)} />
 
+      {/* App download banner — mobile users */}
+      <section
+        aria-label="অ্যাপ ডাউনলোড"
+        className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-crimson/20 bg-gradient-to-r from-crimson/10 via-paper to-paper p-5 sm:flex-row sm:p-6 dark:from-crimson/20 dark:via-neutral-900 dark:to-neutral-900"
+      >
+        <div className="flex items-center gap-4">
+          <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-crimson text-white sm:flex" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+          </span>
+          <div>
+            <p className="font-serif text-lg font-bold text-ink dark:text-paper">বাংলার ভয়েস অ্যান্ড্রয়েড অ্যাপ</p>
+            <p className="text-[13px] text-neutral-600 dark:text-neutral-400">
+              ব্রেকিং নিউজ, লাইভ টিভি, শর্টস ও অডিও মোড — এখন আপনার ফোনে।
+            </p>
+          </div>
+        </div>
+        <a
+          href="/download"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-crimson px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-crimson-dark"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          অ্যাপ ডাউনলোড
+        </a>
+      </section>
+
       {feed.length > 3 && (
         <section id="latest" className="mt-14 scroll-mt-24" aria-labelledby="latest-heading">
           <LatestGrid articles={feed.map(toBento)} />

@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: '/#cat-politics', label: 'রাজনীতি' },
   { href: '/#cat-economy', label: 'অর্থনীতি' },
   { href: '/#trending', label: 'ট্রেন্ডিং' },
+  { href: '/download', label: 'অ্যাপ' },
 ];
 
 function LiveBanglaClock() {

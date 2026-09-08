@@ -16,17 +16,27 @@ const ethicsLinks = [
   { href: '/about', label: 'আমাদের সম্পর্কে' },
 ];
 
+const appLinks = [
+  { href: '/download', label: 'অ্যাপ ডাউনলোড' },
+  { href: '/download#arm64', label: 'Android (arm64)' },
+  { href: '/download#armv7', label: 'Android (armv7)' },
+  { href: '/download#x86_64', label: 'Android (x86_64)' },
+];
+
 export function Footer() {
   return (
     <footer className="border-t border-border bg-muted/60 dark:bg-neutral-950/60">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-5">
         {/* Brand */}
         <div>
           <p className="font-serif text-lg font-bold text-ink dark:text-paper">বাংলার ভয়েস</p>
           <p className="mt-1 text-[13px] font-medium text-neutral-500">Banglar Voice · স্বাধীন ও দায়িত্বশীল সাংবাদিকতা</p>
           <p className="mt-3 text-[11px] text-neutral-500">সর্বশেষ হালনাগাদ: ০৮ সেপ্টেম্বর ২০২৬</p>
           <p className="mt-2 text-[12px] leading-relaxed text-neutral-500">
-            Vercel + Supabase-এ নির্মিত। বাংলাদেশের আইন অনুসারে পরিচালিত।
+            বাংলার ভয়েস প্রোডাকশন হাউসের তত্ত্বাবধানে পরিচালিত, একটি এআই অটোমেশন সিস্টেমের মাধ্যমে পরিচালিত অনলাইন গণমাধ্যম বাংলার ভয়েস।
+          </p>
+          <p className="mt-1 text-[11px] text-neutral-400">
+            টেক স্ট্যাক: Vercel + Supabase · বাংলাদেশের আইন অনুসারে পরিচালিত।
           </p>
         </div>
 
@@ -49,6 +59,20 @@ export function Footer() {
           <p className="mb-3 text-[12px] font-bold uppercase tracking-widest text-neutral-500">নীতিমালা ও অন্যান্য</p>
           <ul className="space-y-2 text-[14px]">
             {ethicsLinks.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="text-neutral-700 transition-colors hover:text-primary dark:text-neutral-300">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* App Links */}
+        <nav aria-label="অ্যাপ ডাউনলোড">
+          <p className="mb-3 text-[12px] font-bold uppercase tracking-widest text-neutral-500">অ্যাপ</p>
+          <ul className="space-y-2 text-[14px]">
+            {appLinks.map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="text-neutral-700 transition-colors hover:text-primary dark:text-neutral-300">
                   {l.label}
