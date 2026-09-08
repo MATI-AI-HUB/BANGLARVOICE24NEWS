@@ -9,8 +9,21 @@ import 'package:flutter/material.dart';
 
 import 'src/screens/live_setup_screen.dart';
 import 'src/services/studio_session.dart';
+import 'package:supabase_core/supabase_core.dart';
 
-void main() => runApp(const BanglarVoiceStudioApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Same shared Supabase project as the other four apps (no-op until dart-defines).
+  // (Wraps Supabase.initialize — see packages/supabase_core.)
+  await SupabaseCore.initialize();
+  runApp(const BanglarVoiceStudioApp());
+  // Realtime: studio listens to live_sessions state from the control room.
+  SupabaseCore.realtimeChannel(
+    name: 'live_sessions',
+    table: 'live_sessions',
+    onEvent: () => debugPrint('live_sessions changed → refresh studio state'),
+  );
+}
 
 class BanglarVoiceStudioApp extends StatelessWidget {
   const BanglarVoiceStudioApp({super.key});

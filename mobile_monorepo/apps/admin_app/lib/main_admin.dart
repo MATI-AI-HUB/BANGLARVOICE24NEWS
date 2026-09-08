@@ -2,8 +2,22 @@
 /// Approval queue + AI translation proofreading + API-key status + VPS health.
 import 'package:flutter/material.dart';
 import 'package:bv_shared/bv_api.dart';
+import 'package:supabase_core/supabase_core.dart';
 
-void main() => runApp(const BvAdminApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Same shared Supabase project as the other four apps. Graceful no-op until
+  // --dart-define SUPABASE_URL/SUPABASE_ANON_KEY are supplied.
+  // (Wraps Supabase.initialize — see packages/supabase_core.)
+  await SupabaseCore.initialize();
+  runApp(const BvAdminApp());
+  // Realtime: the editorial approval queue listens for incoming field_reports.
+  SupabaseCore.realtimeChannel(
+    name: 'field_reports',
+    table: 'field_reports',
+    onEvent: () => debugPrint('field_reports changed → refresh approval queue'),
+  );
+}
 
 class BvAdminApp extends StatelessWidget {
   const BvAdminApp({super.key});

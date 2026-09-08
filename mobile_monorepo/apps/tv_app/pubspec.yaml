@@ -11,6 +11,10 @@ dependencies:
     sdk: flutter
   bv_shared:
     path: ../../packages/bv_shared
+  # Supabase integration — breaking_ticker for the TV ticker.
+  supabase_core:
+    path: ../../packages/supabase_core
+  supabase_flutter: ^2.8.1
 
 flutter:
   uses-material-design: true

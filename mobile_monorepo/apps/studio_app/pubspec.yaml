@@ -14,6 +14,10 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.2
   intl: ^0.20.2
+  # Supabase integration — live_sessions control + same shared project.
+  supabase_core:
+    path: ../../packages/supabase_core
+  supabase_flutter: ^2.8.1
 
 # NOTE: Native live plugins (camera, livekit_client, rtmp_ingest, mux / Cloudflare
 # Stream SDKs, speech-to-text, workmanager) are intentionally NOT pinned here so

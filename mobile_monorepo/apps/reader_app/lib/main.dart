@@ -9,6 +9,8 @@ import 'src/screens/live_screen.dart';
 import 'src/screens/saved_screen.dart';
 import 'src/screens/settings_screen.dart';
 
+import 'package:supabase_core/supabase_core.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
@@ -16,7 +18,16 @@ Future<void> main() async {
   final systemDark =
       WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
   await AppSettings.load(); // restore persisted API base override
+  // Same shared Supabase project as the other four apps (no-op until dart-defines).
+  // (Wraps Supabase.initialize — see packages/supabase_core.)
+  await SupabaseCore.initialize();
   runApp(BvApp(initialDark: savedDark ?? systemDark));
+  // Realtime: TV/reader ticker refreshes when an editor flips a ticker row.
+  SupabaseCore.realtimeChannel(
+    name: 'breaking_ticker',
+    table: 'breaking_ticker',
+    onEvent: () => debugPrint('breaking_ticker changed → ticker will refresh'),
+  );
 }
 
 class BvApp extends StatefulWidget {

@@ -1,7 +1,8 @@
 'use client';
 
-const BREAKING_TEXT =
-  'এআই অটোমেশন এর মাধ্যমে পরিচালিত বাংলার ভয়েস এর পরীক্ষামূলক সম্প্রচার চলছে।';
+import { useEffect, useState } from 'react';
+
+import { supabase } from '@/lib/supabase/client';
 
 /**
  * BreakingMarquee — BBC-style scrolling ticker.
@@ -16,9 +17,54 @@ const BREAKING_TEXT =
  *    for a seamless infinite loop. Hover pauses via `.group:hover .marquee-track`
  *    (see globals.css). Motion is disabled under prefers-reduced-motion.
  *
- * The first headline is exposed to screen readers; the motion is decorative.
+ * Live ticker source: the `breaking_ticker` table (is_active = true). The
+ * component subscribes to postgres_changes so an editor flipping a ticker row
+ * updates the header in real time — no hardcoded text. When Supabase is not
+ * configured (no env keys) the fetch fails gracefully and we render the
+ * fallback line below instead (never crashes the build or the page).
  */
+
+const FALLBACK_TEXTS = [
+  'এআই অটোমেশন এর মাধ্যমে পরিচালিত বাংলার ভয়েস এর পরীক্ষামূলক সম্প্রচার চলছে।',
+];
+
 export function BreakingMarquee() {
+  const [texts, setTexts] = useState<string[]>(FALLBACK_TEXTS);
+
+  useEffect(() => {
+    if (!supabase) return; // no env keys → keep fallback, no crash
+
+    // Supabase checked non-null above; capture locally for the closures so
+    // TypeScript can narrow it (null-check on the module const doesn't
+    // propagate into the async/cleanup callbacks).
+    const sb = supabase;
+    const load = async () => {
+      if (!sb) return;
+      const { data } = await sb
+        .from('breaking_ticker')
+        .select('text')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (data?.length) {
+        setTexts(data.map((d) => d.text));
+      }
+    };
+
+    load();
+    const channel = sb
+      .channel('breaking_ticker')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'breaking_ticker' },
+        load,
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(channel);
+    };
+  }, []);
+
   return (
     <div className="group relative flex h-9 overflow-hidden bg-[#CC0000]">
       {/* Fixed BREAKING badge — never overlapped (z-20, shrink-0) */}
@@ -39,7 +85,7 @@ export function BreakingMarquee() {
         role="region"
         aria-label="ব্রেকিং নিউজ টিকার"
       >
-        <p className="sr-only">{BREAKING_TEXT}</p>
+        <p className="sr-only">{texts[0]}</p>
         {/* Only this inner text div animates; the track never moves */}
         <div className="absolute inset-0 flex items-center">
           <div className="marquee-track flex items-center whitespace-nowrap will-change-transform animate-[marquee_30s_linear_infinite]">
@@ -49,8 +95,12 @@ export function BreakingMarquee() {
                 className="flex items-center whitespace-nowrap text-sm font-medium text-white"
                 aria-hidden
               >
-                {BREAKING_TEXT}
-                <span className="mx-8 h-1 w-1 shrink-0 rounded-full bg-white/60" />
+                {texts.map((text) => (
+                  <span key={text} className="flex items-center">
+                    {text}
+                    <span className="mx-8 h-1 w-1 shrink-0 rounded-full bg-white/60" />
+                  </span>
+                ))}
               </span>
             ))}
           </div>

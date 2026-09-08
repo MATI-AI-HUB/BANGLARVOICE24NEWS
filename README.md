@@ -50,6 +50,26 @@ banglar-voice-v5.0.0/
 
 ---
 
+## 🏗️ আর্কিটেকচার ডায়াগ্রাম (Supabase Realtime flow)
+
+সব ক্লায়েন্ট (৫টি Flutter অ্যাপ + Next.js ওয়েব) একটি shared Supabase প্রজেক্টের সাথে সংযুক্ত
+(`SUPABASE_URL` / `SUPABASE_ANON_KEY` dart-define বা `NEXT_PUBLIC_*` env — কখনো hardcode নয়;
+`mobile_monorepo/packages/supabase_core` ও `frontend/lib/supabase/client.ts` graceful fallback রাখে)।
+
+```mermaid
+graph TD
+  A[Reporter App INSERT field_reports] --> B[(Supabase Realtime)]
+  B --> C[Editorial App Listener]
+  C -- status=approved_for_live --> B
+  B --> D[Reader/TV/Live App]
+  E[Web - breaking-marquee.tsx] -- SELECT breaking_ticker is_active=true --> B
+  B -- postgres_changes breaking_ticker --> E
+```
+
+> PocketBase এখনও primary backend — Supabase এই ফ্লো-গুলোর জন্য **পাশাপাশি** যোগ হয়েছে (feature-flagged);
+> কোনো PocketBase পাথ সরানো হয়নি। Live Supabase project-এর URL/anon key না দিলে সব ক্লায়েন্ট
+> graceful fallback-এ চলে (টিকার ফলব্যাক টেক্সট / PocketBase REST) — কখনো crash নয়।
+
 ## 🛠️ কীভাবে বিল্ড করবেন
 
 ### Reader APK (সবচেয়ে গুরুত্বপূর্ণ — প্রি-বিল্ট ফাইলও আছে)

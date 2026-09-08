@@ -2,8 +2,21 @@
 /// Android TV / tablet landscape UI, 24-hour audio stream player with
 /// auto-scrolling breaking-news ticker.
 import 'package:flutter/material.dart';
+import 'package:supabase_core/supabase_core.dart';
 
-void main() => runApp(const BvTvApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Same shared Supabase project as the other four apps (no-op until dart-defines).
+  // (Wraps Supabase.initialize — see packages/supabase_core.)
+  await SupabaseCore.initialize();
+  runApp(const BvTvApp());
+  // Realtime: the TV ticker refreshes when an editor flips a breaking_ticker row.
+  SupabaseCore.realtimeChannel(
+    name: 'breaking_ticker',
+    table: 'breaking_ticker',
+    onEvent: () => debugPrint('breaking_ticker changed → ticker will refresh'),
+  );
+}
 
 class BvTvApp extends StatelessWidget {
   const BvTvApp({super.key});
