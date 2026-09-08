@@ -6,6 +6,7 @@ import { CategoryModules } from '../components/category-modules';
 import { AudioPlayerWidget } from '../components/audio-player';
 import { LiveBlog, type LiveEntry } from '../components/live-blog';
 import { VideoHub, type VideoItem } from '../components/video-hub';
+import { AINewsAnchor } from '../components/ai-anchor';
 import { NewsletterCta } from '../components/newsletter-cta';
 // Local Fallback Mock Data Engine — rich Bengali corpus used whenever the
 // API is unreachable, so the homepage never renders blank/unstyled.
@@ -135,6 +136,14 @@ export default async function HomePage() {
 
       {/* Dark video & podcast hub */}
       <VideoHub videos={videos} />
+
+      {/* AI news anchor — virtual presenter with Bengali voice-over */}
+      <AINewsAnchor
+        script={{
+          title: 'আজকের প্রধান সংবাদ — AI অ্যাংকরের সাথে',
+          body: 'স্বাগতম। আজকের প্রধান সংবাদে — পদ্মা সেতু দিয়ে প্রথম দিনে রেকর্ড সংখ্যক যানবাহন পারাপার হয়েছে, টোল আদায় হয়েছে দুই কোটি টাকা। অর্থনীতিতে নতুন আশার আলো দেখছেন বিশ্লেষকরা। পাশাপাশি, জাতীয় সংসদে বাজেট অধিবেশন শুরু হয়েছে, যেখানে আগামী বছরের বাজেট নিয়ে আলোচনা চলছে। ক্রীড়া জগতে, বাংলাদেশের ক্রিকেট দল সিরিজ জয়ের পথে। বিস্তারিত থাকছে আমাদের পরবর্তী সংবাদে।',
+        }}
+      />
 
       {/* Membership / newsletter hook */}
       <NewsletterCta />
