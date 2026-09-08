@@ -1,0 +1,26 @@
+name: studio_app
+description: Banglar Voice Breaking Live Studio — 10-second multi-destination live control room.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  bv_shared:
+    path: ../../packages/bv_shared
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  intl: ^0.20.2
+
+# NOTE: Native live plugins (camera, livekit_client, rtmp_ingest, mux / Cloudflare
+# Stream SDKs, speech-to-text, workmanager) are intentionally NOT pinned here so
+# the app keeps compiling on a stock toolchain and in CI without downloading
+# platform artifacts — same convention as reporter_app. The screens expose the
+# exact wiring points; see lib/src/config.dart (StudioSecrets) and the *_service
+# stubs for which packages to add when a real LiveKit server / RTMP ingest /
+# Mux/Cloudflare project is provisioned. No fake stream is ever started.
+flutter:
+  uses-material-design: true
