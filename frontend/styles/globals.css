@@ -2,16 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+/* Banglar Voice — global base. Fonts are injected by next/font in app/layout.tsx
+   (Noto Serif Bengali + Hind Siliguri); CSS vars are set there and consumed
+   below / by tailwind.config.ts. */
+
+:root {
+  --background: #fafafd;
+  --foreground: #0f0f0f;
+}
 
 html {
   scroll-behavior: smooth;
 }
 
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans-bn), 'Hind Siliguri', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
 /* Seamless breaking-news ticker (see BreakingMarquee).
-   The text is repeated 3x, so translating -33.3333% loops seamlessly.
-   `marquee` is also referenced by Tailwind's arbitrary animation utility
-   (animate-[marquee_30s_linear_infinite]) on the inner text div. */
+   The text is repeated 3x, so translating -33.3333% loops seamlessly. */
 @keyframes marquee {
   from {
     transform: translateX(0);
@@ -21,8 +33,7 @@ html {
   }
 }
 
-/* Inner ticker track — ONLY this element animates; hover pauses it.
-   The flex-1 clipping track and the BREAKING badge are never animated. */
+/* Inner ticker track — ONLY this element animates; hover pauses it. */
 .marquee-track {
   animation: marquee 30s linear infinite;
 }
@@ -51,12 +62,8 @@ html {
   border-radius: 4px;
 }
 
-body {
-  font-family: 'Hind Siliguri', system-ui, sans-serif;
-}
-
 .font-serifbn {
-  font-family: 'Noto Serif Bengali', serif;
+  font-family: var(--font-serif-bn), 'Noto Serif Bengali', serif;
 }
 
 .line-clamp-2 {

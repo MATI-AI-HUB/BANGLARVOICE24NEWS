@@ -1,4 +1,5 @@
 import { api } from '../lib/api';
+import type { FeedArticle } from '../lib/mockData';
 import type { MetadataRoute } from 'next';
 
 export const revalidate = 3600; // rebuild sitemap hourly
@@ -10,18 +11,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/`, changeFrequency: 'hourly', priority: 1 },
   ];
 
-  let articles: { slug?: string }[] = [];
+  let articles: FeedArticle[] = [];
   try {
     const data = await api.articles(50);
-    articles = (data.items || []).filter((a: { slug?: string }) => a.slug);
+    articles = data.items.filter((a) => a.slug);
   } catch {
     // Backend offline — fall back to demo slugs so sitemap is never empty.
     articles = [
-      { slug: 'demo-1' },
-      { slug: 'demo-2' },
-      { slug: 'demo-3' },
-      { slug: 'demo-4' },
-      { slug: 'demo-5' },
+      { id: 'demo-1', slug: 'demo-1', title_bn: '' },
+      { id: 'demo-2', slug: 'demo-2', title_bn: '' },
+      { id: 'demo-3', slug: 'demo-3', title_bn: '' },
+      { id: 'demo-4', slug: 'demo-4', title_bn: '' },
+      { id: 'demo-5', slug: 'demo-5', title_bn: '' },
     ];
   }
 

@@ -9,7 +9,7 @@ const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   try {
-    const a = await api.article(params.slug);
+    const a = (await api.article(params.slug)) as any;
     const image = a.featured_image
       ? { url: a.featured_image, alt: a.title_bn }
       : undefined;
@@ -37,8 +37,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   try {
     a = await api.article(params.slug);
   } catch {
-    notFound();
+    a = null;
   }
+  // api.article swallows network errors into an empty object; a missing slug
+  // means the article truly does not exist (or the backend is offline) → 404.
+  if (!a || !a.slug) notFound();
 
   const narrateText = `${a.title_bn}। ${a.dek_bn || ''} ${(a.body_bn || '').replace(/<[^>]*>/g, ' ')}`;
 

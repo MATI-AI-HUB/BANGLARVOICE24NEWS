@@ -1,15 +1,29 @@
 import type { Metadata, Viewport } from 'next';
-import Image from 'next/image';
-import Link from 'next/link';
-import { ThemeToggle } from '../components/theme-toggle';
-import { BreakingMarquee } from '../components/breaking-marquee';
+import { Noto_Serif_Bengali, Hind_Siliguri } from 'next/font/google';
+import '../styles/globals.css';
+import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { CookieBanner } from '../components/CookieBanner';
-import '../styles/globals.css';
+
+/* Self-hosted Google Fonts (next/font) — no external stylesheet, no CLS from
+   font swap, works in the Vercel build. */
+const notoSerifBengali = Noto_Serif_Bengali({
+  subsets: ['bengali'],
+  weight: ['400', '700', '800'],
+  variable: '--font-serif-bn',
+  display: 'swap',
+});
+
+const hindSiliguri = Hind_Siliguri({
+  subsets: ['bengali'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans-bn',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: { default: 'বাংলার ভয়েস', template: '%s — বাংলার ভয়েস' },
-  description: 'স্বাধীন সংবাদ প্রকাশে নির্বীক — Banglar Voice autonomous Bangla news platform',
+  description: 'স্বাধীন সংবাদ প্রকাশে নির্বাক — Banglar Voice autonomous Bangla news platform',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'),
   alternates: { canonical: '/' },
   openGraph: {
@@ -33,8 +47,8 @@ const organizationLd = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FFFEFB' },
-    { media: '(prefers-color-scheme: dark)', color: '#0F0F0F' },
+    { media: '(prefers-color-scheme: light)', color: '#FAFAFD' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F172A' },
   ],
 };
 
@@ -47,66 +61,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
         />
       </head>
-      <body className="bg-paper text-ink antialiased dark:bg-ink dark:text-paper">
-        <header className="sticky top-0 z-50 border-b border-border bg-paper/90 backdrop-blur dark:bg-ink/90">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-            <Link
-              href="/"
-              className="inline-flex shrink-0 items-center"
-              aria-label="বাংলার ভয়েস — হোমপেজ"
-            >
-              <Image
-                src="/banglar-voice-logo.png"
-                alt="Banglar Voice — বাংলার ভয়েস"
-                width={320}
-                height={108}
-                priority
-                className="h-[44px] md:h-[58px] lg:h-[62px] w-auto object-contain"
-              />
-            </Link>
-            <div className="flex items-center gap-3">
-              <time
-                dateTime={new Date().toISOString().slice(0, 10)}
-                className="hidden text-xs font-medium text-neutral-500 dark:text-neutral-400 lg:block"
-              >
-                {new Date().toLocaleDateString('bn-BD', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </time>
-              <nav className="hidden items-center gap-1 text-sm font-semibold md:flex" aria-label="প্রধান নেভিগেশন">
-                <a
-                  href="/#latest"
-                  className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
-                >
-                  সর্বশেষ
-                </a>
-                <a
-                  href="/#cat-politics"
-                  className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
-                >
-                  রাজনীতি
-                </a>
-                <a
-                  href="/#cat-economy"
-                  className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
-                >
-                  অর্থনীতি
-                </a>
-                <a
-                  href="/#trending"
-                  className="rounded-full px-3 py-1.5 transition-colors hover:bg-muted dark:hover:bg-neutral-800"
-                >
-                  ট্রেন্ডিং
-                </a>
-              </nav>
-              <ThemeToggle />
-            </div>
-          </div>
-          <BreakingMarquee />
-        </header>
+      <body
+        className={`${notoSerifBengali.variable} ${hindSiliguri.variable} bg-paper font-sansbn text-ink antialiased`}
+      >
+        <Header />
         {children}
         <Footer />
         <CookieBanner />
