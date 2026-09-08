@@ -50,22 +50,30 @@ class SupabaseCore {
   /// The shared client, or null when not configured/initialized.
   static SupabaseClient? get client => _client;
 
-  /// Creates (and subscribes) a postgres_changes channel when Supabase is
+  /// Creates (and subscribes) to a postgres_changes channel when Supabase is
   /// configured; returns null otherwise so callers can skip silently.
   /// Caller must keep the returned channel and remove it on dispose.
   static RealtimeChannel? realtimeChannel({
     required String name,
     required String table,
-    required void Function() onEvent,
+    void Function()? onEvent,
+    void Function(PostgresChangePayload payload)? onPayload,
   }) {
     final c = _client;
     if (c == null) return null;
     return c
         .channel(name)
-        .on(
-          'postgres_changes',
-          {event: '*', schema: 'public', table: table},
-          (_) => onEvent(),
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: table,
+          callback: (payload) {
+            if (onPayload != null) {
+              onPayload(payload);
+            } else {
+              onEvent?.call();
+            }
+          },
         )
         .subscribe();
   }
