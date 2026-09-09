@@ -55,3 +55,9 @@ mobile_monorepo/**/android/local.properties
 
 # --- TS build cache ---
 *.tsbuildinfo
+
+# --- Secrets: keystore + signing (untracked for security) ---
+**/*.jks
+**/key.properties
+android_keystore/
+mobile_monorepo/
