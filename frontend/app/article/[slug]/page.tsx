@@ -1,7 +1,10 @@
 import { api } from '../../../lib/api';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AudioPlayerWidget } from '../../../components/audio-player';
+import { Breadcrumb } from '../../../components/breadcrumb';
+import { RelatedArticles } from '../../../components/related-articles';
 
 export const revalidate = 60;
 
@@ -67,6 +70,15 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleLd) }}
       />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <Breadcrumb category={a.category} title={a.title_bn} />
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-crimson"
+        >
+          <span aria-hidden="true">←</span> হোমে ফিরুন
+        </Link>
+      </div>
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary">
         <span>{a.category}</span>
         {typeof a.bias_index === 'number' && (
@@ -98,6 +110,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       )}
 
       <AudioPlayerWidget text={narrateText} title={a.title_bn} />
+
+      <RelatedArticles currentSlug={a.slug} category={a.category} />
     </article>
   );
 }
