@@ -52,7 +52,41 @@ git push origin main
 
 ## ৫. Deploy
 
-- **Frontend (Vercel/Netlify):** main-এ push হলে auto-deploy (CI-এর build আর্টিফ্যাক্ট)।
+### Frontend — Vercel (সঠিক কনফিগারেশন)
+
+**রিপোজিটরি:** `github.com/hizlanews46-design/Banglarvoice-apps` (monorepo — frontend একটি subfolder)
+
+Vercel-এ import করার সময় **এই সেটিংস** ব্যবহার করো (Vercel ডিপ্লয় ত্রুটির ৯০% কারণ এখানে ভুল):
+
+| সেটিং | মান |
+|---|---|
+| **Root Directory** | `frontend` ⚠️ (সবচেয়ে গুরুত্বপূর্ণ — monorepo root নয়) |
+| **Framework Preset** | Next.js (auto-detect) |
+| **Node.js Version** | `22.x` (`.nvmrc` = `22` — Vercel auto-read করে) |
+| **Build Command** | `npm run build` (vercel.json-এ সেট) |
+| **Install Command** | `npm install --legacy-peer-deps` (vercel.json-এ সেট — vitest/vite peer conflict এড়াতে) |
+| **Output Directory** | `.next` (vercel.json-এ সেট) |
+| **Include outside of Root** | **ON** ⭐ (monorepo-তে প্রয়োজন — root-এর .vercelignore/ফাইল পড়তে) |
+| **Skip deployments** | OFF |
+| **Ignored Build Step** | Automatic |
+
+**Environment Variables** (Project → Settings → Environment Variables → Production/Preview):
+
+```
+NEXT_PUBLIC_API_URL=https://<আপনার backend URL>   # PocketBase/Render — trailing slash নেই
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+```
+
+> **নোট:** `vercel.json`-এ `framework: nextjs` + `buildCommand` + `installCommand` + `outputDirectory` স্পষ্টভাবে সেট করা আছে, এবং `next.config.js`-এ `output: 'standalone'` যোগ করা হয়েছে। Root Directory = `frontend` সেট করলেই Vercel এই ফাইলগুলো পড়বে।
+
+**Vercel ডিপ্লয় ত্রুটি হলে চেক করো:**
+1. Root Directory = `frontend` কিনা (সবচেয়ে সাধারণ ভুল — root-এ import করলে `frontend/package.json` পাওয়া যায় না)
+2. Node 22 (`.nvmrc`) — Vercel auto-detect করে
+3. `npm install --legacy-peer-deps` — vitest/vite peer conflict এড়ায়
+4. Env vars সেট আছে কিনা (build-এ `NEXT_PUBLIC_*` দরকার)
+5. Build log-এ "Collecting page data" → "Generating static pages" → success দেখো
+
 - **Backend (PocketBase Go):** `cd backend && go build -o pocketbase . && ./pocketbase serve` (systemd/PM2)।
 - **Worker (cron):** `cd worker && npm run build && node dist/index.js` (PM2/`systemd` timer)।
 - **Supabase functions:** `supabase functions deploy ai-process-report getApiKey paywall two-factor`।
