@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from './theme-toggle';
@@ -43,13 +43,45 @@ function LiveBanglaClock() {
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Close the mobile drawer when leaving the page (anchor nav) or resizing up.
+  // Close the mobile menu when leaving the page (anchor nav) or resizing up.
   useEffect(() => {
     const close = () => setMenuOpen(false);
     window.addEventListener('hashchange', close);
     return () => window.removeEventListener('hashchange', close);
   }, []);
+
+  // Escape closes the menu; focus returns to the trigger.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
+  // Lock body scroll while the mobile menu is open.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [menuOpen]);
+
+  // Move focus into the panel when it opens, restore to trigger when it closes.
+  useEffect(() => {
+    if (menuOpen) {
+      menuRef.current?.focus();
+    }
+  }, [menuOpen]);
 
   return (
     <>
@@ -72,10 +104,12 @@ export function Header() {
             {/* Mobile drawer trigger */}
             <button
               type="button"
+              ref={triggerRef}
               onClick={() => setMenuOpen((v) => !v)}
               aria-expanded={menuOpen}
-              aria-label="মেনু খুলুন"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-ink transition-colors hover:bg-muted md:hidden"
+              aria-controls="mobile-menu"
+              aria-label={menuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-ink transition-colors hover:bg-muted md:hidden dark:border-white/20 dark:text-white dark:hover:bg-white/10"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 {menuOpen ? <path d="M18 6 6 18M6 6l12 12" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -123,27 +157,39 @@ export function Header() {
 
         {/* Mobile drawer panel */}
         {menuOpen && (
-          <nav
-            className="border-t border-border bg-paper px-4 py-3 md:hidden"
-            aria-label="মোবাইল নেভিগেশন"
-          >
-            <ul className="space-y-1">
-              {NAV_LINKS.map((l) => (
-                <li key={l.href}>
-                  <a
-                    href={l.href}
-                    className="block rounded-lg px-3 py-2.5 text-[15px] font-semibold text-ink/85 hover:bg-muted"
-                  >
-                    {l.label}
-                  </a>
+          <>
+            {/* Backdrop — click to close */}
+            <button
+              type="button"
+              aria-label="মেনু বন্ধ করুন"
+              onClick={() => setMenuOpen(false)}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+            />
+            <nav
+              id="mobile-menu"
+              ref={menuRef}
+              tabIndex={-1}
+              className="relative z-50 max-h-[calc(100dvh-56px)] overflow-y-auto border-t border-border bg-paper px-4 py-3 shadow-glass outline-none md:hidden dark:border-white/10 dark:bg-ink"
+              aria-label="মোবাইল নেভিগেশন"
+            >
+              <ul className="space-y-1">
+                {NAV_LINKS.map((l) => (
+                  <li key={l.href}>
+                    <a
+                      href={l.href}
+                      className="block rounded-lg px-3 py-2.5 text-[15px] font-semibold text-ink/85 hover:bg-muted dark:text-white/85 dark:hover:bg-white/10"
+                    >
+                      {l.label}
+                    </a>
+                  </li>
+                ))}
+                <li className="flex gap-3 pt-2 text-sm font-medium text-ink/70 dark:text-white/70">
+                  <a href="/about" className="hover:underline">আমাদের সম্পর্কে</a>
+                  <a href="/contact" className="hover:underline">যোগাযোগ</a>
                 </li>
-              ))}
-              <li className="flex gap-3 pt-2 text-sm font-medium text-ink/70">
-                <a href="/about" className="hover:underline">আমাদের সম্পর্কে</a>
-                <a href="/contact" className="hover:underline">যোগাযোগ</a>
-              </li>
-            </ul>
-          </nav>
+              </ul>
+            </nav>
+          </>
         )}
 
         {/* Breaking ticker sits under the sticky header */}
