@@ -1,0 +1,82 @@
+// =============================================================================
+// config.ts — central environment configuration for the Banglar Voice worker.
+// Every value is read from process.env with a safe default. No secrets are
+// hardcoded — all credentials come from the environment (.env).
+// =============================================================================
+
+export interface WorkerConfig {
+  intervalMinutes: number;
+  newsRssUrls: string[];
+  chatAiBaseUrl: string;
+  chatAiModel: string;
+  chatAiKey: string;
+  bvBaseUrl: string;
+  newsroomIngestKey: string;
+  autoPublish: boolean;
+  telegramAllowedChatIds: string[];
+  telegramBotToken: string;
+  telegramChannelId: string;
+  social: {
+    facebookPageToken: string;
+    facebookPageId: string;
+    xApiKey: string;
+    xApiSecret: string;
+    xAccessToken: string;
+    xAccessSecret: string;
+    instagramAccessToken: string;
+    linkedinAccessToken: string;
+    linkedinOrganizationId: string;
+  };
+  pexelsApiKey: string;
+}
+
+const num = (v: string | undefined, d: number): number => {
+  const n = parseInt(v ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : d;
+};
+
+const csv = (v: string | undefined): string[] =>
+  (v ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
+  return {
+    intervalMinutes: num(env.INTERVAL_MINUTES, 15),
+    newsRssUrls: csv(env.NEWS_RSS_URLS),
+    chatAiBaseUrl: (env.CHAT_AI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, ""),
+    chatAiModel: env.CHAT_AI_MODEL ?? "gpt-4o-mini",
+    chatAiKey: env.CHAT_AI_KEY ?? "",
+    bvBaseUrl: (env.BV_BASE_URL ?? "http://127.0.0.1:8090").replace(/\/$/, ""),
+    newsroomIngestKey: env.NEWSROOM_INGEST_KEY ?? "change-me",
+    autoPublish: (env.AUTO_PUBLISH ?? "false").toLowerCase() === "true",
+    telegramAllowedChatIds: csv(env.TELEGRAM_ALLOWED_CHAT_IDS),
+    telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? "",
+    telegramChannelId: env.TELEGRAM_CHANNEL_ID ?? "",
+    social: {
+      facebookPageToken: env.FACEBOOK_PAGE_TOKEN ?? "",
+      facebookPageId: env.FACEBOOK_PAGE_ID ?? "",
+      xApiKey: env.X_API_KEY ?? "",
+      xApiSecret: env.X_API_SECRET ?? "",
+      xAccessToken: env.X_ACCESS_TOKEN ?? "",
+      xAccessSecret: env.X_ACCESS_SECRET ?? "",
+      instagramAccessToken: env.INSTAGRAM_ACCESS_TOKEN ?? "",
+      linkedinAccessToken: env.LINKEDIN_ACCESS_TOKEN ?? "",
+      linkedinOrganizationId: env.LINKEDIN_ORGANIZATION_ID ?? "",
+    },
+    pexelsApiKey: env.PEXELS_API_KEY ?? "",
+  };
+}
+
+// Built-in 7-category Google News RSS index (Bangladesh). Used when
+// NEWS_RSS_URLS is empty. Each entry is a category label + feed URL.
+export const BUILTIN_SOURCES: { category: string; url: string }[] = [
+  { category: "national", url: "https://news.google.com/rss/search?q=Bangladesh&hl=bn&gl=BD&ceid=BD:bn" },
+  { category: "politics", url: "https://news.google.com/rss/search?q=%E0%A6%B0%E0%A6%BE%E0%A6%9C%E0%A6%A8%E0%A7%80%E0%A6%A4%E0%A6%BF&hl=bn&gl=BD&ceid=BD:bn" },
+  { category: "economy", url: "https://news.google.com/rss/search?q=%E0%A6%85%E0%A6%B0%E0%A7%8D%E0%A6%A5%E0%A6%A8%E0%A7%80%E0%A6%A4%E0%A6%BF&hl=bn&gl=BD&ceid=BD:bn" },
+  { category: "sports", url: "https://news.google.com/rss/search?q=%E0%A6%96%E0%A7%87%E0%A6%B2%E0%A6%BE%E0%A6%A7%E0%A7%81%E0%A6%B2%E0%A6%BE&hl=bn&gl=BD&ceid=BD:bn" },
+  { category: "technology", url: "https://news.google.com/rss/search?q=%E0%A6%AA%E0%A7%8D%E0%A6%B0%E0%A6%AF%E0%A7%81%E0%A6%95%E0%A7%8D%E0%A6%A4%E0%A6%BF&hl=bn&gl=BD&ceid=BD:bn" },
+  { category: "entertainment", url: "https://news.google.com/rss/search?q=%E0%A6%AC%E0%A6%BF%E0%A6%A8%E0%A7%8B%E0%A6%A6%E0%A6%A8&hl=bn&gl=BD&ceid=BD:bn" },
+  { category: "international", url: "https://news.google.com/rss/search?q=world+news&hl=bn&gl=BD&ceid=BD:bn" },
+];

@@ -37,11 +37,12 @@ class _LiveScreenState extends State<LiveScreen> {
 
   Future<void> _load({bool silent = false}) async {
     if (silent && !mounted) return;
-    if (!silent)
+    if (!silent) {
       setState(() {
         _loading = true;
         _error = false;
       });
+    }
     try {
       final entries = await _api.fetchLive();
       if (!mounted) return;
