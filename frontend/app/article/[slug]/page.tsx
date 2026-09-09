@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { AudioPlayerWidget } from '../../../components/audio-player';
 import { Breadcrumb } from '../../../components/breadcrumb';
 import { RelatedArticles } from '../../../components/related-articles';
+import { ShareButtons } from '../../../components/share-buttons';
 
 export const revalidate = 60;
 
@@ -93,6 +94,9 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         {a.author_name && <span>লেখক: {a.author_name}</span>}
         {a.reading_time_min ? <span>• {a.reading_time_min} মিনিট পড়া</span> : null}
         {a.published_at ? <span>• {new Date(a.published_at).toLocaleDateString('bn-BD', { dateStyle: 'long' })}</span> : null}
+        <span className="ml-auto">
+          <ShareButtons title={a.title_bn} />
+        </span>
       </div>
       {a.featured_image && (
         <img src={a.featured_image} alt={a.title_bn} className="mt-6 aspect-video w-full rounded object-cover" />
@@ -110,6 +114,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       )}
 
       <AudioPlayerWidget text={narrateText} title={a.title_bn} />
+
+      {/* Share buttons at the end of the article, before related articles */}
+      <div className="mt-10 border-t border-border pt-6 dark:border-white/10">
+        <ShareButtons title={a.title_bn} />
+      </div>
 
       <RelatedArticles currentSlug={a.slug} category={a.category} />
     </article>
