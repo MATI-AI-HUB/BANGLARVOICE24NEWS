@@ -1,0 +1,8 @@
+# Banglar Voice — release signing template (DO NOT commit real passwords)
+# আসল পাসওয়ার্ড কখনো commit করবেন না — CI-তে GitHub Secret (KEYSTORE_PASSWORD)
+# অথবা লোকালি .bashrc-এ রেখে ব্যবহার করুন। প্রতিটি অ্যাপের android/key.properties
+# এই ফাইলের কাঠামো অনুসরণ করে, শুধু আসল মান বসান।
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=banglarvoice
+storeFile=app/keystore/banglar-voice-release.jks

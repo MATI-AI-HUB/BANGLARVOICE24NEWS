@@ -1,0 +1,23 @@
+name: admin_app
+description: Banglar Voice Editorial & Admin Command App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  bv_shared:
+    path: ../../packages/bv_shared
+  # Supabase integration — same shared project as reporter_app + web ticker.
+  # Client init + realtime live in packages/supabase_core; init runs in main
+  # before runApp and is a graceful no-op until SUPABASE_URL/SUPABASE_ANON_KEY
+  # dart-defines are supplied (see packages/supabase_core/README note in code).
+  supabase_core:
+    path: ../../packages/supabase_core
+  supabase_flutter: ^2.8.1
+
+flutter:
+  uses-material-design: true

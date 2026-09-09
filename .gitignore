@@ -56,8 +56,7 @@ mobile_monorepo/**/android/local.properties
 # --- TS build cache ---
 *.tsbuildinfo
 
-# --- Secrets: keystore + signing (untracked for security) ---
-**/*.jks
-**/key.properties
-android_keystore/
-mobile_monorepo/
+# --- Signing + mobile source: committed while repo is PRIVATE (turnkey CI) ---
+# keystore (.jks) + key.properties + mobile_monorepo/ are versioned so the
+# Build APKs workflow can sign and build without secrets. Re-ignore them
+# BEFORE making this repo public (see android_keystore/README.md).

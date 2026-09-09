@@ -1,0 +1,15 @@
+name: supabase_core
+description: Banglar Voice shared Supabase client bootstrap (init from env + realtime helpers)
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.8.1
+
+flutter:
+  uses-material-design: true
