@@ -5,6 +5,7 @@ Thumbs.db
 *.tmp
 .env
 .env.local
+.env.*
 !.env.example
 
 # --- Backend ---
@@ -38,15 +39,20 @@ mobile_monorepo/**/android/local.properties
 *.aab
 *.ap_
 
-# --- Secrets (defense-in-depth) ---
-# NOTE: .jks + key.properties are DELIBERATELY committed for turnkey CI signing
-# while this repo is PRIVATE (see android_keystore/README.md). google-services.json
-# would be a NEW secret per-app (Firebase) — block it by default; none exists today.
+# --- 🚨 SECRETS: NEVER COMMIT (use GitHub Secrets instead) ---
+# keystore, key.properties & google-services.json কখনো Git-এ যাবে না।
+# সাইনিং কী GitHub Secrets-এ রাখা হয়:
+#   ANDROID_KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+# বিস্তারিত: android_keystore/README.md
+*.jks
+*.keystore
+key.properties
+**/key.properties
+!key.properties.template
+!**/key.properties.template
+**/keystore/
 **/google-services.json
-
-# --- Signing: turnkey APK build-এর জন্য keystore/key.properties commit হয় (ইচ্ছাকৃত) ---
-# পুরনো ignore নিয়ম সরানো হয়েছে — .jks এবং key.properties এখন versioned।
-# পাবলিক প্রকাশের আগে নিজের নতুন keystore বানান (android_keystore/README.md দেখুন)।
+!**/google-services.json.template
 
 # --- Editor ---
 .idea/
@@ -55,17 +61,3 @@ mobile_monorepo/**/android/local.properties
 
 # --- TS build cache ---
 *.tsbuildinfo
-
-# --- Signing + mobile source: committed while repo is PRIVATE (turnkey CI) ---
-# keystore (.jks) + key.properties + mobile_monorepo/ are versioned so the
-# Build APKs workflow can sign and build without secrets. Re-ignore them
-# BEFORE making this repo public (see android_keystore/README.md).
-
-# --- 🚨 SECRETS: NEVER COMMIT (use GitHub Secrets instead) ---
-*.jks
-*.keystore
-key.properties
-**/key.properties
-!key.properties.template
-!**/key.properties.template
-**/keystore/
