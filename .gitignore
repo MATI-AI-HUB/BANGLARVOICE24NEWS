@@ -60,3 +60,12 @@ mobile_monorepo/**/android/local.properties
 # keystore (.jks) + key.properties + mobile_monorepo/ are versioned so the
 # Build APKs workflow can sign and build without secrets. Re-ignore them
 # BEFORE making this repo public (see android_keystore/README.md).
+
+# --- 🚨 SECRETS: NEVER COMMIT (use GitHub Secrets instead) ---
+*.jks
+*.keystore
+key.properties
+**/key.properties
+!key.properties.template
+!**/key.properties.template
+**/keystore/
