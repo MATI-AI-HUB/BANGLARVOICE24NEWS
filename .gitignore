@@ -61,3 +61,6 @@ key.properties
 
 # --- TS build cache ---
 *.tsbuildinfo
+
+# Backup files
+*.bak

@@ -47,7 +47,7 @@ export function BreakingMarquee() {
         .order('created_at', { ascending: false })
         .limit(10);
       if (data?.length) {
-        setTexts(data.map((d) => d.text));
+        setTexts(data.map((d: { text: string }) => d.text));
       }
     };
 
