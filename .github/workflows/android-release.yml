@@ -1,0 +1,37 @@
+name: Android Release (signed)
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [admin_app, reader_app, reporter_app, studio_app, tv_app]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.x', cache: true }
+      - name: Restore signing from secrets
+        env:
+          KS_B64: ${{ secrets.BANGLARVOICE_KEYSTORE_B64 }}
+          STORE_PASS: ${{ secrets.BANGLARVOICE_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.BANGLARVOICE_KEY_PASSWORD }}
+          ALIAS: ${{ secrets.BANGLARVOICE_KEY_ALIAS }}
+        run: |
+          D=mobile_monorepo/apps/${{ matrix.app }}/android
+          mkdir -p "$D/app/keystore"
+          echo "$KS_B64" | base64 --decode > "$D/app/keystore/banglar-voice-release.jks"
+          printf 'storeFile=keystore/banglar-voice-release.jks\nkeyAlias=%s\nkeyPassword=%s\nstorePassword=%s\n' "$ALIAS" "$KEY_PASS" "$STORE_PASS" > "$D/key.properties"
+      - name: Build AAB
+        working-directory: mobile_monorepo/apps/${{ matrix.app }}
+        run: flutter build appbundle --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-release
+          path: mobile_monorepo/apps/${{ matrix.app }}/build/app/outputs/bundle/release/app-release.aab
+      - name: Cleanup
+        if: always()
+        run: rm -f mobile_monorepo/apps/${{ matrix.app }}/android/key.properties mobile_monorepo/apps/${{ matrix.app }}/android/app/keystore/*.jks
