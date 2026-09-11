@@ -25,12 +25,12 @@ const hindSiliguri = Hind_Siliguri({
 
 export const metadata: Metadata = {
   title: { default: 'বাংলার ভয়েস', template: '%s — বাংলার ভয়েস' },
-  description: 'স্বাধীন সংবাদ প্রকাশে নির্বাক — Banglar Voice autonomous Bangla news platform',
+  description: 'স্বাধীন সংবাদ প্রকাশে নির্ভীক — Banglar Voice autonomous Bangla news platform',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'),
   alternates: { canonical: '/' },
   openGraph: {
     siteName: 'বাংলার ভয়েস',
-    title: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্বাক',
+    title: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্ভীক',
     description: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
     locale: 'bn_BD',
     type: 'website',
