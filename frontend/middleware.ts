@@ -1,4 +1,4 @@
-// frontend/middleware.ts
+import ratelimit from "@/lib/rate-limit";\n// frontend/middleware.ts
 // Protects /admin routes based on Supabase Auth and User Role
 
 import { createServerClient } from '@supabase/ssr'
