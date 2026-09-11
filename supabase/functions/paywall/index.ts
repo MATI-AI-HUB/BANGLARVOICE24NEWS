@@ -1,3 +1,4 @@
+import { Sentry } from "../_shared/sentry.ts";
 // =============================================================================
 // paywall — membership gating for the Banglar Voice monetization plan.
 // -----------------------------------------------------------------------------

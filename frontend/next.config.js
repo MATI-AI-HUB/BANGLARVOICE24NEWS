@@ -1,14 +1,23 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  output: 'standalone',
-  images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
-  },
-  async rewrites() {
-    const api = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8090';
-    return [{ source: '/api/backend/:path*', destination: `${api}/api/:path*` }];
-  },
+  // আপনার আগের যেকোনো config এখানে থাকবে
+  reactStrictMode: true, 
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(
+  nextConfig,
+  {
+    org: "banglarvoice", // Sentry dashboard-এ আপনার org name দিন
+    project: "frontend",
+    silent: true, // Build logs পরিষ্কার রাখতে
+    hideSourceMaps: true,
+    disableLogger: true,
+  },
+  {
+    widenClientFileUpload: true,
+    transpileClientSDK: true,
+    tunnelRoute: "/monitoring",
+  }
+);

@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/node": "^10.74.0",
     "@supabase/supabase-js": "^2.116.0",
     "fast-xml-parser": "^4.4.1"
   },

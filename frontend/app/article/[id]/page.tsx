@@ -1,8 +1,9 @@
 // frontend/app/article/[id]/page.tsx
-// Sample article page with paywall integration
+// Article page with Paywall + Ad Integration
 
 import { createClient } from '@/lib/supabase/server';
 import { Paywall } from '@/components/paywall';
+import { AdSlot } from '@/components/ad-slot';
 import { notFound } from 'next/navigation';
 
 interface ArticlePageProps {
@@ -23,9 +24,20 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound();
   }
 
+  // TODO: Fetch real user premium status from Supabase session
+  const isPremiumUser = false; 
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-16">
-      {/* Article header — always visible */}
+      {/* Top Ad Slot */}
+      <AdSlot 
+        slotId="top-banner-001" 
+        type="adsense" 
+        isPremium={isPremiumUser} 
+        className="mb-8" 
+      />
+
+      {/* Article header */}
       <header className="mb-8">
         <h1 className="text-4xl font-bold tracking-tight">{article.title}</h1>
         <div className="mt-4 flex items-center gap-4 text-sm text-neutral-500">
@@ -51,9 +63,19 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </article>
         </Paywall>
       ) : (
-        <article className="prose prose-lg max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: article.content }} />
-        </article>
+        <>
+          <article className="prose prose-lg max-w-none">
+            <div dangerouslySetInnerHTML={{ __html: article.content }} />
+          </article>
+          
+          {/* Bottom Ad Slot (Only for free articles) */}
+          <AdSlot 
+            slotId="bottom-banner-002" 
+            type="direct" 
+            isPremium={isPremiumUser} 
+            className="mt-12" 
+          />
+        </>
       )}
     </main>
   );

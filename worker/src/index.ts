@@ -1,3 +1,4 @@
+import "./sentry";
 // =============================================================================
 // index.ts — Banglar Voice 24/7 AI news worker entry point.
 // Loads config, runs the pipeline on an interval, and exposes a minimal

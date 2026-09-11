@@ -64,3 +64,8 @@ key.properties
 
 # Backup files
 *.bak
+
+# Android signing local secrets
+mobile_monorepo/keystores/
+*.jks
+*.keystore

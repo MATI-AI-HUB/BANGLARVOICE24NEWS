@@ -1,40 +1,66 @@
-/**
- * AdSlot — labelled "বিজ্ঞাপন" placeholder slot with a reserved aspect-ratio
- * box so the layout does NOT shift when a real ad loads later (CLS 0).
- * Wire real ads here later via ads.txt partner / Google Ad Manager without
- * touching the surrounding grid.
- */
-export function AdSlot({
-  format = 'in-feed',
-  label = 'বিজ্ঞাপন',
-}: {
-  format?: 'in-feed' | 'leaderboard' | 'sidebar';
-  label?: string;
-}) {
-  const ratio =
-    format === 'leaderboard' ? 'aspect-[8/1]' : format === 'sidebar' ? 'aspect-[3/4]' : 'aspect-[3/1]';
-  return (
-    <div
-      className="flex w-full flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-neutral-300 bg-muted/60 px-4 py-5 text-center dark:border-neutral-700 dark:bg-neutral-900/60"
-      role="complementary"
-      aria-label={label}
-    >
-      <span className="rounded bg-neutral-200/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-        {label}
-      </span>
-      <span className={`w-full max-w-xl rounded-xl bg-gradient-to-br from-neutral-200 to-neutral-300 dark:from-neutral-800 dark:to-neutral-700 ${ratio}`} />
-      <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
-        Ad Manager integration pending — reserved space (CLS 0)
-      </span>
-    </div>
-  );
+// frontend/components/ad-slot.tsx
+// Reusable Ad component (AdSense + Direct Ads)
+// Automatically hides for premium users
+
+'use client';
+
+interface AdSlotProps {
+  slotId: string;
+  type: 'adsense' | 'direct';
+  isPremium?: boolean;
+  className?: string;
 }
 
-/** Compact divider used inside dense grids every N items. */
-export function AdSlotGridItem() {
+export function AdSlot({ slotId, type, isPremium = false, className = '' }: AdSlotProps) {
+  // Premium users get an ad-free experience
+  if (isPremium) {
+    return null; 
+  }
+
+  if (type === 'direct') {
+    // Direct Ad (Custom banner/link)
+    return (
+      <a 
+        href="/advertise" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className={`block w-full rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-center transition hover:bg-neutral-100 ${className}`}
+      >
+        <div className="text-xs font-medium uppercase tracking-wider text-neutral-400">
+          বিজ্ঞাপন
+        </div>
+        <div className="mt-2 text-lg font-bold text-neutral-700">
+          আপনার বিজ্ঞাপন এখানে দিন
+        </div>
+        <div className="mt-1 text-sm text-neutral-500">
+          সরাসরি বিজ্ঞাপনের জন্য আমাদের সাথে যোগাযোগ করুন
+        </div>
+      </a>
+    );
+  }
+
+  // Google AdSense (Mock UI for now)
+  // TODO: Replace with real AdSense script in production
   return (
-    <div className="col-span-full my-2">
-      <AdSlot format="leaderboard" />
+    <div className={`flex h-[90px] w-full items-center justify-center rounded-lg border border-dashed border-amber-200 bg-amber-50 ${className}`}>
+      <div className="text-center">
+        <div className="text-xs font-medium uppercase tracking-wider text-amber-600">
+          Google AdSense
+        </div>
+        <div className="mt-1 text-sm text-amber-800">
+          Ad Slot ID: {slotId}
+        </div>
+      </div>
+      {/* 
+        Production AdSense Code:
+        <ins className="adsbygoogle"
+             style={{ display: 'block' }}
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot={slotId}
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      */}
     </div>
   );
 }
