@@ -1,8 +1,14 @@
 // frontend/app/pricing/page.tsx
 // Pricing page — 3 tiers: Free, Premium, Team
-// Paywall integration will be added in Phase 10.5
+// Phase 10.3: Mock Stripe checkout integration
+
+'use client';
+
+import { useRouter } from 'next/navigation';
 
 export default function PricingPage() {
+  const router = useRouter();
+
   const tiers = [
     {
       name: "Free",
@@ -48,10 +54,24 @@ export default function PricingPage() {
     },
   ];
 
-  const handleSubscribe = (tierName: string) => {
-    // Phase 10.5: paywall integration will replace this
-    console.log(`Subscribe to ${tierName}`);
-    alert(`${tierName} প্ল্যানে সাবস্ক্রাইব করতে চান। Payment integration শীঘ্রই আসছে।`);
+  const handleSubscribe = async (tierName: string, interval: 'monthly' | 'yearly' = 'monthly') => {
+    if (tierName === 'Free') return;
+
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: tierName, interval }),
+      });
+
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        router.push(data.checkoutUrl);
+      }
+    } catch (error) {
+      console.error('checkout error:', error);
+      alert('Checkout failed. Please try again.');
+    }
   };
 
   return (
