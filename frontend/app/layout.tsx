@@ -1,3 +1,4 @@
+import { PlausibleAnalytics } from "@/components/plausible";
 import type { Metadata, Viewport } from 'next';
 import { Noto_Serif_Bengali, Hind_Siliguri } from 'next/font/google';
 import '../styles/globals.css';
@@ -62,7 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
         />
       </head>
-      <body
+      <body><PlausibleAnalytics /><PlausibleAnalytics />
         className={`${notoSerifBengali.variable} ${hindSiliguri.variable} bg-paper font-sansbn text-ink antialiased`}
       >
         <Header />
