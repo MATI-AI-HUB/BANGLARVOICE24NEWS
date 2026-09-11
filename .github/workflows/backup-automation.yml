@@ -1,0 +1,62 @@
+name: Automated DB & Storage Backup
+on:
+  schedule:
+    - cron: '0 2 * * 0' # প্রতি রবিবার সকাল ৮টা ঢাকা সময় (UTC 2:00 AM)
+  workflow_dispatch: # ম্যানুয়াল ট্রিগারও সুবিধা
+
+jobs:
+  backup-db:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install PostgreSQL client & AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client awscli zip unzip
+
+      - name: Generate Timestamp
+        id: timestamp
+        run: echo "DATE=$(date +%Y-%m-%d_%H%M%S)" >> $GITHUB_ENV
+
+      - name: Run Database Dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "Starting database dump..."
+          pg_dump "$SUPABASE_DB_URL" \
+            --format=custom \
+            --compress=9 \
+            --no-owner \
+            --no-acl \
+            --schema=public \
+            --file=backup.dump
+          echo "✅ DB dump completed: backup.dump"
+
+      - name: Upload to Cloudflare R2
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          echo "Uploading to R2..."
+          aws s3 cp backup.dump "s3://banglarvoice-backups/db/${DATE}_backup.dump" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --sse AES256 \
+            --storage-class DEEP_ARCHIVE
+          echo "✅ Backup uploaded to R2"
+
+      - name: Cleanup Local Files
+        run: rm -f backup.dump
+        if: always()
+
+  notify-success:
+    needs: backup-db
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Send Success Notification (Optional)
+        run: echo "✅ Production backup completed successfully at $(date -u)"
