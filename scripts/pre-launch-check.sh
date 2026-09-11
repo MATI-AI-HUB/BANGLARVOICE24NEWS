@@ -16,7 +16,7 @@ if [ -n "$(git status --porcelain)" ]; then
 # 2. Critical Files Existence
 for f in \
   frontend/app/pricing/page.tsx \
-  frontend/app/article/\[id\]/page.tsx \
+  frontend/app/article/\[slug]/page.tsx \
   frontend/components/paywall.tsx \
   frontend/components/ad-slot.tsx \
   frontend/components/plausible.tsx \
