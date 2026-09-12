@@ -11,8 +11,18 @@ export function AudioPlayerWidget({ text, title }: { text: string; title?: strin
   const [speaking, setSpeaking] = useState(false);
   const [rate, setRate] = useState(1);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [supported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
+  const [mounted, setMounted] = useState(false);
+  const [supported, setSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Mount guard: prevents SSR/client hydration mismatch because
+  // speechSynthesis is only available in the browser.
+  useEffect(() => {
+    setMounted(true);
+    setSupported(
+      typeof window !== 'undefined' && 'speechSynthesis' in window,
+    );
+  }, []);
 
   useEffect(() => {
     if (!supported) return;
@@ -50,7 +60,7 @@ export function AudioPlayerWidget({ text, title }: { text: string; title?: strin
     setSpeaking(true);
   };
 
-  if (!supported) return null;
+  if (!mounted || !supported) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-paper/95 backdrop-blur-md dark:border-neutral-800 dark:bg-ink/95">
