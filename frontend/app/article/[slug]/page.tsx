@@ -11,16 +11,19 @@ export const revalidate = 60;
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com';
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+type PageProps = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
   try {
-    const a = (await api.article(params.slug)) as any;
+    const a = (await api.article(slug)) as any;
     const image = a.featured_image
       ? { url: a.featured_image, alt: a.title_bn }
       : undefined;
     return {
       title: a.title_bn,
       description: a.dek_bn || a.seo_description,
-      alternates: { canonical: `/article/${params.slug}` },
+      alternates: { canonical: `/article/${slug}` },
       openGraph: {
         title: a.title_bn,
         description: a.dek_bn,
@@ -36,10 +39,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default async function ArticlePage({ params }: { params: { slug: string } }) {
+export default async function ArticlePage({ params }: PageProps) {
+  const { slug } = await params;
+
   let a: any;
   try {
-    a = await api.article(params.slug);
+    a = await api.article(slug);
   } catch {
     a = null;
   }

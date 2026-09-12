@@ -1,11 +1,4 @@
-import dynamic from 'next/dynamic';
-
-// @react-pdf/renderer is a client-only ESM package; dynamic import avoids the
-// "Element type is invalid: got undefined" prerender error in Next.js App Router.
-const EPaperDocument = dynamic(
-  () => import('../../components/epaper/EPaperDocument').then((m) => m.EPaperDocument),
-  { ssr: false, loading: () => <p className="p-8 text-center text-sm text-ink/60">ই-পেপার লোড হচ্ছে…</p> },
-);
+import EPaperViewer from '../../components/epaper/EPaperViewer';
 
 // Static demo edition for the e-paper viewer. In production this is fetched
 // from the backend `epaper_editions` table (see worker/src/agents/epaper-cron.ts).
@@ -46,7 +39,7 @@ export default function EpaperPage() {
       </header>
 
       <div className="rounded-2xl border border-border bg-paper p-4 shadow-card dark:border-white/10 dark:bg-ink">
-        <EPaperDocument
+        <EPaperViewer
           editionDate={DEMO_EDITION.editionDate}
           leadArticle={DEMO_EDITION.leadArticle}
           sideArticles={DEMO_EDITION.sideArticles}

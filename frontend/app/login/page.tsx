@@ -3,11 +3,11 @@
 
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -41,9 +41,9 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700">ইমেইল</label>
-            <input 
-              type="email" 
-              required 
+            <input
+              type="email"
+              required
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -51,16 +51,16 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-neutral-700">পাসওয়ার্ড</label>
-            <input 
-              type="password" 
-              required 
+            <input
+              type="password"
+              required
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full rounded-lg bg-blue-500 px-4 py-2 font-medium text-white hover:bg-blue-600 disabled:opacity-50"
           >
@@ -72,5 +72,19 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-neutral-50">
+          <p className="text-sm text-neutral-500">লোড হচ্ছে…</p>
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
