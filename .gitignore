@@ -69,3 +69,5 @@ key.properties
 mobile_monorepo/keystores/
 *.jks
 *.keystore
+frontend/.env.local
+.env.local
