@@ -5,10 +5,37 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
 import { PlausibleAnalytics } from '@/components/plausible';
+import { LearningHub } from '@/components/learning-hub';
 
 export const metadata: Metadata = {
-  title: 'Banglar Voice',
-  description: 'Banglar Voice News Portal',
+  title: { default: 'বাংলার ভয়েস', template: '%s — বাংলার ভয়েস' },
+  description: 'স্বাধীন সংবাদ প্রকাশে নির্ভীক — Banglar Voice autonomous Bangla news platform',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'),
+  alternates: { canonical: '/' },
+  openGraph: {
+    siteName: 'বাংলার ভয়েস',
+    title: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্ভীক',
+    description: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
+    locale: 'bn_BD',
+    type: 'website',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FAFAFD' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F172A' },
+  ],
+};
+
+const organizationLd = {
+  '@context': 'https://schema.org',
+  '@type': 'NewsMediaOrganization',
+  name: 'বাংলার ভয়েস',
+  alternateName: 'Banglar Voice',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com',
+  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'}/banglar-voice-logo.png`,
+  sameAs: [],
 };
 
 export default function RootLayout({
@@ -17,13 +44,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="bn" className={`${notoSerifBengali.variable} ${hindSiliguri.variable}`}>
-      <body className="bg-background text-foreground antialiased min-h-screen flex flex-col">
+    <html lang="bn" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
+      </head>
+      <body
+        className={`${notoSerifBengali.variable} ${hindSiliguri.variable} bg-paper font-sansbn text-ink antialiased min-h-screen flex flex-col`}
+      >
         <PlausibleAnalytics />
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
         <CookieBanner />
+        <LearningHub />
       </body>
     </html>
   );
