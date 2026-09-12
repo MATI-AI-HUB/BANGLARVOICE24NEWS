@@ -1,0 +1,96 @@
+name: Release APKs
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+concurrency:
+  group: apk-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    timeout-minutes: 120
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Decode keystore
+        run: |
+          set -euo pipefail
+          mkdir -p mobile_monorepo/apps/reader_app/android/app/keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode \
+            > mobile_monorepo/apps/reader_app/android/app/keystore/banglar-voice-release.jks
+
+      - name: Create key.properties
+        run: |
+          set -euo pipefail
+          apps=(reader_app admin_app reporter_app tv_app studio_app)
+          for app in "${apps[@]}"; do
+            cat > "mobile_monorepo/apps/$app/android/key.properties" << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore/banglar-voice-release.jks
+          EOF
+          done
+
+      - name: Build all 5 APKs
+        run: |
+          set -euo pipefail
+          apps=(reader_app admin_app reporter_app tv_app studio_app)
+          targets=(lib/main.dart lib/main_admin.dart lib/main_reporter.dart lib/main_tv.dart lib/main_studio.dart)
+          names=(reader admin reporter tv studio)
+          mkdir -p apks
+          for i in 0 1 2 3 4; do
+            app="${apps[$i]}"
+            target="${targets[$i]}"
+            out="${names[$i]}"
+            cd "mobile_monorepo/apps/$app"
+            flutter pub get
+            flutter build apk --release --target "$target"
+            cp build/app/outputs/flutter-apk/app-release.apk \
+               "../../../apks/banglar-voice-$out.apk"
+            cd ../../..
+          done
+          ls -lh apks/
+
+      - name: Create GitHub Release with APKs
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: Banglar Voice ${{ github.event.inputs.version || github.ref_name }}
+          body: |
+            ## 📱 Banglar Voice Android Apps
+            
+            | App | Download |
+            |---|---|
+            | Reader (মূল অ্যাপ) | [banglar-voice-reader.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version || github.ref_name }}/banglar-voice-reader.apk) |
+            | Admin | [banglar-voice-admin.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version || github.ref_name }}/banglar-voice-admin.apk) |
+            | Reporter | [banglar-voice-reporter.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version || github.ref_name }}/banglar-voice-reporter.apk) |
+            | TV | [banglar-voice-tv.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version || github.ref_name }}/banglar-voice-tv.apk) |
+            | Studio | [banglar-voice-studio.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version || github.ref_name }}/banglar-voice-studio.apk) |
+          files: apks/*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      - name: Cleanup secrets
+        if: always()
+        run: |
+          find mobile_monorepo -name "*.jks" -delete 2>/dev/null || true
+          find mobile_monorepo -name "key.properties" -delete 2>/dev/null || true
