@@ -19,7 +19,7 @@ function CheckoutContent() {
     Team: { monthly: '৯৯৯৳', yearly: '৯৯৯০৳' },
   };
 
-  const price = prices[tier]?.[interval] ?? '১৯৯৳';
+  const price = (prices as Record<string, Record<string, string>>)[tier]?.[interval] ?? '১৯৯৳';
   const [selectedMethod, setSelectedMethod] = useState<'stripe' | 'bkash'>(method as 'stripe' | 'bkash');
 
   const handlePayment = () => {
