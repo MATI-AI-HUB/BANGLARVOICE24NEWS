@@ -74,7 +74,7 @@ export function Paywall({ articleId, articleTitle, children }: PaywallProps) {
             প্রিমিয়াম আর্টিকেল
           </h2>
           <p className="mt-2 text-neutral-600">
-            "{articleTitle}" পড়তে Premium সাবস্ক্রিপশন প্রয়োজন
+            &quot;{articleTitle}&quot; পড়তে Premium সাবস্ক্রিপশন প্রয়োজন
           </p>
           <div className="mt-6 space-y-3">
             <Link
