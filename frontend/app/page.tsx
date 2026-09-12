@@ -66,10 +66,24 @@ export default async function HomePage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 pb-28">
       <section className="mb-10 text-center">
-        <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-primary dark:border-white/10 dark:bg-neutral-800">
-          <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-primary" />
+              <div className="mb-4 inline-flex items-center gap-3 rounded-full border border-border bg-gradient-to-r from-paper via-paper to-muted px-5 py-2 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-800">
+        <span
+          aria-hidden="true"
+          className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary"
+        />
+        <span className="text-base font-black uppercase tracking-widest text-primary dark:text-paper">
           বাংলার ভয়েস
-        </p>
+        </span>
+        <span aria-hidden="true" className="h-4 w-px bg-crimson/60" />
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className="font-serifbn text-lg font-black leading-none text-crimson">
+            24
+          </span>
+          <span className="text-xs font-black uppercase tracking-[0.22em] text-ink/70 dark:text-paper/70">
+            News
+          </span>
+        </span>
+      </div>
         <h1 className="font-serifbn text-2xl font-extrabold leading-tight md:text-3xl">
           স্বাধীন সংবাদ প্রচারে নির্ভীক
         </h1>

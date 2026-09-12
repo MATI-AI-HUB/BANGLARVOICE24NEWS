@@ -1,15 +1,35 @@
-import { Noto_Serif_Bengali, Hind_Siliguri } from 'next/font/google';
+import localFont from 'next/font/local';
 
-export const notoSerifBengali = Noto_Serif_Bengali({
-  subsets: ['bengali'],
-  weight: ['400', '700', '800'],
+// Bengali serif — used for headlines and body in e-paper.
+// File: public/fonts/SolaimanLipi.ttf (actually Noto Serif Bengali, OFL-licensed).
+export const notoSerifBengali = localFont({
+  src: [
+    {
+      path: '../public/fonts/SolaimanLipi.ttf',
+      weight: '400',
+      style: 'normal',
+    },
+  ],
   variable: '--font-serif-bn',
   display: 'swap',
+  fallback: ['Noto Serif Bengali', 'serif'],
 });
 
-export const hindSiliguri = Hind_Siliguri({
-  subsets: ['bengali'],
-  weight: ['400', '500', '600', '700'],
+// Bengali sans — used for UI, navigation, and body text.
+export const hindSiliguri = localFont({
+  src: [
+    {
+      path: '../public/fonts/HindSiliguri-Regular.ttf',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/HindSiliguri-Bold.ttf',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
   variable: '--font-sans-bn',
   display: 'swap',
+  fallback: ['Hind Siliguri', 'system-ui', 'sans-serif'],
 });
