@@ -17,7 +17,7 @@ export const revalidate = 60; // ISR — rebuild at most once per minute
 
 export const metadata: Metadata = {
   title: 'সর্বশেষ সংবাদ',
-  description: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্বাক',
+  description: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্ভীক',
 };
 
 const toBento = (a: FeedArticle) => ({
@@ -70,8 +70,8 @@ export default async function HomePage() {
           <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-primary" />
           বাংলার ভয়েস
         </p>
-        <h1 className="font-serifbn text-4xl font-extrabold leading-tight md:text-5xl">
-          স্বাধীন সংবাদ প্রচারে নির্বাক
+        <h1 className="font-serifbn text-2xl font-extrabold leading-tight md:text-3xl">
+          স্বাধীন সংবাদ প্রচারে নির্ভীক
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
           বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা
