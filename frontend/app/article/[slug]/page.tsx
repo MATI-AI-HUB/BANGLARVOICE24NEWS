@@ -1,7 +1,9 @@
 import { api } from '../../../lib/api';
+import { mockFeedItems } from '../../../lib/mockData';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import DOMPurify from 'isomorphic-dompurify';
 import { AudioPlayerWidget } from '../../../components/audio-player';
 import { Breadcrumb } from '../../../components/breadcrumb';
 import { RelatedArticles } from '../../../components/related-articles';
@@ -9,50 +11,99 @@ import { ShareButtons } from '../../../components/share-buttons';
 
 export const revalidate = 60;
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
+type ArticleData = {
+  slug: string;
+  title_bn: string;
+  dek_bn?: string;
+  body_bn?: string;
+  seo_description?: string;
+  category?: string;
+  featured_image?: string;
+  reading_time_min?: number;
+  bias_index?: number;
+  published_at?: string;
+  author_name?: string;
+  tags?: string[];
+};
+
+function toPlainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function loadArticle(slug: string): Promise<ArticleData | null> {
+  try {
+    const a = (await api.article(slug)) as Partial<ArticleData> | null;
+    if (a && a.slug) return a as ArticleData;
+  } catch {
+    /* fall through to mock */
+  }
+
+  const m = mockFeedItems.find((x) => x.slug === slug);
+  if (!m) return null;
+
+  return {
+    slug: m.slug,
+    title_bn: m.title_bn,
+    dek_bn: m.dek_bn,
+    body_bn:
+      (m.dek_bn || '') +
+      '\n\n(ডেমো কনটেন্ট — ব্যাকএন্ড সংযোগ নেই।)',
+    category: m.category,
+    featured_image: m.featured_image,
+    reading_time_min: m.reading_time_min,
+    bias_index: m.bias_index,
+    published_at: m.published_at,
+    author_name: 'বাংলার ভয়েস ডেস্ক',
+    tags: [],
+  };
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const a = (await api.article(slug)) as any;
-    const image = a.featured_image
-      ? { url: a.featured_image, alt: a.title_bn }
-      : undefined;
-    return {
+  const a = await loadArticle(slug);
+  if (!a) return { title: 'পাতা নেই' };
+
+  const image = a.featured_image
+    ? { url: a.featured_image, alt: a.title_bn }
+    : undefined;
+
+  return {
+    title: a.title_bn,
+    description: a.dek_bn || a.seo_description,
+    alternates: { canonical: `/article/${slug}` },
+    openGraph: {
       title: a.title_bn,
-      description: a.dek_bn || a.seo_description,
-      alternates: { canonical: `/article/${slug}` },
-      openGraph: {
-        title: a.title_bn,
-        description: a.dek_bn,
-        type: 'article',
-        locale: 'bn_BD',
-        publishedTime: a.published_at,
-        authors: a.author_name ? [a.author_name] : undefined,
-        images: image ? [image] : undefined,
-      },
-    };
-  } catch {
-    return { title: 'পাতা নেই' };
-  }
+      description: a.dek_bn,
+      type: 'article',
+      locale: 'bn_BD',
+      publishedTime: a.published_at,
+      authors: a.author_name ? [a.author_name] : undefined,
+      images: image ? [image] : undefined,
+    },
+  };
 }
 
 export default async function ArticlePage({ params }: PageProps) {
   const { slug } = await params;
 
-  let a: any;
-  try {
-    a = await api.article(slug);
-  } catch {
-    a = null;
-  }
-  // api.article swallows network errors into an empty object; a missing slug
-  // means the article truly does not exist (or the backend is offline) → 404.
+  const a = await loadArticle(slug);
   if (!a || !a.slug) notFound();
 
-  const narrateText = `${a.title_bn}। ${a.dek_bn || ''} ${(a.body_bn || '').replace(/<[^>]*>/g, ' ')}`;
+  const sanitizedBody = DOMPurify.sanitize(a.body_bn || '');
+  const narrateText = `${a.title_bn}। ${a.dek_bn || ''} ${toPlainText(a.body_bn || '')}`;
 
   const newsArticleLd = {
     '@context': 'https://schema.org',
@@ -94,11 +145,15 @@ export default async function ArticlePage({ params }: PageProps) {
         )}
       </div>
       <h1 className="mt-2 font-serifbn text-3xl font-extrabold leading-tight md:text-4xl">{a.title_bn}</h1>
-      {a.dek_bn && <p className="mt-4 text-lg leading-relaxed text-neutral-600 dark:text-neutral-300">{a.dek_bn}</p>}
+      {a.dek_bn && (
+        <p className="mt-4 text-lg leading-relaxed text-neutral-600 dark:text-neutral-300">{a.dek_bn}</p>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
         {a.author_name && <span>লেখক: {a.author_name}</span>}
         {a.reading_time_min ? <span>• {a.reading_time_min} মিনিট পড়া</span> : null}
-        {a.published_at ? <span>• {new Date(a.published_at).toLocaleDateString('bn-BD', { dateStyle: 'long' })}</span> : null}
+        {a.published_at ? (
+          <span>• {new Date(a.published_at).toLocaleDateString('bn-BD', { dateStyle: 'long' })}</span>
+        ) : null}
         <span className="ml-auto">
           <ShareButtons title={a.title_bn} />
         </span>
@@ -108,19 +163,20 @@ export default async function ArticlePage({ params }: PageProps) {
       )}
       <div
         className="prose mt-8 max-w-none whitespace-pre-wrap font-serifbn text-lg leading-[1.9]"
-        dangerouslySetInnerHTML={{ __html: a.body_bn }}
+        dangerouslySetInnerHTML={{ __html: sanitizedBody }}
       />
-      {a.tags?.length > 0 && (
+      {a.tags && a.tags.length > 0 && (
         <div className="mt-8 flex flex-wrap gap-2">
           {a.tags.map((t: string) => (
-            <span key={t} className="rounded-full bg-muted px-3 py-1 text-sm">#{t}</span>
+            <span key={t} className="rounded-full bg-muted px-3 py-1 text-sm">
+              #{t}
+            </span>
           ))}
         </div>
       )}
 
       <AudioPlayerWidget text={narrateText} title={a.title_bn} />
 
-      {/* Share buttons at the end of the article, before related articles */}
       <div className="mt-10 border-t border-border pt-6 dark:border-white/10">
         <ShareButtons title={a.title_bn} />
       </div>
