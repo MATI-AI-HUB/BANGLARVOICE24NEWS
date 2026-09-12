@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { supabase } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 
 /**
  * BreakingMarquee — BBC-style scrolling ticker.
@@ -32,14 +32,17 @@ export function BreakingMarquee() {
   const [texts, setTexts] = useState<string[]>(FALLBACK_TEXTS);
 
   useEffect(() => {
-    if (!supabase) return; // no env keys → keep fallback, no crash
+    // Lazy init: createClient() throws if env keys are missing. Client-only
+    // effect, so this never runs during SSR / static prerender — the build
+    // is safe. We swallow the error and keep FALLBACK_TEXTS visible.
+    let sb: ReturnType<typeof createClient>;
+    try {
+      sb = createClient();
+    } catch {
+      return; // no env keys → keep fallback, no crash
+    }
 
-    // Supabase checked non-null above; capture locally for the closures so
-    // TypeScript can narrow it (null-check on the module const doesn't
-    // propagate into the async/cleanup callbacks).
-    const sb = supabase;
     const load = async () => {
-      if (!sb) return;
       const { data } = await sb
         .from('breaking_ticker')
         .select('text')
@@ -52,6 +55,7 @@ export function BreakingMarquee() {
     };
 
     load();
+
     const channel = sb
       .channel('breaking_ticker')
       .on(
@@ -60,6 +64,7 @@ export function BreakingMarquee() {
         load,
       )
       .subscribe();
+
     return () => {
       sb.removeChannel(channel);
     };
