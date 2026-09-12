@@ -17,7 +17,7 @@ function Thumb({ src, alt }: { src?: string; alt: string }) {
     <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-neutral-800 via-neutral-700 to-neutral-900">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src || ''}
+        src={src || undefined}
         alt={alt}
         loading="lazy"
         className={`h-full w-full object-cover ${src ? 'opacity-100' : 'opacity-0'}`}

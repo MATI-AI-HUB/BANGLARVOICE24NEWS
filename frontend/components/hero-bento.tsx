@@ -72,7 +72,7 @@ function ZeroClsImg({ src, alt, className }: { src?: string; alt: string; classN
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src || ''}
+        src={src || undefined}
         alt={alt}
         loading="lazy"
         className={`relative z-10 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${src ? 'opacity-100' : 'opacity-0'}`}

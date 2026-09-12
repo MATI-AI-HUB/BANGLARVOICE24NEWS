@@ -1,203 +1,393 @@
 'use client';
-'use client';
 
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+  Font,
+} from '@react-pdf/renderer';
+import type { EPaperEdition, EPaperPage } from '../../lib/epaper/types';
 
-// NOTE: Original SolaimanLipi's public GitHub mirrors returned 404 in this
-// sandbox; we ship the OFL-licensed Noto Serif Bengali (full Bangla support)
-// under /public/fonts/SolaimanLipi.ttf so the register path matches the spec.
 Font.register({
-  family: 'SolaimanLipi',
+  family: 'BVSerif',
   src: '/fonts/SolaimanLipi.ttf',
 });
 
 Font.registerHyphenationCallback((word: string) => [word]);
 
-export interface EPaperArticle {
-  headline: string;
-  body: string;
-  attribution?: string;
-}
+const C = {
+  ink: '#0F0F0F',
+  muted: '#6B7280',
+  border: '#E5E2DE',
+  primary: '#C41E1E',
+  navy: '#0F172A',
+  paper: '#FFFEFB',
+};
 
-export interface EPaperDocumentProps {
-  editionDate: string; // e.g. '08 Sep 2026'
-  leadArticle: EPaperArticle;
-  sideArticles: EPaperArticle[];
-}
-
-/*
- * Front-page scoring logic (lead selection — run on the data layer before
- * rendering):
- *
- *   S_i = 0.4·V_source + 0.3·I_impact + 0.2·E_engagement + 0.1·C_freshness
- *
- *   V_source      ∈ [0,1]  source veracity (official/agency > social)
- *   I_impact      ∈ [0,1]  public-impact estimate (editorial rubric)
- *   E_engagement  ∈ [0,1]  normalized read/comment signals
- *   C_freshness   ∈ [0,1]  1.0 = today, decays 0.15/day
- *
- *   S_i >= 0.85  =>  Front Page (lead slot)
- *   S_i >= 0.60  =>  Page 2+ candidate
- *   else         =>  not printed (or web-only)
- *
- * Supabase schema (run once):
- *   create table epaper_editions (
- *     id uuid primary key,
- *     edition_date date,
- *     pdf_url text,
- *     status text check (status in ('draft','in_review','approved','published')),
- *     fact_check_pass boolean,
- *     defamation_check_pass boolean
- *   );
- */
+const bn = (v: number | string) =>
+  String(v).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[+d]);
 
 const styles = StyleSheet.create({
-  page: {
-    // A3 landscape, 96 dpi CSS units
-    width: 1122,
-    height: 794,
-    backgroundColor: '#ffffff',
-    color: '#111111',
-    fontFamily: 'SolaimanLipi',
-    padding: 32,
+  // ── Shared ───────────────────────────────────
+  pageBase: {
+    backgroundColor: C.paper,
+    color: C.ink,
+    fontFamily: 'BVSerif',
   },
-  header: {
-    borderBottom: '3 solid #C41E1E',
-    paddingBottom: 12,
-    marginBottom: 20,
-    textAlign: 'center',
+  footer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 36,
+    right: 36,
+    borderTop: `1 solid ${C.border}`,
+    paddingTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    fontSize: 7.5,
+    color: C.muted,
+  },
+  // ── Page 1: Front (A3 landscape) ─────────────
+  frontPage: {
+    paddingTop: 32,
+    paddingBottom: 50,
+    paddingHorizontal: 40,
   },
   masthead: {
-    fontSize: 30,
-    fontWeight: 700,
-    color: '#C41E1E',
+    borderBottom: `4 solid ${C.primary}`,
+    paddingBottom: 10,
+    marginBottom: 6,
+    alignItems: 'center',
   },
-  tagline: {
-    fontSize: 10,
-    color: '#555555',
+  mastheadTitle: {
+    fontSize: 38,
+    fontWeight: 700,
+    color: C.primary,
+    letterSpacing: 1,
+  },
+  mastheadTagline: {
+    fontSize: 9,
+    color: C.muted,
     marginTop: 4,
+    letterSpacing: 2,
   },
   editionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
     fontSize: 9,
-    color: '#333333',
+    color: C.muted,
+    borderBottom: `1 solid ${C.border}`,
+    paddingBottom: 6,
+    marginBottom: 16,
   },
-  bodyRow: {
+  frontBody: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 18,
   },
-  leadColumn: {
-    width: '60%',
-    paddingRight: 10,
-    borderRight: '1 solid #dddddd',
+  frontLead: {
+    width: '62%',
+    paddingRight: 16,
+    borderRight: `1 solid ${C.border}`,
   },
-  sideColumn: {
-    width: '38%',
+  frontSide: {
+    width: '35%',
   },
-  leadKicker: {
+  kicker: {
     fontSize: 9,
     fontWeight: 700,
-    color: '#C41E1E',
-    textTransform: 'uppercase' as const,
+    color: C.primary,
     marginBottom: 4,
+    letterSpacing: 1.5,
   },
   leadHeadline: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: 700,
-    lineHeight: 1.35,
-    marginBottom: 8,
+    lineHeight: 1.3,
+    marginBottom: 10,
   },
   leadBody: {
-    fontSize: 11,
-    lineHeight: 1.7,
-    textAlign: 'justify' as const,
+    fontSize: 10.5,
+    lineHeight: 1.75,
+    textAlign: 'justify',
   },
   attribution: {
-    fontSize: 9,
-    color: '#666666',
+    fontSize: 8.5,
+    color: C.muted,
     marginTop: 8,
+    fontStyle: 'italic',
   },
-  sideItem: {
-    marginBottom: 12,
+  sideArticle: {
     paddingBottom: 10,
-    borderBottom: '1 solid #eeeeee',
+    marginBottom: 10,
+    borderBottom: `1 solid ${C.border}`,
   },
   sideHeadline: {
     fontSize: 13,
     fontWeight: 700,
-    lineHeight: 1.4,
+    lineHeight: 1.35,
     marginBottom: 4,
   },
   sideBody: {
-    fontSize: 9.5,
+    fontSize: 9,
     lineHeight: 1.6,
     color: '#333333',
+    textAlign: 'justify',
   },
-  footer: {
-    position: 'absolute' as const,
-    bottom: 20,
-    left: 32,
-    right: 32,
-    borderTop: '1 solid #cccccc',
-    paddingTop: 6,
+  briefsBox: {
+    marginTop: 8,
+    padding: 10,
+    borderTop: `2 solid ${C.primary}`,
+  },
+  briefsTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: C.primary,
+    marginBottom: 6,
+    letterSpacing: 1,
+  },
+  briefRow: {
+    flexDirection: 'row',
+    fontSize: 9,
+    marginBottom: 4,
+    lineHeight: 1.5,
+  },
+  briefBullet: {
+    color: C.primary,
+    marginRight: 5,
+  },
+  // ── Page 2-3: Section pages (A4 portrait) ────
+  sectionPage: {
+    paddingTop: 36,
+    paddingBottom: 50,
+    paddingHorizontal: 40,
+  },
+  sectionHeader: {
+    borderBottom: `3 solid ${C.navy}`,
+    paddingBottom: 8,
+    marginBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  sectionName: {
+    fontSize: 22,
+    fontWeight: 700,
+    color: C.navy,
+  },
+  sectionMeta: {
     fontSize: 8,
-    color: '#555555',
+    color: C.muted,
+  },
+  articleBlock: {
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottom: `1 solid ${C.border}`,
+  },
+  articleHeadline: {
+    fontSize: 14,
+    fontWeight: 700,
+    lineHeight: 1.4,
+    marginBottom: 5,
+  },
+  articleBody: {
+    fontSize: 9.5,
+    lineHeight: 1.7,
+    color: '#222222',
+    textAlign: 'justify',
+  },
+  twoColGrid: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  col: {
+    width: '50%',
   },
 });
 
-export function EPaperDocument({ editionDate, leadArticle, sideArticles }: EPaperDocumentProps) {
+function DocFooter({
+  date,
+  pageNum,
+  total,
+}: {
+  date: string;
+  pageNum: number;
+  total: number;
+}) {
   return (
-    <Document
-      title={`বাংলার ভয়েস দৈনিক ই-পেপার — ${editionDate}`}
-      author="Banglar Voice"
-      subject={`Daily E-Paper edition ${editionDate}`}
-      language="bn"
-    >
-      <Page size="A3" orientation="landscape" style={styles.page}>
-        {/* Masthead */}
-        <View style={styles.header}>
-          <Text style={styles.masthead}>বাংলার ভয়েস — দৈনিক ই-পেপার</Text>
-          <Text style={styles.tagline}>Banglar Voice Daily · স্বাধীন, দায়িত্বশীল, নির্ভরযোগ্য</Text>
-          <View style={styles.editionRow}>
-            <Text>সংস্করণ: {editionDate}</Text>
-            <Text>০৮ সেপ্টেম্বর ২০২৬ · ঢাকা</Text>
-          </View>
-        </View>
+    <View style={styles.footer} fixed>
+      <Text>বাংলার ভয়েস · {date}</Text>
+      <Text>
+        বাংলার ভয়েস · banglarvoice24news.com · পৃষ্ঠা {bn(pageNum)}/{bn(total)}
+      </Text>
+    </View>
+  );
+}
 
-        {/* Lead + side columns */}
-        <View style={styles.bodyRow}>
-          <View style={styles.leadColumn}>
-            <Text style={styles.leadKicker}>আজকের প্রধান সংবাদ</Text>
-            <Text style={styles.leadHeadline}>{leadArticle.headline}</Text>
-            <Text style={styles.leadBody}>{leadArticle.body}</Text>
-            {leadArticle.attribution ? (
-              <Text style={styles.attribution}>প্রতিবেদন: {leadArticle.attribution}</Text>
+function FrontPage({
+  edition,
+  page,
+}: {
+  edition: EPaperEdition;
+  page: EPaperPage;
+}) {
+  return (
+    <Page size="A3" orientation="landscape" style={[styles.pageBase, styles.frontPage]}>
+      <View style={styles.masthead}>
+        <Text style={styles.mastheadTitle}>বাংলার ভয়েস — দৈনিক ই-পেপার</Text>
+        <Text style={styles.mastheadTagline}>
+          স্বাধীন · দায়িত্বশীল · নির্ভরযোগ্য
+        </Text>
+      </View>
+
+      <View style={styles.editionRow}>
+        <Text>
+          বর্ষ {bn(edition.volume)} · সংখ্যা {bn(edition.issue)}
+        </Text>
+        <Text>{edition.editionLabel} · ঢাকা</Text>
+      </View>
+
+      <View style={styles.frontBody}>
+        {page.lead && (
+          <View style={styles.frontLead}>
+            <Text style={styles.kicker}>
+              আজকের প্রধান সংবাদ · {page.lead.category || 'সর্বশেষ'}
+            </Text>
+            <Text style={styles.leadHeadline}>{page.lead.headline}</Text>
+            <Text style={styles.leadBody}>{page.lead.body}</Text>
+            {page.lead.attribution ? (
+              <Text style={styles.attribution}>
+                প্রতিবেদন: {page.lead.attribution}
+              </Text>
             ) : null}
           </View>
+        )}
 
-          <View style={styles.sideColumn}>
-            {sideArticles.map((article, idx) => (
-              <View key={idx} style={styles.sideItem}>
-                <Text style={styles.sideHeadline}>{article.headline}</Text>
-                <Text style={styles.sideBody}>{article.body}</Text>
-                {article.attribution ? (
-                  <Text style={styles.attribution}>— {article.attribution}</Text>
+        <View style={styles.frontSide}>
+          {page.articles.map((a, i) => (
+            <View key={i} style={styles.sideArticle} wrap={false}>
+              <Text style={styles.sideHeadline}>{a.headline}</Text>
+              <Text style={styles.sideBody}>{a.body}</Text>
+              {a.attribution ? (
+                <Text style={styles.attribution}>— {a.attribution}</Text>
+              ) : null}
+            </View>
+          ))}
+
+          {page.briefs && page.briefs.length > 0 && (
+            <View style={styles.briefsBox}>
+              <Text style={styles.briefsTitle}>সংক্ষেপে</Text>
+              {page.briefs.map((b, i) => (
+                <View key={i} style={styles.briefRow}>
+                  <Text style={styles.briefBullet}>•</Text>
+                  <Text>{b}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+
+      <DocFooter
+        date={edition.editionLabel}
+        pageNum={page.number}
+        total={edition.pages.length}
+      />
+    </Page>
+  );
+}
+
+function SectionPage({
+  edition,
+  page,
+  twoColumn = false,
+}: {
+  edition: EPaperEdition;
+  page: EPaperPage;
+  twoColumn?: boolean;
+}) {
+  const half = Math.ceil(page.articles.length / 2);
+  const left = twoColumn ? page.articles.slice(0, half) : page.articles;
+  const right = twoColumn ? page.articles.slice(half) : [];
+
+  return (
+    <Page size="A4" orientation="portrait" style={[styles.pageBase, styles.sectionPage]}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionName}>{page.section}</Text>
+        <Text style={styles.sectionMeta}>{edition.editionLabel}</Text>
+      </View>
+
+      {twoColumn ? (
+        <View style={styles.twoColGrid}>
+          <View style={styles.col}>
+            {left.map((a, i) => (
+              <View key={i} style={styles.articleBlock} wrap={false}>
+                <Text style={styles.articleHeadline}>{a.headline}</Text>
+                <Text style={styles.articleBody}>{a.body}</Text>
+                {a.attribution ? (
+                  <Text style={styles.attribution}>— {a.attribution}</Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+          <View style={styles.col}>
+            {right.map((a, i) => (
+              <View key={i} style={styles.articleBlock} wrap={false}>
+                <Text style={styles.articleHeadline}>{a.headline}</Text>
+                <Text style={styles.articleBody}>{a.body}</Text>
+                {a.attribution ? (
+                  <Text style={styles.attribution}>— {a.attribution}</Text>
                 ) : null}
               </View>
             ))}
           </View>
         </View>
+      ) : (
+        page.articles.map((a, i) => (
+          <View key={i} style={styles.articleBlock} wrap={false}>
+            <Text style={styles.articleHeadline}>{a.headline}</Text>
+            <Text style={styles.articleBody}>{a.body}</Text>
+            {a.attribution ? (
+              <Text style={styles.attribution}>— {a.attribution}</Text>
+            ) : null}
+          </View>
+        ))
+      )}
 
-        {/* Legal footer */}
-        <View style={styles.footer} fixed>
-          <Text>© ২০২৬ বাংলার ভয়েস · সর্বস্বত্ব সংরক্ষিত</Text>
-          <Text>Legal Inquiries: banglarvoice24news@gmail.com</Text>
-        </View>
-      </Page>
+      <DocFooter
+        date={edition.editionLabel}
+        pageNum={page.number}
+        total={edition.pages.length}
+      />
+    </Page>
+  );
+}
+
+export function EPaperDocument({ edition }: { edition: EPaperEdition }) {
+  return (
+    <Document
+      title={`বাংলার ভয়েস ই-পেপার — ${edition.editionLabel}`}
+      author="Banglar Voice"
+      subject={`Daily E-Paper — ${edition.editionLabel}`}
+      creator="banglarvoice24news.com"
+      language="bn"
+    >
+      {edition.pages.map((p) => {
+        if (p.layout === 'front') {
+          return <FrontPage key={p.number} edition={edition} page={p} />;
+        }
+        if (p.layout === 'two-column') {
+          return (
+            <SectionPage
+              key={p.number}
+              edition={edition}
+              page={p}
+              twoColumn
+            />
+          );
+        }
+        return <SectionPage key={p.number} edition={edition} page={p} />;
+      })}
     </Document>
   );
 }
