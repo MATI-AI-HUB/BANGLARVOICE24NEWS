@@ -6,8 +6,8 @@
 
 interface AdSlotProps {
   format?: string;
-  slotId: string;
-  type: 'adsense' | 'direct';
+  slotId?: string;
+  type?: 'adsense' | 'direct';
   isPremium?: boolean;
   className?: string;
 }

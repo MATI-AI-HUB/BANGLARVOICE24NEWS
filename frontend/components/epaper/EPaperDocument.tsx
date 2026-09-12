@@ -1,4 +1,5 @@
 'use client';
+'use client';
 
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 
