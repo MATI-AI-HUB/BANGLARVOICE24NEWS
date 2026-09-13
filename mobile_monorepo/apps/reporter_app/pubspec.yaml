@@ -1,7 +1,7 @@
 name: reporter_app
-description: Banglar Voice Field Journalist App
+description: Banglar Voice Field Journalist App — with live streaming
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.8.1
@@ -12,9 +12,22 @@ dependencies:
   bv_shared:
     path: ../../packages/bv_shared
   intl: ^0.20.2
-  # Supabase migration target (feature-flagged; PocketBase REST path stays
-  # intact until the flag flips — see lib/src/config.dart useSupabase).
   supabase_flutter: ^2.8.1
+
+  # ─── Live streaming (Agora.io) ───
+  agora_rtc_engine: ^6.3.2
+  permission_handler: ^11.3.1
+
+  # ─── Media / audio ───
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+
+  # ─── Voice-to-text (Bengali) ───
+  speech_to_text: ^7.0.0
+
+  # ─── Network state ───
+  connectivity_plus: ^6.1.0
 
 flutter:
   uses-material-design: true
