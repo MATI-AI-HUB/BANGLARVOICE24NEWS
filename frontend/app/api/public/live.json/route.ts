@@ -1,45 +1,44 @@
 import { NextResponse } from 'next/server';
-import { mockLiveEntries } from '@/lib/mockData';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8090';
+import { createClient } from '@supabase/supabase-js';
 
 export const revalidate = 30;
 
-async function tryBackend(): Promise<any[] | null> {
-  try {
-    const res = await fetch(`${API_BASE}/api/public/live.json`, {
-      signal: AbortSignal.timeout(4000),
-      next: { revalidate: 30 },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return Array.isArray(data?.entries) ? data.entries : null;
-  } catch {
-    return null;
-  }
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
 
 export async function GET() {
-  const backendEntries = await tryBackend();
-  const entries: any[] =
-    backendEntries && backendEntries.length > 0
-      ? backendEntries
-      : (mockLiveEntries as any[]);
+  try {
+    const { data: ticker } = await supabase
+      .from('breaking_ticker')
+      .select('text_bn, is_active, updated_at')
+      .eq('id', 1)
+      .maybeSingle();
 
-  return NextResponse.json(
-    {
-      entries: entries.map((e) => ({
-        id: String(e.id ?? ''),
-        body_bn: e.body_bn ?? '',
-        author: e.author ?? 'বাংলার ভয়েস ডেস্ক',
-        image_url: e.image_url ?? null,
-        created_at: e.created_at ?? new Date().toISOString(),
-      })),
-    },
-    {
-      headers: {
-        'Cache-Control': 'public, max-age=30, s-maxage=30',
+    const { data: entries } = await supabase
+      .from('field_reports')
+      .select('id, title, description, created_at')
+      .in('status', ['approved_for_live', 'published'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    return NextResponse.json(
+      {
+        ticker: ticker?.is_active ? ticker.text_bn : null,
+        entries: (entries || []).map((e) => ({
+          id: e.id,
+          body_bn: e.description || e.title,
+          author: 'বাংলার ভয়েস ডেস্ক',
+          created_at: e.created_at,
+        })),
       },
-    },
-  );
+      { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=30' } },
+    );
+  } catch (err) {
+    return NextResponse.json(
+      { ticker: null, entries: [], error: String(err) },
+      { status: 500 },
+    );
+  }
 }
