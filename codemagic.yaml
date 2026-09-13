@@ -2,7 +2,6 @@ workflows:
   release-5-apks:
     name: Release 5 APKs
     max_build_duration: 120
-    # instance_type: linux_x2  # not available on free plan
     environment:
       flutter: stable
       groups:
@@ -21,30 +20,27 @@ workflows:
       - name: Verify keystore env vars
         script: |
           if [ -z "$CM_KEYSTORE" ]; then
-            echo "❌ CM_KEYSTORE missing"
+            echo "ERROR: CM_KEYSTORE missing"
             exit 1
           fi
-          echo "✅ Keystore env vars present"
+          echo "OK: Keystore env vars present"
 
-      - name: Decode keystore
+      - name: Decode keystore (all 5 apps)
         script: |
-          mkdir -p mobile_monorepo/apps/reader_app/android/app/keystore
-          echo "$CM_KEYSTORE" | base64 --decode \
-            > mobile_monorepo/apps/reader_app/android/app/keystore/banglar-voice-release.jks
-          ls -la mobile_monorepo/apps/reader_app/android/app/keystore/
+          APPS=(reader_app admin_app reporter_app tv_app studio_app)
+          for app in "${APPS[@]}"; do
+            mkdir -p "mobile_monorepo/apps/$app/android/app/keystore"
+            echo "$CM_KEYSTORE" | base64 --decode > "mobile_monorepo/apps/$app/android/app/keystore/banglar-voice-release.jks"
+            echo "Decoded for $app"
+          done
 
       - name: Create key.properties for all apps
         script: |
           apps=(reader_app admin_app reporter_app tv_app studio_app)
           for app in "${apps[@]}"; do
-            cat > "mobile_monorepo/apps/$app/android/key.properties" << EOF
-          storePassword=$CM_KEYSTORE_PASSWORD
-          keyPassword=$CM_KEY_PASSWORD
-          keyAlias=$CM_KEY_ALIAS
-          storeFile=keystore/banglar-voice-release.jks
-          EOF
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=keystore/banglar-voice-release.jks\n' "$CM_KEYSTORE_PASSWORD" "$CM_KEY_PASSWORD" "$CM_KEY_ALIAS" > "mobile_monorepo/apps/$app/android/key.properties"
           done
-          echo "✅ key.properties created"
+          echo "key.properties created for all 5 apps"
 
       - name: Build all 5 APKs
         script: |
@@ -54,19 +50,15 @@ workflows:
           names=(reader admin reporter tv studio)
           mkdir -p apks
           for i in 0 1 2 3 4; do
-            echo "════════════════════════════════════════"
-            echo "Building ${apps[$i]} → ${names[$i]}.apk"
-            echo "════════════════════════════════════════"
+            echo "Building ${apps[$i]} = ${names[$i]}.apk"
             cd "mobile_monorepo/apps/${apps[$i]}"
             flutter pub get
             flutter build apk --release --target "${targets[$i]}"
-            cp build/app/outputs/flutter-apk/app-release.apk \
-               "../../../apks/banglar-voice-${names[$i]}.apk"
+            cp build/app/outputs/flutter-apk/app-release.apk "../../../apks/banglar-voice-${names[$i]}.apk"
             cd ../../..
             ls -lh "apks/banglar-voice-${names[$i]}.apk"
           done
-          echo "════════════════════════════════════════"
-          echo "✅ All 5 APKs built"
+          echo "All 5 APKs built"
           ls -lh apks/
 
     artifacts:
