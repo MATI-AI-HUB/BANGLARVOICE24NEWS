@@ -2,6 +2,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Real camera/mic are added when the camera + live plugins are pinned
          (see pubspec NOTE); INTERNET alone keeps this build stock-toolchain safe. -->
+        <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:label="বাংলার ভয়েস স্টুডিও"
         android:name="${applicationName}"
