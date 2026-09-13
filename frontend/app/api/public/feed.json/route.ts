@@ -5,13 +5,17 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com
 
 export const revalidate = 60;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+// Lazy — env vars runtime-এ load হয়, build-এ নয়
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase env vars not configured');
+  return createClient(url, key);
+}
 
 export async function GET() {
   try {
+    const supabase = getSupabase();
     const { data: articles, error } = await supabase
       .from('articles')
       .select('*')
@@ -48,8 +52,8 @@ export async function GET() {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: 'Failed', detail: String(err) },
-      { status: 500 },
+      { version: 'https://jsonfeed.org/version/1.1', title: 'বাংলার ভয়েস', items: [], error: String(err) },
+      { status: 200 },
     );
   }
 }
