@@ -108,9 +108,15 @@ on storage.objects for select
 to anon, authenticated
 using (bucket_id = 'logos');
 
-create policy "admin write logos"
-on storage.objects for insert, update
+create policy "admin insert logos"
+on storage.objects for insert
 to authenticated
+with check (bucket_id = 'logos' and public.current_app_role() = 'admin');
+
+create policy "admin update logos"
+on storage.objects for update
+to authenticated
+using (bucket_id = 'logos' and public.current_app_role() = 'admin')
 with check (bucket_id = 'logos' and public.current_app_role() = 'admin');
 
 -- =============================================================================
