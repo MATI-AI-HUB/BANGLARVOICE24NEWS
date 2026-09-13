@@ -71,3 +71,7 @@ mobile_monorepo/keystores/
 *.keystore
 frontend/.env.local
 .env.local
+
+# Vercel local config
+.vercel/
+package-lock.json
