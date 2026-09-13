@@ -1,3 +1,10 @@
+> **⚠️ PROPRIETARY CODE — ALL RIGHTS RESERVED**
+>
+> This repository is publicly viewable for transparency and portfolio
+> purposes only. Commercial use, redistribution, or cloning for
+> productive use is **strictly prohibited**. See [LICENSE](./LICENSE)
+> for details. For licensing: banglarvoice24news@gmail.com
+
 # বাংলার ভয়েস — ফুল-স্ট্যাক সোর্স (v5.0.0 — APK-Ready + সমৃদ্ধ কনটেন্ট)
 
 বাংলা সংবাদ প্ল্যাটফর্মের সম্পূর্ণ সোর্স: **Go/PocketBase ব্যাকএন্ড + Next.js ফ্রন্টএন্ড + ৪টি Flutter অ্যাপ (Reader / Admin / Reporter / TV)** — সাথে CI/CD ও commit-করা রিলিজ সাইনিং। v5.0.0-এ ব্যাকএন্ডে **৩৭টি ডেমো আর্টিকেল (১০ ক্যাটাগরি), লাইভ ব্লগ, ভিডিও ফিড এবং AI-সারাংশ এন্ডপয়েন্ট (কী ছাড়াই কাজ করে)** যোগ হয়েছে।
