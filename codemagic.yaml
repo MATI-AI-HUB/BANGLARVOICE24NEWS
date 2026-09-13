@@ -1,0 +1,81 @@
+workflows:
+  release-5-apks:
+    name: Release 5 APKs
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      groups:
+        - android_signing
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ~/.gradle
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+    scripts:
+      - name: Verify keystore env vars
+        script: |
+          if [ -z "$CM_KEYSTORE" ]; then
+            echo "❌ CM_KEYSTORE missing"
+            exit 1
+          fi
+          echo "✅ Keystore env vars present"
+
+      - name: Decode keystore
+        script: |
+          mkdir -p mobile_monorepo/apps/reader_app/android/app/keystore
+          echo "$CM_KEYSTORE" | base64 --decode \
+            > mobile_monorepo/apps/reader_app/android/app/keystore/banglar-voice-release.jks
+          ls -la mobile_monorepo/apps/reader_app/android/app/keystore/
+
+      - name: Create key.properties for all apps
+        script: |
+          apps=(reader_app admin_app reporter_app tv_app studio_app)
+          for app in "${apps[@]}"; do
+            cat > "mobile_monorepo/apps/$app/android/key.properties" << EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=keystore/banglar-voice-release.jks
+          EOF
+          done
+          echo "✅ key.properties created"
+
+      - name: Build all 5 APKs
+        script: |
+          set -e
+          apps=(reader_app admin_app reporter_app tv_app studio_app)
+          targets=(lib/main.dart lib/main_admin.dart lib/main_reporter.dart lib/main_tv.dart lib/main_studio.dart)
+          names=(reader admin reporter tv studio)
+          mkdir -p apks
+          for i in 0 1 2 3 4; do
+            echo "════════════════════════════════════════"
+            echo "Building ${apps[$i]} → ${names[$i]}.apk"
+            echo "════════════════════════════════════════"
+            cd "mobile_monorepo/apps/${apps[$i]}"
+            flutter pub get
+            flutter build apk --release --target "${targets[$i]}"
+            cp build/app/outputs/flutter-apk/app-release.apk \
+               "../../../apks/banglar-voice-${names[$i]}.apk"
+            cd ../../..
+            ls -lh "apks/banglar-voice-${names[$i]}.apk"
+          done
+          echo "════════════════════════════════════════"
+          echo "✅ All 5 APKs built"
+          ls -lh apks/
+
+    artifacts:
+      - apks/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - banglarvoice24news@gmail.com
+        notify:
+          success: true
+          failure: true
