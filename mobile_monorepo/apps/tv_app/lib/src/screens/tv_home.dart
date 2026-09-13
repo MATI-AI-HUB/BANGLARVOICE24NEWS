@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../config.dart';
+import '../models/channel.dart';
 import '../models/schedule.dart';
-import '../models/stream.dart';
 import '../services/api_service.dart';
-import '../services/audio_service.dart';
+import '../services/video_service.dart';
 
 class TvHome extends StatefulWidget {
   const TvHome({super.key});
@@ -15,11 +15,11 @@ class TvHome extends StatefulWidget {
 
 class _TvHomeState extends State<TvHome> {
   final _api = TvApiService();
-  final _audio = TvAudioService();
+  final _video = TvVideoService();
 
-  StreamInfo _stream = StreamInfo.empty;
+  List<TvChannel> _channels = TvChannel.fallback;
+  TvChannel? _current;
   List<ScheduleEntry> _schedule = ScheduleEntry.fallback;
-  bool _playing = false;
   bool _loading = true;
   String? _error;
 
@@ -34,40 +34,36 @@ class _TvHomeState extends State<TvHome> {
       _loading = true;
       _error = null;
     });
-    final stream = await _api.fetchStream();
+    final channels = await _api.fetchChannels();
     final schedule = await _api.fetchSchedule();
     if (!mounted) return;
     setState(() {
-      _stream = stream;
+      _channels = channels;
       _schedule = schedule;
       _loading = false;
     });
+    if (channels.isNotEmpty) {
+      await _selectChannel(channels.first);
+    }
   }
 
-  Future<void> _toggle() async {
-    if (_playing) {
-      await _audio.pause();
-      if (!mounted) return;
-      setState(() => _playing = false);
+  Future<void> _selectChannel(TvChannel c) async {
+    if (!c.isVideo) {
+      // Audio handled by TvAudioService (already wired in previous version)
+      setState(() => _current = c);
       return;
     }
-    if (_stream.streamUrl.isEmpty) {
-      // Try reload
-      await _bootstrap();
-      if (_stream.streamUrl.isEmpty) {
-        setState(() => _error = 'স্ট্রিম URL পাওয়া যায়নি');
-        return;
-      }
-    }
-    await _audio.load(_stream.streamUrl);
-    await _audio.play();
+    final ok = await _video.load(c.streamUrl);
     if (!mounted) return;
-    setState(() => _playing = true);
+    setState(() {
+      _current = c;
+      _error = ok ? null : 'স্ট্রিম লোড করা যায়নি';
+    });
   }
 
   @override
   void dispose() {
-    _audio.dispose();
+    _video.dispose();
     super.dispose();
   }
 
@@ -76,21 +72,21 @@ class _TvHomeState extends State<TvHome> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       body: SafeArea(
-        child: Column(
-          children: [
-            _ticker(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Row(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  _ticker(),
+                  Expanded(
+                    child: Row(
                       children: [
-                        Expanded(flex: 3, child: _playerPanel()),
-                        Expanded(flex: 2, child: _schedulePanel()),
+                        Expanded(flex: 3, child: _videoPanel()),
+                        Expanded(flex: 2, child: _sidebar()),
                       ],
                     ),
-            ),
-          ],
-        ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -106,15 +102,12 @@ class _TvHomeState extends State<TvHome> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              _stream.nowPlaying.isEmpty
-                  ? 'বাংলার ভয়েস ২৪/৭ — সংযোগ তৈরি হচ্ছে…'
-                  : 'লাইভ: ${_stream.nowPlaying}',
+              'লাইভ: ${_current?.nameBn ?? "প্রধান চ্যানেল"}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -122,73 +115,38 @@ class _TvHomeState extends State<TvHome> {
     );
   }
 
-  Widget _playerPanel() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 220,
-            height: 220,
-            decoration: BoxDecoration(
-              color: const Color(0xFFC41E1E),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFC41E1E).withValues(alpha: .4),
-                  blurRadius: 60,
-                  spreadRadius: 8,
+  Widget _videoPanel() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _video.isReady
+            ? AspectRatio(
+                aspectRatio: _video.controller!.value.aspectRatio,
+                child: VideoPlayer(_video.controller!),
+              )
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.tv, color: Colors.white30, size: 80),
+                    const SizedBox(height: 16),
+                    Text(
+                      _error ?? 'চ্যানেল বেছে নিন',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Icon(
-              _playing ? Icons.graphic_eq : Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 100,
-            ),
-          ),
-          const SizedBox(height: 28),
-          Text(
-            _stream.title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _playing ? 'লাইভ স্ট্রিম চলছে' : 'ট্যাপ করে চালু করুন',
-            style: const TextStyle(color: Colors.white54, fontSize: 16),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              style: const TextStyle(color: Colors.orangeAccent, fontSize: 14),
-            ),
-          ],
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
-              textStyle: const TextStyle(fontSize: 20),
-            ),
-            onPressed: _toggle,
-            icon: Icon(_playing ? Icons.stop : Icons.play_arrow),
-            label: Text(_playing ? 'থামান' : 'চালু করুন'),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            TvConfig.currentBase,
-            style: const TextStyle(color: Colors.white24, fontSize: 12),
-          ),
-        ],
+              ),
       ),
     );
   }
 
-  Widget _schedulePanel() {
+  Widget _sidebar() {
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(20),
@@ -200,20 +158,62 @@ class _TvHomeState extends State<TvHome> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'আজকের সম্প্রচার',
+            'চ্যানেল',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Expanded(
+            flex: 1,
+            child: ListView.builder(
+              itemCount: _channels.length,
+              itemBuilder: (_, i) {
+                final c = _channels[i];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    c.isVideo ? Icons.tv : Icons.radio,
+                    color: _current?.id == c.id
+                        ? Colors.redAccent
+                        : Colors.white54,
+                  ),
+                  title: Text(
+                    c.nameBn,
+                    style: TextStyle(
+                      color: _current?.id == c.id
+                          ? Colors.redAccent
+                          : Colors.white,
+                      fontWeight: _current?.id == c.id
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                  onTap: () => _selectChannel(c),
+                );
+              },
+            ),
+          ),
+          const Divider(color: Colors.white24),
+          const Text(
+            'আজকের সম্প্রচার',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            flex: 2,
             child: ListView.builder(
               itemCount: _schedule.length,
-              itemBuilder: (context, i) {
+              itemBuilder: (_, i) {
                 final e = _schedule[i];
                 return ListTile(
+                  dense: true,
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     e.isNow ? Icons.play_circle : Icons.schedule,
@@ -223,17 +223,13 @@ class _TvHomeState extends State<TvHome> {
                     e.title,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 17,
                       fontWeight:
                           e.isNow ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                   trailing: Text(
                     e.time,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 15,
-                    ),
+                    style: const TextStyle(color: Colors.white54),
                   ),
                 );
               },
