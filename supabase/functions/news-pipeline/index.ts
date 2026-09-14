@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       // AI rewrite
       const rewritten = await chat({
         baseUrl: "https://api.groq.com/openai/v1",
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         apiKey: groqKey,
         systemPrompt: `তুমি বাংলার ভয়েসের সিনিয়র সাংবাদিক। তুমি যেকোনো সংবাদ নিজের ভাষায়, সংক্ষেপে, নিরপেক্ষভাবে, আকর্ষণীয় হেডলাইনসহ বাংলায় রিরাইট করো।
 
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
         published++;
         // Log to ai_audit_log
         await supabase.from("ai_audit_log").insert({
-          model: "llama-3.3-70b-versatile",
+          model: "openai/gpt-oss-120b",
           provider: "groq",
           input_tokens: 0,
           output_tokens: 0,
