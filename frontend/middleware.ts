@@ -1,15 +1,15 @@
 import ratelimit from "@/lib/rate-limit"
-// Protects /admin routes based on Supabase Auth and User Role
-
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const ALLOWED_ROLES = ['admin', 'chief_editor', 'desk_editor']
+
 export async function middleware(request: NextRequest) {
-  // Initialize Supabase Client
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  const path = request.nextUrl.pathname
+  const isApiRoute = path.startsWith('/api/admin')
+
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,37 +29,42 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Check if user is logged in
   const { data: { user } } = await supabase.auth.getUser()
 
-  // If accessing admin route without login -> redirect to login
-  if (request.nextUrl.pathname.startsWith('/admin') && !user) {
+  // ── লগইন করা নেই ──
+  if (!user) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirectedFrom', request.nextUrl.pathname)
+    url.searchParams.set('redirectedFrom', path)
     return NextResponse.redirect(url)
   }
 
-  // If logged in but not admin -> check profile role
-  if (request.nextUrl.pathname.startsWith('/admin') && user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+  // ── লগইন আছে, role চেক ──
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
 
-    const allowedRoles = ['admin', 'chief_editor', 'desk_editor']
-    
-    if (!profile || !allowedRoles.includes(profile.role)) {
-      // Not authorized -> redirect to home or forbidden page
-      return NextResponse.redirect(new URL('/', request.url))
+  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+    if (isApiRoute) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } }
+      )
     }
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return supabaseResponse
 }
 
-// Match only requests to admin routes
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 }
