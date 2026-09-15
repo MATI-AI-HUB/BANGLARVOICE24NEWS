@@ -1,7 +1,15 @@
 // =============================================================================
-// news-pipeline — 24/7 AI news automation.
+// news-pipeline v2 — World-Class AI News Automation
 // Triggered by pg_cron every 15 minutes.
-// Flow: RSS fetch → parse → dedup → AI rewrite → insert into articles.
+// Flow: RSS → dedup → AI rewrite (fact-safe) → Pexels image → insert.
+//
+// Guarantees:
+//   • Source fidelity: source_url + source_name retained per article
+//   • Fact integrity: strict prompt forbids additions/hallucinations
+//   • Visual quality: Pexels landscape image + photographer credit
+//   • Category enum: category_key validated against whitelist
+//   • Dedup: skip articles whose source_url already exists
+//   • Min length: content <300 chars rejected
 // =============================================================================
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -12,178 +20,262 @@ import { chat, vaultKey } from "../_shared/ai-client.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
-  auth: { persistSession: false },
+  auth: { persistSession: false, autoRefreshToken: false },
 });
 
-// ─── RSS Sources (Bangla categories) ──────────────────────────────────────────
-const RSS_SOURCES: { category: string; url: string }[] = [
-  { category: "জাতীয়", url: "https://news.google.com/rss/search?q=Bangladesh&hl=bn&gl=BD&ceid=BD:bn" },
-  { category: "রাজনীতি", url: "https://news.google.com/rss/search?q=%E0%A6%B0%E0%A6%BE%E0%A6%9C%E0%A6%A8%E0%A7%80%E0%A6%A4%E0%A6%BF&hl=bn&gl=BD&ceid=BD:bn" },
-  { category: "অর্থনীতি", url: "https://news.google.com/rss/search?q=%E0%A6%85%E0%A6%B0%E0%A7%8D%E0%A6%A5%E0%A6%A8%E0%A7%80%E0%A6%A4%E0%A6%BF&hl=bn&gl=BD&ceid=BD:bn" },
-  { category: "খেলা", url: "https://news.google.com/rss/search?q=%E0%A6%96%E0%A7%87%E0%A6%B2%E0%A6%BE&hl=bn&gl=BD&ceid=BD:bn" },
-  { category: "আন্তর্জাতিক", url: "https://news.google.com/rss/search?q=world&hl=bn&gl=BD&ceid=BD:bn" },
+const RSS_SOURCES = [
+  { name: "প্রথম আলো",      url: "https://www.prothomalo.com/feed",          category_hint: "national" },
+  { name: "বিডিনিউজ২৪",     url: "https://bangla.bdnews24.com/rss.xml",       category_hint: "national" },
+  { name: "ঢাকা পোস্ট",     url: "https://www.dhakapost.com/rss.xml",         category_hint: "national" },
 ];
 
-const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+const CATEGORY_ENUM = [
+  "national", "politics", "economy", "sports", "entertainment",
+  "tech", "health", "education", "international", "city",
+] as const;
+type CategoryKey = typeof CATEGORY_ENUM[number];
 
-interface RawItem {
-  id: string;
+const MIN_CONTENT = 300;
+const MAX_PER_RUN = 8;
+const AI_MODEL = "llama-3.3-70b-versatile";
+const AI_BASE = "https://api.groq.com/openai/v1";
+
+// ─── RSS ───
+type RssItem = {
   title: string;
   link: string;
   description: string;
-  publishedAt: string;
-  category: string;
-}
+  pubDate?: string;
+  source_name: string;
+};
 
-function stableId(title: string, link: string): string {
-  let h = 0;
-  const s = `${title}|${link}`;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return Math.abs(h).toString(36);
-}
-
-async function fetchRSS(url: string, category: string): Promise<RawItem[]> {
+async function fetchRSS(url: string, sourceName: string): Promise<RssItem[]> {
   try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "BanglarVoiceBot/1.0" },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return [];
-    const xml = await res.text();
-    const doc = parser.parse(xml);
-    const items = doc?.rss?.channel?.item ?? [];
-    const arr = Array.isArray(items) ? items : [items];
-    return arr
-      .map((e: any) => {
-        const title = String(e?.title ?? "").trim();
-        const link = String(e?.link ?? "").trim();
-        if (!title || !link) return null;
-        return {
-          id: stableId(title, link),
-          title,
-          link,
-          description: String(e?.description ?? "").replace(/<[^>]*>/g, "").slice(0, 500),
-          publishedAt: String(e?.pubDate ?? new Date().toISOString()),
-          category,
-        } as RawItem;
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) {
+      console.warn(`[rss] ${sourceName}: HTTP ${r.status}`);
+      return [];
+    }
+    const xml = await r.text();
+    const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
+    const parsed = parser.parse(xml);
+    const rawItems = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
+    const items = Array.isArray(rawItems) ? rawItems : [rawItems];
+
+    return items
+      .map((item: Record<string, unknown>) => {
+        const title = String(item.title || "").trim();
+        const description = String(
+          item.description || item.summary || item["content:encoded"] || "",
+        ).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const link =
+          typeof item.link === "string"
+            ? item.link
+            : (item.link as Record<string, string> | undefined)?.["@_href"] || "";
+        const pubDate = String(item.pubDate || item.published || item.updated || "");
+        return { title, link, description, pubDate, source_name: sourceName };
       })
-      .filter((x: RawItem | null): x is RawItem => x !== null);
+      .filter((i: RssItem) => i.title && i.link && i.description.length >= 60);
   } catch (e) {
-    console.error(`RSS fetch failed for ${category}:`, e);
+    console.error(`[rss] ${sourceName} failed:`, (e as Error).message);
     return [];
   }
 }
 
-async function isDuplicate(link: string): Promise<boolean> {
-  // Simple check: does an article with similar title already exist?
-  const titleFragment = link.slice(-40);
+// ─── Dedup ───
+async function sourceUrlExists(url: string): Promise<boolean> {
   const { data } = await supabase
     .from("articles")
     .select("id")
-    .ilike("content_bn", `%${titleFragment}%`)
-    .limit(1);
-  return (data?.length ?? 0) > 0;
+    .eq("source_url", url)
+    .maybeSingle();
+  return !!data;
 }
 
+// ─── AI rewrite with strict fact-preserving prompt ───
+type Rewrite = {
+  title_bn: string;
+  content_bn: string;
+  category_key: CategoryKey;
+  confidence: number;
+};
+
+async function aiRewrite(groqKey: string, item: RssItem): Promise<Rewrite | null> {
+  const systemPrompt = `তুমি বাংলার ভয়েসের সিনিয়র সংবাদ সম্পাদক। নিচে একটি মূল সোর্স নিউজ দেওয়া হলো।
+
+কঠোর নিয়ম (কোনো ব্যতিক্রম নয়):
+১. শুধু সোর্সে যা আছে তাই বাংলায় রিরাইট করো। কোনো নতুন তথ্য, নাম, সংখ্যা, দেশ বা শহরের নাম যোগ করবে না।
+২. সোর্সে পরস্পরবিরোধী বা অস্পষ্ট তথ্য থাকলে সেটা বাদ দাও — অনুমান করো না।
+৩. শিরোনাম: ৮-১২ শব্দ, তথ্যপূর্ণ, ক্লিকবেট নয়, প্রশ্নচিহ্ন ছাড়া।
+৪. মূল অংশ: ৪-৬ প্যারাগ্রাফ, প্রতি প্যারাগ্রাফ ৩-৪ লাইন, মাঝে \\n\\n।
+৫. শেষ প্যারায়: "সূত্র: [সোর্স নাম]" — শুধু নাম।
+৬. category_key অবশ্যই এই enum থেকে একটি:
+   national | politics | economy | sports | entertainment | tech | health | education | international | city
+৭. confidence: 0.0-1.0 — সোর্সের তথ্য কতটা নির্ভরযোগ্য সেই অনুযায়ী।
+
+Output শুধু একটি JSON, অন্য কিছু নয়:
+{
+  "title_bn": "string",
+  "content_bn": "string",
+  "category_key": "string",
+  "confidence": number
+}`;
+
+  const userPrompt = `সোর্স: ${item.source_name}
+শিরোনাম: ${item.title}
+বিবরণ: ${item.description}`;
+
+  try {
+    const raw = await chat({
+      baseUrl: AI_BASE,
+      model: AI_MODEL,
+      apiKey: groqKey,
+      systemPrompt,
+      userPrompt,
+      temperature: 0.3,
+      maxTokens: 1500,
+    });
+
+    const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as Rewrite;
+
+    if (!parsed.title_bn || !parsed.content_bn) return null;
+    if (parsed.content_bn.length < MIN_CONTENT) return null;
+    if (!CATEGORY_ENUM.includes(parsed.category_key)) {
+      parsed.category_key = "national";
+      parsed.confidence = Math.min(parsed.confidence ?? 0.5, 0.6);
+    }
+    parsed.confidence = Math.max(0, Math.min(1, parsed.confidence ?? 0.7));
+    return parsed;
+  } catch (e) {
+    console.error(`[ai] rewrite failed for "${item.title.slice(0, 40)}":`, (e as Error).message);
+    return null;
+  }
+}
+
+// ─── Pexels image ───
+type ImageResult = { url: string; credit: string };
+
+async function fetchPexelsImage(
+  supabaseClient: typeof supabase,
+  query: string,
+): Promise<ImageResult | null> {
+  const key = await vaultKey(supabaseClient, "PEXELS_API_KEY");
+  if (!key) return null;
+  try {
+    const r = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
+      { headers: { Authorization: key }, signal: AbortSignal.timeout(5000) },
+    );
+    if (!r.ok) return null;
+    const data = await r.json();
+    const photo = data.photos?.[0];
+    if (!photo) return null;
+    return {
+      url: photo.src?.large || photo.src?.original || "",
+      credit: `${photo.photographer || "Unknown"} / Pexels`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Main ───
 Deno.serve(async (req) => {
   const corsRes = handleCors(req);
   if (corsRes) return corsRes;
 
   const start = Date.now();
   try {
-    // Get Groq key from vault
     const groqKey = await vaultKey(supabase, "GROQ_API_KEY");
     if (!groqKey) {
       return json({ ok: false, error: "GROQ_API_KEY not in vault" }, 400);
     }
 
-    // Fetch all RSS feeds in parallel
+    // Fetch all feeds in parallel
     const feedResults = await Promise.all(
-      RSS_SOURCES.map((s) => fetchRSS(s.url, s.category)),
+      RSS_SOURCES.map((s) => fetchRSS(s.url, s.name)),
     );
     const allItems = feedResults.flat();
 
-    // Dedup + limit
-    const fresh = allItems.slice(0, 10); // 10 per run
+    // Dedup within this batch by URL (first occurrence wins)
+    const seen = new Set<string>();
+    const unique = allItems.filter((i) => {
+      if (seen.has(i.link)) return false;
+      seen.add(i.link);
+      return true;
+    });
+
+    // Fresh items only, limited
+    const fresh = unique.slice(0, MAX_PER_RUN);
 
     let published = 0;
+    let duplicates = 0;
     let skipped = 0;
 
     for (const item of fresh) {
-      // Skip if description is too short (junk)
-      if (item.description.length < 40) {
-        skipped++;
+      // Dedup against DB
+      if (await sourceUrlExists(item.link)) {
+        duplicates++;
         continue;
       }
 
       // AI rewrite
-      const rewritten = await chat({
-        baseUrl: "https://api.groq.com/openai/v1",
-        model: "openai/gpt-oss-120b",
-        apiKey: groqKey,
-        systemPrompt: `তুমি বাংলার ভয়েসের সিনিয়র সাংবাদিক। তুমি যেকোনো সংবাদ নিজের ভাষায়, সংক্ষেপে, নিরপেক্ষভাবে, আকর্ষণীয় হেডলাইনসহ বাংলায় রিরাইট করো।
-
-নিয়ম:
-- শিরোনাম সর্বোচ্চ ১২ শব্দ
-- মূল অংশ ৩-৫ প্যারাগ্রাফ (প্রতি প্যারাগ্রাফ ৩-৪ লাইন)
-- নিরপেক্ষ ভাষা, কোনো পক্ষপাতিত্ব নয়
-- সূত্র উল্লেখ: "সূত্র: Google News / মূল প্রকাশনা"
-- শুধু বাংলায় উত্তর দাও
-- JSON ফরম্যাটে: { "title": "...", "content": "..." }
-
-আউটপুট শুধু JSON, ব্যাখ্যা নয়।`,
-        userPrompt: `মূল সংবাদ: ${item.title}\n\n${item.description}\n\nএখন এটি বাংলায় রিরাইট করো।`,
-        temperature: 0.4,
-        maxTokens: 800,
-      });
-
-      // Parse AI JSON response
-      let title = item.title;
-      let content = item.description;
-      try {
-        const cleaned = rewritten.replace(/```json\s*|\s*```/g, "").trim();
-        const parsed = JSON.parse(cleaned);
-        if (parsed.title) title = parsed.title;
-        if (parsed.content) content = parsed.content;
-      } catch {
-        // If AI didn't return JSON, use raw text as content
-        content = rewritten.slice(0, 2000);
+      const rewritten = await aiRewrite(groqKey, item);
+      if (!rewritten) {
+        skipped++;
+        continue;
       }
 
-      // Insert into articles
+      // Pexels image (category-aware query, Bangladesh context)
+      const image = await fetchPexelsImage(
+        supabase,
+        `${rewritten.category_key} bangladesh`,
+      );
+
       const { error } = await supabase.from("articles").insert({
-        title_bn: title.slice(0, 250),
-        content_bn: content,
+        title_bn: rewritten.title_bn.slice(0, 250),
         title_en: "",
+        content_bn: rewritten.content_bn,
         content_en: "",
-        thumbnail_url: "",
-        category: item.category,
+        thumbnail_url: image?.url || "",
+        image_credit: image?.credit || "",
+        category: rewritten.category_key,
+        category_key: rewritten.category_key,
         status: "published",
         published_at: new Date().toISOString(),
+        source_url: item.link,
+        source_name: item.source_name,
+        ai_model: AI_MODEL,
+        ai_confidence: rewritten.confidence,
       });
 
       if (error) {
-        console.error("Insert failed:", error.message);
+        console.error("[insert] failed:", error.message);
         skipped++;
-      } else {
-        published++;
-        // Log to ai_audit_log
-        await supabase.from("ai_audit_log").insert({
-          model: "openai/gpt-oss-120b",
-          provider: "groq",
-          input_tokens: 0,
-          output_tokens: 0,
-          cost_usd: 0,
-          latency_ms: Date.now() - start,
-          status: "success",
-        });
+        continue;
       }
+
+      published++;
+
+      // Audit log
+      await supabase.from("ai_audit_log").insert({
+        model: AI_MODEL,
+        provider: "groq",
+        input_tokens: 0,
+        output_tokens: 0,
+        cost_usd: 0,
+        latency_ms: Date.now() - start,
+        status: "success",
+      });
     }
 
     return json({
       ok: true,
       fetched: allItems.length,
+      unique: unique.length,
       published,
+      duplicates,
       skipped,
       duration_ms: Date.now() - start,
     });

@@ -1,23 +1,43 @@
 import { NextResponse } from 'next/server';
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+import { createClient } from '@supabase/supabase-js';
+
 export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
+function getAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('Supabase admin creds missing');
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
 export async function POST(req: Request) {
   try {
     const { id, reason } = await req.json();
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
-    if (API_BASE) {
-      try {
-        await fetch(`${API_BASE}/api/newsroom/reject`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, status: 'rejected', reason }),
-          signal: AbortSignal.timeout(5000),
-        });
-      } catch {}
-    }
-    return NextResponse.json({ ok: true, id, status: 'rejected', reason: reason || '' },
-      { headers: { 'Cache-Control': 'no-store' } });
-  } catch {
-    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+
+    const supabase = getAdmin();
+    const { data, error } = await supabase
+      .from('articles')
+      .update({
+        status: 'archived',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('id, status')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return NextResponse.json({ error: 'not found' }, { status: 404 });
+
+    return NextResponse.json(
+      { ok: true, id: data.id, status: data.status, reason: reason || '' },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch (e) {
+    return NextResponse.json(
+      { error: String(e instanceof Error ? e.message : e) },
+      { status: 500 },
+    );
   }
 }

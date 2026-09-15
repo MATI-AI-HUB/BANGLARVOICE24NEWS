@@ -77,3 +77,22 @@ frontend/.env.local
 package-lock.json
 /node_modules/
 /package-lock.json
+
+# ── Dev utility scripts (one-time helpers) ──
+frontend/*.js
+!frontend/next.config.js
+!frontend/postcss.config.js
+!frontend/tailwind.config.js
+!frontend/vitest.config.js
+frontend/*.bak*
+frontend/*-backup-*.json
+frontend/articles-backup-*.json
+
+# ── Supabase function backups ──
+supabase/functions/news-pipeline/*.bak*
+supabase/functions/news-pipeline/fix-sensitive.js
+
+# ── Deploy helper ──
+deploy-function.js
+frontend/lib/*.bak*
+frontend/**/*.bak*
