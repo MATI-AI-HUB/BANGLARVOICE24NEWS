@@ -116,6 +116,53 @@ async function sourceUrlExists(url: string): Promise<boolean> {
 }
 
 // ── AI returns sensitivity as part of rewrite ──
+async function getOpenRouterKey(): Promise<string | null> {
+  const { data: row } = await supabase
+    .from("api_vault").select("key_encrypted")
+    .eq("service_name", "OPENROUTER_API_KEY")
+    .eq("is_active", true).maybeSingle();
+  if (!row?.key_encrypted) return null;
+  const { data: plain } = await supabase.rpc("decrypt_vault_secret", {
+    p_secret_id: row.key_encrypted,
+  });
+  return (plain as string) || null;
+}
+
+async function tryOpenRouter(orKey: string, systemPrompt: string, userPrompt: string) {
+  try {
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + orKey,
+        "HTTP-Referer": "https://banglarvoice24news.com",
+        "X-Title": "Banglar Voice",
+      },
+      body: JSON.stringify({
+        model: "nvidia/nemotron-3-super-120b-a12b:free",
+        temperature: 0.3,
+        max_tokens: 3000,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    if (!r.ok) {
+      console.error("[openrouter] HTTP", r.status);
+      return null;
+    }
+    const data = await r.json();
+    const raw = data?.choices?.[0]?.message?.content?.trim() || "";
+    const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("[openrouter] failed:", (e as Error).message);
+    return null;
+  }
+}
+
 async function aiRewrite(groqKey: string, item: RssItem) {
   const systemPrompt = `তুমি বাংলার ভয়েসের সিনিয়র সংবাদ সম্পাদক। নিচে একটি মূল সোর্স নিউজ দেওয়া হলো।
 
@@ -135,12 +182,20 @@ national | politics | economy | sports | entertainment | tech | health | educati
 মাঝারি (০.৪-০.৭): আন্তর্জাতিক ঘটনা, দুর্ঘটনা, স্বাস্থ্য সংকট
 কম (০.০-০.৪): খেলা, বিনোদন, প্রযুক্তি, শিক্ষা, সিটি লাইফ, অর্থনীতি
 
-কাজ ৪ — Confidence (০.০ - ১.০): তথ্যের নির্ভরযোগ্যতা।
+কাজ ৪ — English translation (for dual-language platform):
+- Produce an accurate, natural English translation of the Bengali title and content.
+- Keep proper nouns (names, places) in their standard English form (e.g. Dhaka, Sheikh Hasina).
+- News-wire style: neutral, factual, no editorializing.
+- Same paragraph structure as Bengali. Include the source line at the end as "Source: [source name]".
+
+কাজ ৫ — Confidence (০.০ - ১.০): তথ্যের নির্ভরযোগ্যতা।
 
 Output শুধু JSON:
 {
   "title_bn": "string",
   "content_bn": "string",
+  "title_en": "string",
+  "content_en": "string",
   "category_key": "string",
   "sensitivity": number,
   "sensitivity_reason": "string (সংক্ষেপে বাংলায় কেন sensitive)",
@@ -162,12 +217,32 @@ Output শুধু JSON:
       }),
       signal: AbortSignal.timeout(30000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[groq] HTTP", res.status, "— trying OpenRouter fallback");
+      const orKey = await getOpenRouterKey();
+      if (!orKey) return null;
+      const orParsed = await tryOpenRouter(orKey, systemPrompt, userPrompt);
+      if (!orParsed) return null;
+      if (!orParsed.title_bn || !orParsed.content_bn) return null;
+      if (!orParsed.title_en) orParsed.title_en = orParsed.title_bn;
+      if (!orParsed.content_en) orParsed.content_en = orParsed.content_bn;
+      if (orParsed.content_bn.length < MIN_CONTENT) return null;
+      if (!CATEGORY_ENUM.includes(orParsed.category_key)) {
+        orParsed.category_key = item.category_hint || "national";
+        orParsed.confidence = Math.min(orParsed.confidence ?? 0.5, 0.6);
+      }
+      orParsed.confidence = Math.max(0, Math.min(1, orParsed.confidence ?? 0.7));
+      orParsed.sensitivity = Math.max(0, Math.min(1, orParsed.sensitivity ?? 0.5));
+      return orParsed;
+    }
     const data = await res.json();
     const raw = data?.choices?.[0]?.message?.content?.trim() || "";
     const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     if (!parsed.title_bn || !parsed.content_bn) return null;
+    // Graceful fallback: if English missing, mirror Bengali (backfill will fix later)
+    if (!parsed.title_en) parsed.title_en = parsed.title_bn;
+    if (!parsed.content_en) parsed.content_en = parsed.content_bn;
     if (parsed.content_bn.length < MIN_CONTENT) return null;
     if (!CATEGORY_ENUM.includes(parsed.category_key)) {
       parsed.category_key = item.category_hint || "national";
@@ -284,7 +359,9 @@ Deno.serve(async (req) => {
 
       const { error } = await supabase.from("articles").insert({
         title_bn: rewritten.title_bn.slice(0, 250),
-        title_en: "", content_bn: rewritten.content_bn, content_en: "",
+        title_en: (rewritten.title_en || "").slice(0, 250),
+        content_bn: rewritten.content_bn,
+        content_en: rewritten.content_en || "",
         thumbnail_url: image?.url || "", image_credit: image?.credit || "",
         category: rewritten.category_key, category_key: rewritten.category_key,
         status: finalStatus,
