@@ -96,3 +96,5 @@ supabase/functions/news-pipeline/fix-sensitive.js
 deploy-function.js
 frontend/lib/*.bak*
 frontend/**/*.bak*
+frontend/lib/*.bak*
+frontend/**/*.bak*
