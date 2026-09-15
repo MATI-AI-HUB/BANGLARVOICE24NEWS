@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Tab = 'overview' | 'secrets' | 'users' | 'platform' | 'audit';
 
@@ -11,26 +12,8 @@ type Stats = {
   pipeline: { lastRunAt: string | null; runsLast24h: number };
 };
 
-type Secret = {
-  id: string;
-  service_name: string;
-  environment: string;
-  is_active: boolean;
-  last_tested: string | null;
-  created_at: string;
-};
-
-type User = {
-  id: string;
-  email: string;
-  role: string;
-  full_name: string | null;
-  phone: string | null;
-  verified: boolean;
-  created_at: string;
-  last_sign_in_at: string | null;
-};
-
+type Secret = { id: string; service_name: string; environment: string; is_active: boolean; last_tested: string | null; created_at: string };
+type User = { id: string; email: string; role: string; full_name: string | null; phone: string | null; verified: boolean; created_at: string; last_sign_in_at: string | null };
 type CronJob = { jobname: string; schedule: string; active: boolean; last_run?: string | null };
 type PipelineRun = { id: string; model: string; provider: string; status: string; latency_ms: number | null; created_at: string };
 type AuditRow = { id: string; actor_id: string | null; action: string; detail: Record<string, unknown> | null; created_at: string };
@@ -38,6 +21,7 @@ type AuditRow = { id: string; actor_id: string | null; action: string; detail: R
 const ROLES = ['admin', 'chief_editor', 'desk_editor', 'staff_reporter', 'citizen_reporter'];
 
 export default function ControlCenterPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [secrets, setSecrets] = useState<Secret[]>([]);
@@ -180,6 +164,10 @@ export default function ControlCenterPage() {
     }
   }
 
+  function gotoPending() {
+    router.push('/admin/pending');
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
@@ -217,14 +205,63 @@ export default function ControlCenterPage() {
 
         {!loading && tab === 'overview' && stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card title="Articles" value={stats.articles.total} sub={`${stats.articles.published} published`} />
-            <Card title="Pending" value={stats.articles.pending} sub="awaiting approval" />
-            <Card title="Users" value={stats.users.total} sub={`${stats.users.admins} admins`} />
-            <Card title="Secrets" value={stats.secrets.total} sub={`${stats.secrets.active} active`} />
-            <Card title="Last 24h" value={stats.articles.last24h} sub="new articles" />
-            <Card title="Pipeline Runs" value={stats.pipeline.runsLast24h} sub="last 24h" />
-            <Card title="Editors" value={stats.users.editors} sub="chief + desk" />
-            <Card title="Reporters" value={stats.users.reporters} sub="staff + citizen" />
+            <Card
+              title="Articles"
+              value={stats.articles.total}
+              sub={`${stats.articles.published} published`}
+              onClick={() => setTab('platform')}
+              hint="tap to see pipeline"
+            />
+            <Card
+              title="Pending"
+              value={stats.articles.pending}
+              sub="awaiting approval"
+              onClick={gotoPending}
+              hint="tap to review"
+              highlight={stats.articles.pending > 0}
+            />
+            <Card
+              title="Users"
+              value={stats.users.total}
+              sub={`${stats.users.admins} admins`}
+              onClick={() => setTab('users')}
+              hint="tap to manage"
+            />
+            <Card
+              title="Secrets"
+              value={stats.secrets.total}
+              sub={`${stats.secrets.active} active`}
+              onClick={() => setTab('secrets')}
+              hint="tap to manage"
+            />
+            <Card
+              title="Last 24h"
+              value={stats.articles.last24h}
+              sub="new articles"
+              onClick={() => setTab('platform')}
+              hint="tap to see runs"
+            />
+            <Card
+              title="Pipeline Runs"
+              value={stats.pipeline.runsLast24h}
+              sub="last 24h"
+              onClick={() => setTab('platform')}
+              hint="tap to inspect"
+            />
+            <Card
+              title="Editors"
+              value={stats.users.editors}
+              sub="chief + desk"
+              onClick={() => setTab('users')}
+              hint="tap to assign"
+            />
+            <Card
+              title="Reporters"
+              value={stats.users.reporters}
+              sub="staff + citizen"
+              onClick={() => setTab('users')}
+              hint="tap to view"
+            />
           </div>
         )}
 
@@ -428,12 +465,38 @@ export default function ControlCenterPage() {
   );
 }
 
-function Card({ title, value, sub }: { title: string; value: number; sub: string }) {
+function Card({
+  title,
+  value,
+  sub,
+  onClick,
+  hint,
+  highlight,
+}: {
+  title: string;
+  value: number;
+  sub: string;
+  onClick?: () => void;
+  hint?: string;
+  highlight?: boolean;
+}) {
+  const clickable = !!onClick;
   return (
-    <div className="bg-white p-4 rounded-lg border border-zinc-200">
-      <div className="text-xs uppercase tracking-wide text-zinc-500">{title}</div>
+    <div
+      onClick={onClick}
+      className={`bg-white p-4 rounded-lg border transition-all ${
+        clickable ? 'cursor-pointer hover:shadow-md hover:border-blue-400 active:scale-98' : ''
+      } ${highlight ? 'border-amber-400 ring-1 ring-amber-200' : 'border-zinc-200'}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wide text-zinc-500">{title}</div>
+        {clickable && <div className="text-zinc-300 text-xs">→</div>}
+      </div>
       <div className="text-3xl font-bold text-zinc-900 mt-1">{value}</div>
       <div className="text-xs text-zinc-500 mt-1">{sub}</div>
+      {hint && clickable && (
+        <div className="text-[10px] text-blue-500 mt-2">{hint}</div>
+      )}
     </div>
   );
 }
