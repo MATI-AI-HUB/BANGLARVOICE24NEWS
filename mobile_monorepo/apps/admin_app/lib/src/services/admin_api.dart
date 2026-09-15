@@ -7,16 +7,27 @@ import '../config.dart';
 import '../models/dashboard_stats.dart';
 import '../models/pending_article.dart';
 import '../models/reporter.dart';
+import 'admin_session.dart';
 
 class AdminApi {
   AdminApi({http.Client? client}) : _client = client ?? http.Client();
+
   final http.Client _client;
-  static const _timeout = Duration(seconds: 10);
+  static const _timeout = Duration(seconds: 15);
+
+  Map<String, String> get _headers {
+    final t = AdminSession.token;
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (t != null && t.isNotEmpty) 'Authorization': 'Bearer $t',
+    };
+  }
 
   Future<DashboardStats> fetchStats() async {
     try {
       final res = await _client
-          .get(AdminConfig.uri(AdminConfig.statsPath))
+          .get(AdminConfig.uri(AdminConfig.statsPath), headers: _headers)
           .timeout(_timeout);
       if (res.statusCode != 200) return DashboardStats.empty;
       return DashboardStats.fromJson(
@@ -30,7 +41,7 @@ class AdminApi {
   Future<List<PendingArticle>> fetchPending() async {
     try {
       final res = await _client
-          .get(AdminConfig.uri(AdminConfig.pendingPath))
+          .get(AdminConfig.uri(AdminConfig.pendingPath), headers: _headers)
           .timeout(_timeout);
       if (res.statusCode != 200) return [];
       final json = jsonDecode(utf8.decode(res.bodyBytes));
@@ -48,7 +59,7 @@ class AdminApi {
   Future<List<Reporter>> fetchReporters() async {
     try {
       final res = await _client
-          .get(AdminConfig.uri(AdminConfig.reportersPath))
+          .get(AdminConfig.uri(AdminConfig.reportersPath), headers: _headers)
           .timeout(_timeout);
       if (res.statusCode != 200) return [];
       final json = jsonDecode(utf8.decode(res.bodyBytes));
@@ -80,7 +91,7 @@ class AdminApi {
       final res = await _client
           .post(
             AdminConfig.uri(path),
-            headers: {'Content-Type': 'application/json'},
+            headers: _headers,
             body: jsonEncode(body),
           )
           .timeout(_timeout);

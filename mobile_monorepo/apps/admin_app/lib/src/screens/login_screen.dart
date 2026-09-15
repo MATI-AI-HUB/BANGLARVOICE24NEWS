@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../services/admin_session.dart';
 import 'main_shell.dart';
 
@@ -11,13 +10,14 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
   String? _error;
 
   Future<void> _login() async {
-    if (_password.text.isEmpty) {
-      setState(() => _error = 'পাসওয়ার্ড লিখুন');
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = 'ইমেইল ও পাসওয়ার্ড দিন');
       return;
     }
     setState(() {
@@ -25,12 +25,13 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final ok = await AdminSession.login(_password.text);
+    final ok = await AdminSession.login(_email.text.trim(), _password.text);
+
     if (!mounted) return;
     setState(() => _loading = false);
 
     if (!ok) {
-      setState(() => _error = 'ভুল পাসওয়ার্ড');
+      setState(() => _error = 'ভুল ইমেইল/পাসওয়ার্ড বা অনুমতি নেই');
       return;
     }
 
@@ -41,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _email.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -79,6 +81,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 32),
+                TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'ইমেইল',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _password,
                   obscureText: true,
