@@ -99,7 +99,7 @@ export function Header() {
 
       {/* Sticky glassmorphism main header */}
       <header className="sticky top-0 z-50 border-b border-border/80 bg-paper/85 shadow-glass backdrop-blur-xl supports-[backdrop-filter]:bg-paper/70">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5 md:py-4">
           <div className="flex items-center gap-2">
             {/* Mobile drawer trigger */}
             <button
@@ -118,8 +118,8 @@ export function Header() {
 
             <Link
               href="/"
-              className="inline-flex shrink-0 items-center"
-              aria-label="বাংলার ভয়েস — হোমপেজ"
+              className="inline-flex shrink-0 items-center gap-2 md:gap-2.5"
+              aria-label="বাংলার ভয়েস 24NEWS — হোমপেজ"
             >
               <Image
                 src="/banglar-voice-logo.png"
@@ -127,8 +127,15 @@ export function Header() {
                 width={320}
                 height={108}
                 priority
-                className="h-[42px] w-auto object-contain md:h-[54px] lg:h-[58px]"
-              />
+                className="h-[52px] w-auto object-contain md:h-[68px] lg:h-[72px]"
+            />
+            <span
+              aria-hidden="true"
+              className="relative ml-2 inline-flex items-center rounded-md bg-gradient-to-br from-[#CC0000] to-[#8B0000] px-1.5 py-1 text-[10px] font-black uppercase leading-none tracking-widest text-white shadow-sm ring-1 ring-red-900/20 md:ml-2.5 md:px-2.5 md:py-1.5 md:text-sm"
+            >
+              24NEWS
+              <span className="ml-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white/90" />
+            </span>
             </Link>
           </div>
 
