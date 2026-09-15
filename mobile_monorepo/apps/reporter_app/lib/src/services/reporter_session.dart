@@ -1,8 +1,8 @@
 /// Reporter session — real Supabase auth for the Field Reporter app.
 library;
 
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
@@ -42,13 +42,11 @@ class ReporterSession {
       roleCode == 'staff_reporter' ||
       roleCode == 'desk_editor' ||
       roleCode == 'chief_editor';
+
   bool get canPublishDirectly => isStaff && verified;
 
-  /// Backward-compat getter for screens that expect a ReporterRole enum.
-  ReporterRole get role => isStaff ? ReporterRole.staff : ReporterRole.citizen;
-
-  /// Backward-compat getter for screens that expect a ReporterRole enum.
-  ReporterRole get role => isStaff ? ReporterRole.staff : ReporterRole.citizen;
+  ReporterRole get role =>
+      isStaff ? ReporterRole.staff : ReporterRole.citizen;
 }
 
 class SessionStore {
@@ -90,7 +88,6 @@ class SessionStore {
     }
   }
 
-  /// Login via Supabase. Returns null on success, error message on failure.
   static Future<String?> login(String email, String password) async {
     try {
       final url = Uri.parse(
@@ -104,18 +101,14 @@ class SessionStore {
         },
         body: jsonEncode({'email': email, 'password': password}),
       );
-
       if (res.statusCode != 200) return 'ভুল ইমেইল বা পাসওয়ার্ড';
-
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final token = data['access_token'] as String?;
       final user = data['user'] as Map<String, dynamic>?;
       if (token == null || user == null) return 'লগইন ব্যর্থ';
-
       final userId = user['id'] as String?;
       if (userId == null) return 'ইউজার আইডি পাওয়া যায়নি';
 
-      // Fetch profile
       final profileUrl = Uri.parse(
         '${ReporterConfig.supabaseUrl}/rest/v1/profiles?select=role,full_name,phone,verified&id=eq.$userId',
       );
@@ -144,7 +137,6 @@ class SessionStore {
         }
       }
 
-      // Save
       _userId = userId;
       _email = email;
       _token = token;
@@ -171,6 +163,8 @@ class SessionStore {
       return 'নেটওয়ার্ক সমস্যা: $e';
     }
   }
+
+  static Future<void> clear() => logout();
 
   static Future<void> logout() async {
     _current = null;
