@@ -22,6 +22,31 @@ const supabase =
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Bengali display labels for category keys — Bengali-first UX
+const CATEGORY_LABELS: Record<string, string> = {
+  national: 'জাতীয়',
+  politics: 'রাজনীতি',
+  economy: 'অর্থনীতি',
+  sports: 'খেলাধুলা',
+  entertainment: 'বিনোদন',
+  tech: 'প্রযুক্তি',
+  health: 'স্বাস্থ্য',
+  education: 'শিক্ষা',
+  international: 'আন্তর্জাতিক',
+  city: 'নগর',
+};
+
+function categoryLabel(raw: string | null | undefined): string {
+  const v = (raw || '').trim();
+  if (!v) return 'সর্বশেষ';
+  // If already Bengali label, return as-is
+  for (const label of Object.values(CATEGORY_LABELS)) {
+    if (label === v) return v;
+  }
+  // Otherwise map English key
+  return CATEGORY_LABELS[v.toLowerCase()] || v;
+}
+
 async function safeFetch<T>(url: string, timeoutMs = 4000, empty: T): Promise<T> {
   try {
     const r = await fetch(url, {
@@ -69,7 +94,7 @@ function mapArticle(row: SupabaseArticle): FeedArticle {
     slug: row.id,
     title_bn: row.title_bn,
     dek_bn: summary,
-    category: row.category || 'national',
+    category: categoryLabel(row.category),
     featured_image: row.thumbnail_url || '',
     reading_time_min: estimateReadTime(row.content_bn),
     bias_index: 50,
