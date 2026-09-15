@@ -47,6 +47,39 @@ function categoryLabel(raw: string | null | undefined): string {
   return CATEGORY_LABELS[v.toLowerCase()] || v;
 }
 
+// Bengali numerals
+const BN_DIGITS = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+const BN_MONTHS = [
+  'জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন',
+  'জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর',
+];
+
+function toBn(input: string | number): string {
+  return String(input).replace(/[0-9]/g, (d) => BN_DIGITS[+d]);
+}
+
+function bengaliDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${toBn(d.getDate())} ${BN_MONTHS[d.getMonth()]}, ${toBn(d.getFullYear())}`;
+}
+
+function timeAgoBn(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'এইমাত্র';
+  if (mins < 60) return `${toBn(mins)} মিনিট আগে`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${toBn(hrs)} ঘণ্টা আগে`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${toBn(days)} দিন আগে`;
+  return bengaliDate(iso);
+}
+
 async function safeFetch<T>(url: string, timeoutMs = 4000, empty: T): Promise<T> {
   try {
     const r = await fetch(url, {
@@ -89,6 +122,8 @@ function estimateReadTime(content: string): number {
 
 function mapArticle(row: SupabaseArticle): FeedArticle {
   const summary = stripHtml(row.content_bn).slice(0, 220);
+  const pubIso = row.published_at || row.created_at;
+  const readMin = estimateReadTime(row.content_bn);
   return {
     id: row.id,
     slug: row.id,
@@ -96,9 +131,13 @@ function mapArticle(row: SupabaseArticle): FeedArticle {
     dek_bn: summary,
     category: categoryLabel(row.category),
     featured_image: row.thumbnail_url || '',
-    reading_time_min: estimateReadTime(row.content_bn),
+    reading_time_min: readMin,
     bias_index: 50,
-    published_at: row.published_at || row.created_at,
+    published_at: pubIso,
+    // Bengali display strings (bonus fields — used by components if present)
+    published_at_bn: bengaliDate(pubIso),
+    time_ago_bn: timeAgoBn(pubIso),
+    reading_time_bn: `${toBn(readMin)} মিনিট পড়া`,
   };
 }
 

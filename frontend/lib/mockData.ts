@@ -24,6 +24,10 @@ export type FeedArticle = {
   reading_time_min?: number;
   bias_index?: number;
   published_at?: string;
+  // Bengali display strings — populated by lib/api.ts (not present in mock data)
+  published_at_bn?: string;
+  time_ago_bn?: string;
+  reading_time_bn?: string;
 };
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
