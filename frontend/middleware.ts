@@ -1,4 +1,3 @@
-import ratelimit from "@/lib/rate-limit"
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -16,9 +15,7 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
@@ -29,9 +26,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Try cookie first (web)
+  let user = (await supabase.auth.getUser()).data.user
 
-  // ── লগইন করা নেই ──
+  // Fallback: Bearer token (mobile)
+  if (!user) {
+    const authHeader = request.headers.get('authorization') || ''
+    if (authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim()
+      const { data } = await supabase.auth.getUser(token)
+      user = data.user
+    }
+  }
+
   if (!user) {
     if (isApiRoute) {
       return NextResponse.json(
@@ -45,7 +52,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ── লগইন আছে, role চেক ──
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
