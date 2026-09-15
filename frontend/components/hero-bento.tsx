@@ -15,15 +15,19 @@ export type Article = {
   author?: string;
 };
 
+
+const _bn = (s: string | number): string =>
+  String(s).replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'[+d]);
+
 function timeAgo(iso?: string): string {
   if (!iso) return '';
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const mins = Math.max(1, Math.round((Date.now() - then) / 60000));
-  if (mins < 60) return `${mins} মিনিট আগে`;
+  if (mins < 60) return `${_bn(mins)} মিনিট আগে`;
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} ঘণ্টা আগে`;
-  return `${Math.round(hrs / 24)} দিন আগে`;
+  if (hrs < 24) return `${_bn(hrs)} ঘণ্টা আগে`;
+  return `${_bn(Math.round(hrs / 24))} দিন আগে`;
 }
 
 function biasBadge(bias?: number) {

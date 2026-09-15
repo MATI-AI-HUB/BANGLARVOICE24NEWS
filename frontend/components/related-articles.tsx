@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { api } from '../lib/api';
 import { mockFeedItems, type FeedArticle } from '../lib/mockData';
 
+const _bn = (s: string | number): string =>
+  String(s).replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'[+d]);
+
+
 /**
  * Banglar Voice — "আরও সংবাদ পড়ুন" (Related / More news) section.
  * Renders up to 4 related article cards below a single article.
@@ -85,7 +89,7 @@ export async function RelatedArticles({
               </h3>
               {a.reading_time_min ? (
                 <span className="mt-auto pt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  {a.reading_time_min} মিনিট পড়া
+                  {_bn(a.reading_time_min)} মিনিট পড়া
                 </span>
               ) : null}
             </div>
