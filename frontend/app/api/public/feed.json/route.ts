@@ -5,7 +5,31 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com
 
 export const revalidate = 60;
 
-// Lazy — env vars runtime-এ load হয়, build-এ নয়
+const KEY_TO_LABEL: Record<string, string> = {
+  national: 'জাতীয়',
+  politics: 'রাজনীতি',
+  economy: 'অর্থনীতি',
+  sports: 'খেলাধুলা',
+  entertainment: 'বিনোদন',
+  tech: 'প্রযুক্তি',
+  health: 'স্বাস্থ্য',
+  education: 'শিক্ষা',
+  international: 'আন্তর্জাতিক',
+  city: 'নগর',
+};
+
+const LABEL_TO_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(KEY_TO_LABEL).map(([k, v]) => [v, k])
+);
+
+function resolveCategory(raw: string | null | undefined): { key: string; label: string } {
+  const value = (raw || '').trim();
+  if (!value) return { key: '', label: '' };
+  if (KEY_TO_LABEL[value]) return { key: value, label: KEY_TO_LABEL[value] };
+  if (LABEL_TO_KEY[value]) return { key: LABEL_TO_KEY[value], label: value };
+  return { key: value, label: value };
+}
+
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -21,7 +45,7 @@ export async function GET() {
       .select('*')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
-      .limit(30);
+      .limit(50);
 
     if (error) throw error;
 
@@ -32,17 +56,23 @@ export async function GET() {
       feed_url: `${SITE}/api/public/feed.json`,
       description: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
       language: 'bn',
-      items: (articles || []).map((a) => ({
-        id: a.id,
-        url: `${SITE}/article/${a.id}`,
-        title: a.title_bn,
-        summary: '',
-        content_text: a.content_bn,
-        date_published: a.published_at,
-        tags: a.category ? [a.category] : [],
-        authors: [{ name: 'বাংলার ভয়েস ডেস্ক' }],
-        banner_image: a.thumbnail_url || '',
-      })),
+      items: (articles || []).map((a) => {
+        const cat = resolveCategory(a.category_key || a.category);
+        const tags = [cat.key, cat.label].filter((x) => x);
+        return {
+          id: a.id,
+          url: `${SITE}/article/${a.id}`,
+          title: a.title_bn,
+          summary: (a.content_bn || '').slice(0, 200),
+          content_text: a.content_bn,
+          date_published: a.published_at,
+          tags,
+          category_key: cat.key,
+          category_label: cat.label,
+          authors: [{ name: 'বাংলার ভয়েস ডেস্ক' }],
+          banner_image: a.thumbnail_url || '',
+        };
+      }),
     };
 
     return NextResponse.json(feed, {
