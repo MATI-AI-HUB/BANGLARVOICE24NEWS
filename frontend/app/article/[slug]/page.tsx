@@ -3,7 +3,6 @@ import { mockFeedItems } from '../../../lib/mockData';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import DOMPurify from 'isomorphic-dompurify';
 import { AudioPlayerWidget } from '../../../components/audio-player';
 import { Breadcrumb } from '../../../components/breadcrumb';
 import { RelatedArticles } from '../../../components/related-articles';
@@ -41,6 +40,20 @@ function toPlainText(html: string): string {
     .replace(/&#0?39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// ─── Lightweight server-safe HTML sanitizer ───
+function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<iframe\b[^>]*>.*?<\/iframe>/gi, '')
+    .replace(/<object\b[^>]*>.*?<\/object>/gi, '')
+    .replace(/<embed\b[^>]*>/gi, '')
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/data:text\/html/gi, '');
 }
 
 async function loadArticle(slug: string): Promise<ArticleData | null> {
@@ -102,7 +115,7 @@ export default async function ArticlePage({ params }: PageProps) {
   const a = await loadArticle(slug);
   if (!a || !a.slug) notFound();
 
-  const sanitizedBody = DOMPurify.sanitize(a.body_bn || '');
+  const sanitizedBody = sanitizeHtml(a.body_bn || '');
   const narrateText = `${a.title_bn}। ${a.dek_bn || ''} ${toPlainText(a.body_bn || '')}`;
 
   const newsArticleLd = {
