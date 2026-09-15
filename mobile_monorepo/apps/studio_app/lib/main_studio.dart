@@ -2,17 +2,10 @@
 import 'package:flutter/material.dart';
 import 'src/screens/live_setup_screen.dart';
 import 'src/services/studio_session.dart';
-import 'package:supabase_core/supabase_core.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseCore.initialize();
   runApp(const BanglarVoiceStudioApp());
-  SupabaseCore.realtimeChannel(
-    name: 'live_sessions',
-    table: 'live_sessions',
-    onEvent: () {},
-  );
 }
 
 class BanglarVoiceStudioApp extends StatelessWidget {
