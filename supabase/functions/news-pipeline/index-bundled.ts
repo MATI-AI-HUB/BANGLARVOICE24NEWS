@@ -49,7 +49,7 @@ const CATEGORY_ENUM = [
 ];
 
 const MIN_CONTENT = 300;
-const MAX_PER_RUN = 10;
+const MAX_PER_RUN = 30;
 const AI_MODEL = "openai/gpt-oss-120b";
 const AI_BASE = "https://api.groq.com/openai/v1";
 
@@ -88,6 +88,26 @@ async function fetchRSS(url: string, sourceName: string, categoryHint: string): 
     const xml = await r.text();
     return parseRssItems(xml, sourceName, categoryHint);
   } catch { return []; }
+}
+
+
+async function titleTooSimilar(titleBn: string): Promise<boolean> {
+  // Normalize: only Bengali letters, first 15 chars = topic fingerprint
+  const fp = titleBn.replace(/[^\u0980-\u09FF]/g, "").slice(0, 15);
+  if (fp.length < 8) return false;
+  const { data } = await supabase
+    .from("articles")
+    .select("id, title_bn")
+    .in("status", ["published", "pending"])
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (!data) return false;
+  // Compare fingerprints
+  for (const row of data) {
+    const rowFp = String(row.title_bn || "").replace(/[^\u0980-\u09FF]/g, "").slice(0, 15);
+    if (rowFp === fp) return true;
+  }
+  return false;
 }
 
 async function sourceUrlExists(url: string): Promise<boolean> {
@@ -243,13 +263,20 @@ Deno.serve(async (req) => {
       seen.add(i.link);
       return true;
     });
-    const fresh = unique.slice(0, MAX_PER_RUN);
+    // Take a diverse slice — skip the first 10 (likely already processed),
+    // then blend in first 10 for safety.
+    const fresh = [
+      ...unique.slice(10, 10 + MAX_PER_RUN),  // deeper items
+      ...unique.slice(0, 10),                  // recent items (backup)
+    ].slice(0, MAX_PER_RUN);
     let published = 0, pending = 0, duplicates = 0, skipped = 0;
 
     for (const item of fresh) {
       if (await sourceUrlExists(item.link)) { duplicates++; continue; }
+      // (title check happens after rewrite, since title is AI-generated)
       const rewritten = await aiRewrite(groqKey, item);
       if (!rewritten) { skipped++; continue; }
+      if (await titleTooSimilar(rewritten.title_bn)) { duplicates++; continue; }
 
       const isSensitive = rewritten.sensitivity >= SENSITIVITY_THRESHOLD || rewritten.category_key === "politics";
       const finalStatus = isSensitive ? "pending" : "published";
