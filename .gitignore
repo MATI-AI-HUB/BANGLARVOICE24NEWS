@@ -100,3 +100,4 @@ frontend/lib/*.bak*
 frontend/**/*.bak*
 frontend/lib/*.bak*
 frontend/**/*.bak*
+frontend/_sentry_disabled/
