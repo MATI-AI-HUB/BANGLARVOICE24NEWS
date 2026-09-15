@@ -9,26 +9,31 @@ import 'article_detail_screen.dart';
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
 
-  static const List<String> _categories = [
-    'রাজনীতি',
-    'অর্থনীতি',
-    'খেলাধুলা',
-    'বিনোদন',
-    'আন্তর্জাতিক',
-    'বিশ্লেষণ',
-    'লাইভ',
-    'ভিডিও',
+  /// All 10 categories matching the DB `category_key` enum.
+  static const List<Map<String, String>> categories = [
+    {'key': 'national', 'label': 'জাতীয়'},
+    {'key': 'politics', 'label': 'রাজনীতি'},
+    {'key': 'economy', 'label': 'অর্থনীতি'},
+    {'key': 'sports', 'label': 'খেলাধুলা'},
+    {'key': 'entertainment', 'label': 'বিনোদন'},
+    {'key': 'tech', 'label': 'প্রযুক্তি'},
+    {'key': 'health', 'label': 'স্বাস্থ্য'},
+    {'key': 'education', 'label': 'শিক্ষা'},
+    {'key': 'international', 'label': 'আন্তর্জাতিক'},
+    {'key': 'city', 'label': 'নগর'},
   ];
 
   static const Map<String, IconData> _icons = {
-    'রাজনীতি': Icons.account_balance_outlined,
-    'অর্থনীতি': Icons.trending_up_rounded,
-    'খেলাধুলা': Icons.sports_soccer_rounded,
-    'বিনোদন': Icons.movie_outlined,
-    'আন্তর্জাতিক': Icons.public_rounded,
-    'বিশ্লেষণ': Icons.insights_rounded,
-    'লাইভ': Icons.sensors_rounded,
-    'ভিডিও': Icons.play_circle_outline_rounded,
+    'national': Icons.flag_outlined,
+    'politics': Icons.account_balance_outlined,
+    'economy': Icons.trending_up_rounded,
+    'sports': Icons.sports_soccer_rounded,
+    'entertainment': Icons.movie_outlined,
+    'tech': Icons.memory_rounded,
+    'health': Icons.local_hospital_outlined,
+    'education': Icons.school_outlined,
+    'international': Icons.public_rounded,
+    'city': Icons.location_city_outlined,
   };
 
   @override
@@ -42,8 +47,10 @@ class CategoriesScreen extends StatelessWidget {
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
         childAspectRatio: 1.7,
-        children: _categories.map((c) {
-          final icon = _icons[c] ?? Icons.folder_outlined;
+        children: categories.map((c) {
+          final key = c['key']!;
+          final label = c['label']!;
+          final icon = _icons[key] ?? Icons.folder_outlined;
           final scheme = Theme.of(context).colorScheme;
           return Material(
             color: dark ? const Color(0xFF26231F) : Colors.white,
@@ -52,7 +59,10 @@ class CategoriesScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => CategoryFeedScreen(category: c),
+                  builder: (_) => CategoryFeedScreen(
+                    categoryKey: key,
+                    categoryLabel: label,
+                  ),
                 ),
               ),
               child: Container(
@@ -77,7 +87,7 @@ class CategoriesScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        c,
+                        label,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -101,8 +111,14 @@ class CategoriesScreen extends StatelessWidget {
 
 /// Filtered feed shown after tapping a category.
 class CategoryFeedScreen extends StatefulWidget {
-  const CategoryFeedScreen({super.key, required this.category});
-  final String category;
+  const CategoryFeedScreen({
+    super.key,
+    required this.categoryKey,
+    required this.categoryLabel,
+  });
+
+  final String categoryKey;
+  final String categoryLabel;
 
   @override
   State<CategoryFeedScreen> createState() => _CategoryFeedScreenState();
@@ -129,7 +145,7 @@ class _CategoryFeedScreenState extends State<CategoryFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: BvHeader(title: widget.category),
+      appBar: BvHeader(title: widget.categoryLabel),
       body: FutureBuilder<FeedResult>(
         future: _future,
         builder: (context, snap) {
@@ -145,14 +161,17 @@ class _CategoryFeedScreenState extends State<CategoryFeedScreen> {
           }
           final result = snap.data;
           final fromCache = result?.fromCache ?? false;
-          final label = widget.category;
-          final items = (result?.feed.items ?? [])
-              .where(
-                (e) =>
-                    e.tags.any((t) => t.contains(label)) ||
-                    e.categoryLabel == label,
-              )
-              .toList();
+          final key = widget.categoryKey;
+          final label = widget.categoryLabel;
+
+          final items = (result?.feed.items ?? []).where((e) {
+            // Match by English key OR Bengali label in tags
+            final tags = e.tags.map((t) => t.toLowerCase()).toList();
+            return tags.contains(key.toLowerCase()) ||
+                tags.contains(label) ||
+                e.categoryLabel == label;
+          }).toList();
+
           if (items.isEmpty) {
             return RefreshIndicator(
               onRefresh: _refresh,

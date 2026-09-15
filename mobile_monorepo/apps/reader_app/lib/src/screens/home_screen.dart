@@ -23,14 +23,18 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedCategory = 0;
   bool _fromCache = false;
 
-  static const List<String> _categories = [
-    'সর্বশেষ',
-    'রাজনীতি',
-    'অর্থনীতি',
-    'খেলাধুলা',
-    'বিনোদন',
-    'আন্তর্জাতিক',
-    'বিশ্লেষণ',
+  static const List<Map<String, String>> _categories = [
+    {'key': '', 'label': 'সর্বশেষ'},
+    {'key': 'national', 'label': 'জাতীয়'},
+    {'key': 'politics', 'label': 'রাজনীতি'},
+    {'key': 'economy', 'label': 'অর্থনীতি'},
+    {'key': 'sports', 'label': 'খেলাধুলা'},
+    {'key': 'entertainment', 'label': 'বিনোদন'},
+    {'key': 'tech', 'label': 'প্রযুক্তি'},
+    {'key': 'health', 'label': 'স্বাস্থ্য'},
+    {'key': 'education', 'label': 'শিক্ষা'},
+    {'key': 'international', 'label': 'আন্তর্জাতিক'},
+    {'key': 'city', 'label': 'নগর'},
   ];
 
   @override
@@ -56,8 +60,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<FeedItem> _visibleItems(List<FeedItem> items) {
     if (_selectedCategory == 0) return items;
-    final label = _categories[_selectedCategory];
-    return items.where((e) => e.tags.any((t) => t.contains(label))).toList();
+    final cat = _categories[_selectedCategory];
+    final key = cat['key']!.toLowerCase();
+    final label = cat['label']!;
+    return items.where((e) {
+      final tags = e.tags.map((t) => t.toLowerCase()).toList();
+      return tags.contains(key) || tags.contains(label);
+    }).toList();
   }
 
   void _openSettings() {
@@ -141,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             onTap: () => _open(hero),
                           ),
                         _CategoryChips(
-                          categories: _categories,
+              categories: _categories.map((c) => c['label']!).toList(),
                           selected: _selectedCategory,
                           onSelected: (i) =>
                               setState(() => _selectedCategory = i),
