@@ -1,29 +1,17 @@
 /// Banglar Voice — Breaking Live Studio (entrypoint).
-///
-/// Control room that can go live in ~10 seconds to the Website player, App
-/// push alert, Facebook Page and YouTube simultaneously. This build ships the
-/// full director UI (setup → branding overlay → go-live destinations → live
-/// controls) with honest config points for LiveKit / RTMP / Mux / Cloudflare /
-/// AI — no real stream starts until those services + API-Vault keys exist.
 import 'package:flutter/material.dart';
-
 import 'src/screens/live_setup_screen.dart';
 import 'src/services/studio_session.dart';
 import 'package:supabase_core/supabase_core.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Same shared Supabase project as the other four apps (no-op until dart-defines).
-  // (Wraps Supabase.initialize — see packages/supabase_core.)
   await SupabaseCore.initialize();
   runApp(const BanglarVoiceStudioApp());
-  // Realtime: studio listens to live_sessions state from the control room.
   SupabaseCore.realtimeChannel(
     name: 'live_sessions',
     table: 'live_sessions',
-    onEvent: () {
-      /* live_sessions changed → refresh studio state */
-    },
+    onEvent: () {},
   );
 }
 
@@ -74,44 +62,62 @@ class _StudioEntryState extends State<StudioEntry> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final s = StudioSessionStore.current;
-    if (s == null) return const _GateScreen();
+    if (s == null) return const _LoginScreen();
     if (s.canGoLive) return LiveSetupScreen(session: s);
     return _NoLivePermissionScreen(session: s);
   }
 }
 
-/// Dev/login gate — role picker. In production the role + Live Permission come
-/// from the Editorial App backend session; this local gate is the documented
-/// stand-in so the flow can be exercised end to end.
-class _GateScreen extends StatefulWidget {
-  const _GateScreen();
+/// Real login screen (Supabase email/password).
+class _LoginScreen extends StatefulWidget {
+  const _LoginScreen();
 
   @override
-  State<_GateScreen> createState() => _GateScreenState();
+  State<_LoginScreen> createState() => _LoginScreenState();
 }
 
-class _GateScreenState extends State<_GateScreen> {
-  final _name = TextEditingController(text: '');
-  StudioRole _role = StudioRole.director;
-  bool _live = true;
+class _LoginScreenState extends State<_LoginScreen> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _loading = false;
+  String? _error;
 
-  Future<void> _enter() async {
-    await StudioSessionStore.save(
-      name: _name.text.trim().isEmpty ? 'অপারেটর' : _name.text.trim(),
-      phone: 'dev',
-      role: _role,
-      livePermission: _live,
-      desk: _role == StudioRole.director ? 'লাইভ ডেস্ক' : null,
-    );
+  Future<void> _login() async {
+    final email = _email.text.trim();
+    final pass = _password.text;
+    if (email.isEmpty || pass.isEmpty) {
+      setState(() => _error = 'ইমেইল ও পাসওয়ার্ড দিন');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final err = await StudioSessionStore.login(email, pass);
+
     if (!mounted) return;
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const StudioEntry()));
+    setState(() => _loading = false);
+
+    if (err != null) {
+      setState(() => _error = err);
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const StudioEntry()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -127,65 +133,55 @@ class _GateScreenState extends State<_GateScreen> {
                   Text(
                     'স্টুডিওতে প্রবেশ',
                     textAlign: TextAlign.center,
-                    style: t.textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'লগইন গেট — প্রোডাকশনে Live Permission আসবে এডিটোরিয়াল অ্যাপ থেকে',
+                  const Text(
+                    'Live Permission রোল অনুযায়ী স্বয়ংক্রিয়ভাবে সেট হবে',
                     textAlign: TextAlign.center,
-                    style: t.textTheme.bodySmall?.copyWith(
-                      color: Colors.white60,
-                    ),
+                    style: TextStyle(color: Colors.white60, fontSize: 12),
                   ),
                   const SizedBox(height: 24),
                   TextField(
-                    controller: _name,
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
-                      labelText: 'অপারেটরের নাম',
+                      labelText: 'ইমেইল',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<StudioRole>(
-                    initialValue: _role,
+                  TextField(
+                    controller: _password,
+                    obscureText: true,
+                    onSubmitted: (_) => _login(),
                     decoration: const InputDecoration(
-                      labelText: 'ভূমিকা (Role)',
+                      labelText: 'পাসওয়ার্ড',
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.badge_outlined),
+                      prefixIcon: Icon(Icons.lock_outline),
                     ),
-                    items: StudioRole.values
-                        .map(
-                          (r) =>
-                              DropdownMenuItem(value: r, child: Text(r.label)),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() {
-                      if (v == null) return;
-                      _role = v;
-                      _live = v.defaultLivePermission;
-                    }),
                   ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('লাইভ অনুমতি (Live Permission)'),
-                    subtitle: const Text('থাকলেই Go Live বাটন দেখা যাবে'),
-                    value: _live,
-                    onChanged: (v) => setState(() => _live = v),
-                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                  ],
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFFCC0000),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    onPressed: _enter,
-                    icon: const Icon(Icons.login),
-                    label: const Text(
-                      'প্রবেশ করুন',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    onPressed: _loading ? null : _login,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.login),
+                    label: Text(_loading ? 'প্রবেশ করা হচ্ছে…' : 'প্রবেশ করুন'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -208,7 +204,6 @@ class _GateScreenState extends State<_GateScreen> {
   }
 }
 
-/// Role without Live Permission: Go Live stays hidden, honest lock screen.
 class _NoLivePermissionScreen extends StatelessWidget {
   final StudioSession session;
   const _NoLivePermissionScreen({required this.session});
@@ -267,7 +262,6 @@ class _NoLivePermissionScreen extends StatelessWidget {
   }
 }
 
-/// Shared brand mark used on gate screens.
 class _BrandMark extends StatelessWidget {
   const _BrandMark();
 

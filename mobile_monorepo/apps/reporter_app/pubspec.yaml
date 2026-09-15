@@ -29,5 +29,7 @@ dependencies:
   # ─── Network state ───
   connectivity_plus: ^6.1.0
 
+  http: ^1.2.2
+  shared_preferences: ^2.3.3
 flutter:
   uses-material-design: true
