@@ -5,20 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * Banglar Voice — typed API client.
- *
- * Architecture:
- *   • articles  → Supabase (source of truth, 150+ AI-generated Bengali news)
- *   • live/videos → PocketBase (secondary feeds; still served by Go backend)
- *
- * Every fetch carries a hard timeout and every network error is swallowed into
- * an empty-but-valid shape. Callers decide the fallback (homepage binds mock
- * data when the backend is unreachable), so a dead service never crashes render.
+ *   • articles  → Supabase (primary source)
+ *   • live/videos → PocketBase (secondary feeds)
  */
 
-// ─── PocketBase (secondary feeds only) ───
 const PB_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8090';
-
-// ─── Supabase (primary source for articles) ───
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
@@ -28,6 +19,8 @@ const supabase =
         auth: { persistSession: false, autoRefreshToken: false },
       })
     : null;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function safeFetch<T>(url: string, timeoutMs = 4000, empty: T): Promise<T> {
   try {
@@ -42,8 +35,6 @@ async function safeFetch<T>(url: string, timeoutMs = 4000, empty: T): Promise<T>
   }
 }
 
-// ─── Supabase row → frontend FeedArticle shape ───
-
 type SupabaseArticle = {
   id: string;
   title_bn: string;
@@ -53,6 +44,9 @@ type SupabaseArticle = {
   status: string;
   published_at: string | null;
   created_at: string;
+  source_url: string | null;
+  source_name: string | null;
+  image_credit: string | null;
 };
 
 function stripHtml(html: string): string {
@@ -65,7 +59,6 @@ function stripHtml(html: string): string {
 }
 
 function estimateReadTime(content: string): number {
-  // Bengali reading speed ≈ 750 chars/min
   return Math.max(1, Math.round(content.length / 750));
 }
 
@@ -73,13 +66,13 @@ function mapArticle(row: SupabaseArticle): FeedArticle {
   const summary = stripHtml(row.content_bn).slice(0, 220);
   return {
     id: row.id,
-    slug: row.id, // UUID-based URL (schema has no slug column yet)
+    slug: row.id,
     title_bn: row.title_bn,
     dek_bn: summary,
     category: row.category || 'national',
     featured_image: row.thumbnail_url || '',
     reading_time_min: estimateReadTime(row.content_bn),
-    bias_index: 50, // neutral default
+    bias_index: 50,
     published_at: row.published_at || row.created_at,
   };
 }
@@ -91,7 +84,6 @@ export type VideosResponse = { videos: VideoItem[] };
 export const api = {
   base: PB_BASE,
 
-  /** Latest article feed — Supabase */
   async articles(limit = 20): Promise<ArticleResponse> {
     if (!supabase) {
       console.warn('[api.articles] Supabase not configured — returning empty');
@@ -100,7 +92,7 @@ export const api = {
     try {
       const { data, error } = await supabase
         .from('articles')
-        .select('id, title_bn, content_bn, category, thumbnail_url, status, published_at, created_at')
+        .select('id, title_bn, content_bn, category, thumbnail_url, status, published_at, created_at, source_url, source_name, image_credit')
         .eq('status', 'published')
         .order('published_at', { ascending: false })
         .limit(limit);
@@ -112,9 +104,12 @@ export const api = {
     }
   },
 
-  /** Single article by id — Supabase */
   async article(slug: string): Promise<Record<string, unknown>> {
     if (!supabase) return {};
+    if (!UUID_RE.test(slug)) {
+      // Legacy mock slug — caller will fall back to mock data
+      return {};
+    }
     try {
       const { data, error } = await supabase
         .from('articles')
@@ -128,7 +123,10 @@ export const api = {
       return {
         ...base,
         body_bn: row.content_bn,
-        author_name: 'Banglar Voice',
+        author_name: row.source_name || 'Banglar Voice',
+        source_url: row.source_url || '',
+        source_name: row.source_name || '',
+        image_credit: row.image_credit || '',
         tags: [] as string[],
       };
     } catch (e) {
@@ -137,12 +135,10 @@ export const api = {
     }
   },
 
-  /** Live-blog timeline — PocketBase (secondary) */
   live(): Promise<LiveResponse> {
     return safeFetch<LiveResponse>(`${PB_BASE}/api/public/live.json`, 4500, { entries: [] });
   },
 
-  /** Video hub — PocketBase (secondary) */
   videos(): Promise<VideosResponse> {
     return safeFetch<VideosResponse>(`${PB_BASE}/api/public/videos.json`, 6000, { videos: [] });
   },
