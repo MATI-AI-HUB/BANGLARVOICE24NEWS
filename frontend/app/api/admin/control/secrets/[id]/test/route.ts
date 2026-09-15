@@ -27,6 +27,28 @@ async function testGemini(key: string): Promise<TestResult> {
   return { ok: r.ok, status: r.status, message: r.ok ? 'Gemini reachable' : `HTTP ${r.status}` };
 }
 
+async function testOpenRouter(key: string): Promise<TestResult> {
+  const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`,
+      'HTTP-Referer': 'https://banglarvoice24news.com',
+      'X-Title': 'Banglar Voice',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.0-flash-exp:free',
+      messages: [{ role: 'user', content: 'Reply with: OK' }],
+      max_tokens: 10,
+    }),
+  });
+  return {
+    ok: r.ok,
+    status: r.status,
+    message: r.ok ? 'OpenRouter reachable' : `HTTP ${r.status}`,
+  };
+}
+
 async function testOpenAI(key: string): Promise<TestResult> {
   const r = await fetch('https://api.openai.com/v1/models', {
     headers: { Authorization: `Bearer ${key}` },
@@ -55,6 +77,7 @@ export async function POST(
     else if (name.includes('PEXELS')) result = await testPexels(value);
     else if (name.includes('GEMINI')) result = await testGemini(value);
     else if (name.includes('OPENAI')) result = await testOpenAI(value);
+    else if (name.includes('OPENROUTER')) result = await testOpenRouter(value);
 
     await markTested(id, result.ok);
     await logAction({
