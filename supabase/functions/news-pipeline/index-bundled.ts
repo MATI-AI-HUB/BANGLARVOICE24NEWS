@@ -159,23 +159,68 @@ Output শুধু JSON:
   } catch { return null; }
 }
 
-async function fetchPexelsImage(query: string) {
+// ── Category → English keyword bank (for varied Pexels queries) ──
+const CATEGORY_QUERIES: Record<string, string[]> = {
+  national:      ["bangladesh city", "dhaka street", "bangladesh people", "bangladesh landscape"],
+  politics:      ["government building", "parliament", "press conference", "official meeting"],
+  international: ["world news", "global affairs", "united nations", "diplomacy"],
+  economy:       ["business finance", "stock market", "trade commerce", "banking"],
+  sports:        ["cricket match", "football stadium", "athlete running", "sports arena"],
+  entertainment: ["concert stage", "cinema theatre", "cultural festival", "music performance"],
+  tech:          ["technology computer", "digital innovation", "software code", "smartphone"],
+  health:        ["hospital doctor", "medical care", "health wellness", "laboratory"],
+  education:     ["students classroom", "university library", "school books", "study desk"],
+  city:          ["urban street", "city skyline", "public transport", "neighborhood"],
+};
+
+const usedPhotoIds = new Set<number>();
+
+async function photoUsedBefore(photoUrl: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("articles")
+    .select("id")
+    .eq("thumbnail_url", photoUrl)
+    .maybeSingle();
+  return !!data;
+}
+
+async function fetchPexelsImage(categoryKey: string): Promise<{ url: string; credit: string } | null> {
   const key = await vaultKey("PEXELS_API_KEY");
   if (!key) return null;
-  try {
-    const r = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
-      { headers: { Authorization: key }, signal: AbortSignal.timeout(5000) },
-    );
-    if (!r.ok) return null;
-    const data = await r.json();
-    const photo = data.photos?.[0];
-    if (!photo) return null;
-    return {
-      url: photo.src?.large || photo.src?.original || "",
-      credit: `${photo.photographer || "Unknown"} / Pexels`,
-    };
-  } catch { return null; }
+
+  const queries = CATEGORY_QUERIES[categoryKey] || CATEGORY_QUERIES.national;
+
+  // Try up to 3 different queries for uniqueness
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const query = queries[Math.floor(Math.random() * queries.length)];
+    const page = Math.floor(Math.random() * 5) + 1; // random page 1-5
+    try {
+      const r = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&page=${page}&orientation=landscape`,
+        { headers: { Authorization: key }, signal: AbortSignal.timeout(5000) },
+      );
+      if (!r.ok) continue;
+      const data = await r.json();
+      const photos = data.photos || [];
+
+      // Shuffle and find an unused photo
+      const shuffled = photos.sort(() => Math.random() - 0.5);
+      for (const photo of shuffled) {
+        if (!photo?.id) continue;
+        if (usedPhotoIds.has(photo.id)) continue;
+        const url = photo.src?.large || photo.src?.original || "";
+        if (!url) continue;
+        // DB check for cross-run duplicates
+        if (await photoUsedBefore(url)) continue;
+        usedPhotoIds.add(photo.id);
+        return {
+          url,
+          credit: `${photo.photographer || "Unknown"} / Pexels`,
+        };
+      }
+    } catch { continue; }
+  }
+  return null;
 }
 
 const SENSITIVITY_THRESHOLD = 0.7;
@@ -208,7 +253,7 @@ Deno.serve(async (req) => {
 
       const isSensitive = rewritten.sensitivity >= SENSITIVITY_THRESHOLD || rewritten.category_key === "politics";
       const finalStatus = isSensitive ? "pending" : "published";
-      const image = await fetchPexelsImage(`${rewritten.category_key} bangladesh`);
+      const image = await fetchPexelsImage(rewritten.category_key);
 
       const { error } = await supabase.from("articles").insert({
         title_bn: rewritten.title_bn.slice(0, 250),
