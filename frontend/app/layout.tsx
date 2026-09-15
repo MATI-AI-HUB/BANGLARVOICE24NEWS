@@ -10,7 +10,7 @@ import { LearningHub } from '@/components/learning-hub';
 export const metadata: Metadata = {
   title: { default: 'বাংলার ভয়েস', template: '%s — বাংলার ভয়েস' },
   description: 'স্বাধীন সংবাদ প্রকাশে নির্ভীক — Banglar Voice autonomous Bangla news platform',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com'),
   alternates: { canonical: '/' },
   openGraph: {
     siteName: 'বাংলার ভয়েস',
@@ -33,8 +33,8 @@ const organizationLd = {
   '@type': 'NewsMediaOrganization',
   name: 'বাংলার ভয়েস',
   alternateName: 'Banglar Voice',
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com',
-  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com'}/banglar-voice-logo.png`,
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com',
+  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com'}/banglar-voice-logo.png`,
   sameAs: [],
 };
 

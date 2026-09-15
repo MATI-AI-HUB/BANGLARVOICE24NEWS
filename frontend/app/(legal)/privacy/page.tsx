@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 
       <LegalSection id="scope" title="১. প্রযোজ্যতা (Scope)">
         <LegalParagraph>
-          এই নীতি প্রযোজ্য যখন আপনি banglarvoice.com ওয়েবসাইট, বাংলার ভয়েস মোবাইল অ্যাপ (রিডার,
+          এই নীতি প্রযোজ্য যখন আপনি banglarvoice24news.com ওয়েবসাইট, বাংলার ভয়েস মোবাইল অ্যাপ (রিডার,
           অ্যাডমিন, রিপোর্টার, স্টুডিও, টিভি) ব্যবহার করেন, অথবা আমাদের সাথে ইমেইল/ফর্মে যোগাযোগ করেন।
         </LegalParagraph>
       </LegalSection>

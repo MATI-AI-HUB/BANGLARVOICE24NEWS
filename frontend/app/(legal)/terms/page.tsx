@@ -35,7 +35,7 @@ export default function TermsPage() {
 
       <LegalSection id="acceptance" title="১. সম্মতি (Acceptance)">
         <LegalParagraph>
-          banglarvoice.com ও বাংলার ভয়েস অ্যাপ ব্যবহার করলে আপনি এই শর্তাবলিতে আবদ্ধ হচ্ছেন। আপনি
+          banglarvoice24news.com ও বাংলার ভয়েস অ্যাপ ব্যবহার করলে আপনি এই শর্তাবলিতে আবদ্ধ হচ্ছেন। আপনি
           অপ্রাপ্তবয়স্ক হলে অভিভাবকের সম্মতিতে ব্যবহার করুন।
         </LegalParagraph>
       </LegalSection>

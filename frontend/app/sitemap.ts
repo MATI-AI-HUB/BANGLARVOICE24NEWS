@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next';
 
 export const revalidate = 3600; // rebuild sitemap hourly
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice.com';
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticUrls: MetadataRoute.Sitemap = [
