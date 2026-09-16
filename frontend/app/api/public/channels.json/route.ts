@@ -10,7 +10,6 @@ export async function GET() {
     { auth: { persistSession: false } }
   );
 
-  // Try DB first, fallback to defaults
   let channels: any[] = [];
   try {
     const { data } = await sb
@@ -21,12 +20,11 @@ export async function GET() {
     if (data && data.length > 0) channels = data;
   } catch {}
 
-  // Fallback if DB empty
   if (channels.length === 0) {
     const STREAM_URL = process.env.NEXT_PUBLIC_STREAM_URL || 'https://www.youtube.com/@banglarvoice-d6d6g/live';
     channels = [
-      { id: 'main', name_bn: 'প্রধান চ্যানেল', stream_url: STREAM_URL, type: 'video', logo: null, is_live: true },
-      { id: 'audio', name_bn: 'অডিও ২৪/৭', stream_url: STREAM_URL, type: 'audio', logo: null, is_live: false },
+      { id: 'main', name_bn: 'প্রধান চ্যানেল', name_en: 'Main Channel', stream_url: STREAM_URL, type: 'video', logo: null, is_live: true },
+      { id: 'audio', name_bn: 'অডিও ২৪/৭', name_en: 'Audio 24/7', stream_url: STREAM_URL, type: 'audio', logo: null, is_live: false },
     ];
   }
 
