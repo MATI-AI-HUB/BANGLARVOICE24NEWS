@@ -200,10 +200,33 @@ export const api = {
   },
 
   live(): Promise<LiveResponse> {
-    return safeFetch<LiveResponse>(`${PB_BASE}/api/public/live.json`, 4500, { entries: [] });
+    return safeFetch<LiveResponse>(`/api/public/live.json`, 4500, { entries: [] });
   },
 
-  videos(): Promise<VideosResponse> {
-    return safeFetch<VideosResponse>(`${PB_BASE}/api/public/videos.json`, 6000, { videos: [] });
+  async videos(): Promise<VideosResponse> {
+    if (!supabase) return { videos: [] };
+    try {
+      const { data, error } = await supabase
+        .from('videos')
+        .select('id, title_bn, title_en, category_key, thumbnail_url, video_url, embed_url, youtube_id, duration_sec, is_live, view_count, published_at')
+        .in('status', ['published', 'live'])
+        .order('is_live', { ascending: false })
+        .order('published_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return {
+        videos: (data || []).map((v) => ({
+          id: v.id,
+          title_bn: v.title_bn,
+          category: v.category_key || '',
+          thumbnail_url: v.thumbnail_url || null,
+          embed_url: v.embed_url || null,
+          is_live: Boolean(v.is_live),
+        })),
+      };
+    } catch (e) {
+      console.warn('[api.videos] Supabase failed:', e);
+      return { videos: [] };
+    }
   },
 };
