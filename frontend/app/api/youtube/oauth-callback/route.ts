@@ -4,18 +4,38 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
+async function getVaultSecret(serviceName: string): Promise<string | null> {
+  const sb = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  const { data: row } = await sb
+    .from('api_vault')
+    .select('key_encrypted')
+    .eq('service_name', serviceName)
+    .eq('environment', 'prod')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!row?.key_encrypted) return null;
+
+  const { data: decrypted } = await sb.rpc('decrypt_vault_secret', {
+    p_secret_id: row.key_encrypted,
+  });
+
+  return (decrypted as string) || null;
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const oauthError = url.searchParams.get('error');
 
-  if (oauthError) {
-    return new Response(`OAuth error: ${oauthError}`, { status: 400 });
-  }
-  if (!code) {
-    return new Response('Missing authorization code', { status: 400 });
-  }
+  if (oauthError) return new Response(`OAuth error: ${oauthError}`, { status: 400 });
+  if (!code) return new Response('Missing authorization code', { status: 400 });
 
   const cookieStore = await cookies();
   const savedState = cookieStore.get('yt_oauth_state')?.value;
@@ -23,10 +43,17 @@ export async function GET(req: Request) {
     return new Response('Invalid CSRF state', { status: 400 });
   }
 
-  const clientId = process.env.OAUTH_CLIENT_ID;
-  const clientSecret = process.env.OAUTH_CLIENT_SECRET;
+  // Vault first, env fallback
+  let clientId = await getVaultSecret('OAUTH_CLIENT_ID');
+  let clientSecret = await getVaultSecret('OAUTH_CLIENT_SECRET');
+  if (!clientId) clientId = process.env.OAUTH_CLIENT_ID || null;
+  if (!clientSecret) clientSecret = process.env.OAUTH_CLIENT_SECRET || null;
+
   if (!clientId || !clientSecret) {
-    return new Response('Missing OAUTH_CLIENT_ID or SECRET', { status: 500 });
+    return new Response(
+      `Missing: ${!clientId ? 'OAUTH_CLIENT_ID ' : ''}${!clientSecret ? 'OAUTH_CLIENT_SECRET' : ''}`,
+      { status: 500 }
+    );
   }
 
   const redirectUri = `${url.origin}/api/youtube/oauth-callback`;
@@ -35,11 +62,8 @@ export async function GET(req: Request) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
+      code, client_id: clientId, client_secret: clientSecret,
+      redirect_uri: redirectUri, grant_type: 'authorization_code',
     }),
   });
 
@@ -47,11 +71,12 @@ export async function GET(req: Request) {
 
   if (!tokens.refresh_token) {
     return new Response(
-      `No refresh_token in response:\n${JSON.stringify(tokens, null, 2)}`,
+      `No refresh_token:\n${JSON.stringify(tokens, null, 2)}`,
       { status: 500, headers: { 'Content-Type': 'text/plain' } }
     );
   }
 
+  // Save to vault
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -69,35 +94,9 @@ export async function GET(req: Request) {
     p_key_value: tokens.refresh_token,
   });
 
-  if (rpcErr) {
-    return new Response(`Vault save failed: ${rpcErr.message}`, { status: 500 });
-  }
+  if (rpcErr) return new Response(`Vault save failed: ${rpcErr.message}`, { status: 500 });
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head><title>Token Saved</title></head>
-    <body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 24px;">
-      <h1 style="color: #16a34a;">✅ YouTube Refresh Token Saved!</h1>
-      <table style="border-collapse: collapse; width: 100%;">
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><b>Length</b></td>
-            <td style="padding: 8px; border: 1px solid #ddd;">${tokens.refresh_token.length} chars</td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><b>Prefix</b></td>
-            <td style="padding: 8px; border: 1px solid #ddd;"><code>${tokens.refresh_token.slice(0, 18)}...</code></td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><b>Scope</b></td>
-            <td style="padding: 8px; border: 1px solid #ddd;"><code>${tokens.scope || 'N/A'}</code></td></tr>
-        <tr><td style="padding: 8px; border: 1px solid #ddd;"><b>Stored in</b></td>
-            <td style="padding: 8px; border: 1px solid #ddd;">Supabase Vault <code>api_vault</code> table</td></tr>
-      </table>
-      <p style="margin-top: 30px;">
-        <a href="/admin/control" style="background: #CC0000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">← Back to Control Center</a>
-      </p>
-      <p style="color: #666; font-size: 14px; margin-top: 20px;">
-        Token is now persistent. Local sync: <code>node pull-vault.js --write</code>
-      </p>
-    </body>
-    </html>
-  `;
+  const html = `<!DOCTYPE html><html><body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 24px;"><h1 style="color: #16a34a;">✅ YouTube Refresh Token Saved!</h1><p><b>Length:</b> ${tokens.refresh_token.length} chars</p><p><b>Prefix:</b> <code>${tokens.refresh_token.slice(0, 18)}...</code></p><p><b>Scope:</b> <code>${tokens.scope || 'N/A'}</code></p><p style="margin-top: 30px;"><a href="/admin/control" style="background: #CC0000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">← Back to Control Center</a></p></body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html' } });
 }
