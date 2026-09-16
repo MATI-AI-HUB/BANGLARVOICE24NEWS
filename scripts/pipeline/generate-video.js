@@ -35,6 +35,7 @@ async function fetchArticle(client, arg) {
     query = `SELECT id,  title_bn,  content_bn, category_key, thumbnail_url, published_at
              FROM articles
              WHERE status = 'published' AND content_bn IS NOT NULL AND LENGTH(content_bn) > 200
+               AND video_id IS NULL
              ORDER BY published_at DESC LIMIT 1`;
     params = [];
   } else {

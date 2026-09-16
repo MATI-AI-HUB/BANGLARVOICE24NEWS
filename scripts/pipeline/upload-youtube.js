@@ -155,6 +155,16 @@ async function saveToSupabase(videoId, meta, videoPath) {
   );
 
   console.log('   ✅ Supabase row id: ' + rows[0].id);
+
+  // Mark article as processed (prevents duplicate video generation)
+  if (meta.article_id) {
+    await client.query(
+      'UPDATE articles SET video_id = $1, video_generated_at = NOW() WHERE id = $2',
+      [videoId, meta.article_id]
+    );
+    console.log('   ✅ Article marked as processed');
+  }
+
   await client.end();
   return rows[0].id;
 }
