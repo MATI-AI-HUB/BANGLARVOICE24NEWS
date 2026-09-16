@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useTransition } from 'react';
 import { LOCALE_COOKIE, DEFAULT_LOCALE, type Locale, isLocale } from '@/lib/i18n';
+import { setLocaleAction } from '@/app/actions/locale';
 
 function readCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
@@ -10,27 +10,30 @@ function readCookie(name: string): string | undefined {
 }
 
 export function LanguageToggle() {
-  const router = useRouter();
   const [current, setCurrent] = useState<Locale>(DEFAULT_LOCALE);
+  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     const v = readCookie(LOCALE_COOKIE);
     if (isLocale(v)) setCurrent(v);
   }, []);
 
-  function setLocale(next: Locale) {
-    document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; SameSite=Lax`;
-    setCurrent(next);
-    router.refresh();
+  function handleSwitch(next: Locale) {
+    if (next === current || pending) return;
+    startTransition(async () => {
+      await setLocaleAction(next);
+      setCurrent(next);
+    });
   }
 
   return (
     <div className="flex items-center gap-1 text-[11px] font-semibold">
       <button
-        onClick={() => setLocale('bn')}
+        onClick={() => handleSwitch('bn')}
+        disabled={pending}
         className={`px-1.5 py-0.5 rounded transition-colors ${
           current === 'bn' ? 'bg-white text-crimson' : 'text-white/80 hover:text-white'
-        }`}
+        } ${pending ? 'opacity-60' : ''}`}
         aria-label="বাংলা"
         type="button"
       >
@@ -38,10 +41,11 @@ export function LanguageToggle() {
       </button>
       <span className="text-white/40">|</span>
       <button
-        onClick={() => setLocale('en')}
+        onClick={() => handleSwitch('en')}
+        disabled={pending}
         className={`px-1.5 py-0.5 rounded transition-colors ${
           current === 'en' ? 'bg-white text-crimson' : 'text-white/80 hover:text-white'
-        }`}
+        } ${pending ? 'opacity-60' : ''}`}
         aria-label="English"
         type="button"
       >
