@@ -108,3 +108,7 @@ frontend/deploy-*.js
 
 # Allow video seeding script (one-time setup, needed for new deploys)
 !frontend/seed-videos.js
+
+# Allow specific helper scripts (git add -f needed otherwise)
+frontend/sync-youtube-videos.js
+frontend/seed-videos.js
