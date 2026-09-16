@@ -105,3 +105,6 @@ frontend/_sentry_disabled/
 # Dev helpers — do not commit
 deploy-v2.js
 frontend/deploy-*.js
+
+# Allow video seeding script (one-time setup, needed for new deploys)
+!frontend/seed-videos.js

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       { videos: items, total: items.length },
       {
         headers: {
-          'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=120',
         },
       },
     );
