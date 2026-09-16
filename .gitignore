@@ -101,3 +101,7 @@ frontend/**/*.bak*
 frontend/lib/*.bak*
 frontend/**/*.bak*
 frontend/_sentry_disabled/
+
+# Dev helpers — do not commit
+deploy-v2.js
+frontend/deploy-*.js
