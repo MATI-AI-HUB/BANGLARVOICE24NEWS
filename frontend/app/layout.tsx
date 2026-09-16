@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
 import { notoSerifBengali, hindSiliguri } from '@/lib/fonts';
+import { cookies } from 'next/headers';
+import { LOCALE_COOKIE, getLocaleFromCookie } from '@/lib/i18n';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
@@ -38,13 +40,15 @@ const organizationLd = {
   sameAs: [],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
   return (
-    <html lang="bn" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"

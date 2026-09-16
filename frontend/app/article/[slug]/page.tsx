@@ -1,4 +1,5 @@
 import { api } from '../../../lib/api';
+import { formatBnDate } from '../../../lib/bn-date';
 import { mockFeedItems } from '../../../lib/mockData';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -165,7 +166,7 @@ export default async function ArticlePage({ params }: PageProps) {
         {a.author_name && <span>লেখক: {a.author_name}</span>}
         {a.reading_time_min ? <span>• {a.reading_time_min} মিনিট পড়া</span> : null}
         {a.published_at ? (
-          <span>• {new Date(a.published_at).toLocaleDateString('bn-BD', { dateStyle: 'long' })}</span>
+          <span>• {formatBnDate(a.published_at, 'bn')}</span>
         ) : null}
         <span className="ml-auto">
           <ShareButtons title={a.title_bn} />

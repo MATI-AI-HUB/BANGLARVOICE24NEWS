@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from './theme-toggle';
+import { LanguageToggle } from './LanguageToggle';
 import { BreakingMarquee } from './breaking-marquee';
 
 const NAV_LINKS = [
@@ -92,7 +93,7 @@ export function Header() {
           <div className="flex items-center gap-4 text-[11px] font-medium">
             <a href="/about" className="hover:underline">আমাদের সম্পর্কে</a>
             <a href="/contact" className="hover:underline">যোগাযোগ</a>
-            <span className="hidden sm:inline text-white/70">বাংলা</span>
+            <LanguageToggle />
           </div>
         </div>
       </div>
