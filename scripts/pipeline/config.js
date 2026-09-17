@@ -46,8 +46,20 @@ function codecOptions() {
     : ['-q:v', '5'];
 }
 
+
+// Shell path — /bin/bash on Ubuntu, termux bash on Android
+function shell() {
+  if (IS_TERMUX) return '/data/data/com.termux/files/usr/bin/bash';
+  return '/bin/bash';
+}
+
+// Spawn options
+function spawnOpts(extra = {}) {
+  return { shell: shell(), ...extra };
+}
+
 module.exports = {
   PIPELINE_DIR, ROOT, TMP, OUTPUT,
   IS_GITHUB_ACTIONS, IS_TERMUX, IS_LINUX,
-  loadEnv, videoCodec, codecOptions,
+  loadEnv, videoCodec, codecOptions, shell, spawnOpts,
 };

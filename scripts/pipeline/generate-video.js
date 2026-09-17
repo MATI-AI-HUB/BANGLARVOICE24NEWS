@@ -128,7 +128,7 @@ function composeVideo(images, voicePath, outPath) {
   const cmd = `ffmpeg -y ${args.join(' ')} -filter_complex "${filter}" -map "[outv]" -map ${images.length}:a -c:v ${VIDEO_CODEC} ${CODEC_OPTS} -c:a aac -b:a 128k -pix_fmt yuv420p -shortest "${outPath}" 2>&1 | tail -3`;
 
   try {
-    execSync(cmd, { stdio: 'inherit', shell: '/data/data/com.termux/files/usr/bin/bash' });
+    execSync(cmd, { stdio: 'inherit', shell: cfg.shell() });
   } catch (e) {
     throw new Error('ffmpeg failed: ' + e.message);
   }
