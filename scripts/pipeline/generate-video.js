@@ -1,3 +1,9 @@
+const cfg = require('./config');
+
+const VIDEO_CODEC = cfg.videoCodec();
+const CODEC_OPTS = cfg.codecOptions().join(' ');
+cfg.loadEnv();
+
 /**
  * generate-video.js
  * ──────────────────
@@ -13,19 +19,11 @@ const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '../..');
 const TMP = path.resolve(__dirname, 'tmp');
+fs.mkdirSync(TMP, { recursive: true });
 const OUTPUT = path.resolve(__dirname, 'output');
+fs.mkdirSync(OUTPUT, { recursive: true });
 
-const envPath = path.join(ROOT, 'frontend/.env.local');
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  for (const line of envContent.split('\n')) {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-  console.log('📁 Env: .env.local');
-} else {
-  console.log('🌐 Env: process.env (GitHub Actions)');
-}
+// Env loaded via config
 
 const { Client } = require('pg');
 const GROQ_KEY = process.env.GROQ_API_KEY;
@@ -127,7 +125,7 @@ function composeVideo(images, voicePath, outPath) {
   const concatInputs = images.map((_, i) => `[v${i}]`).join('');
   const filter = `${filterParts};${concatInputs}concat=n=${images.length}:v=1:a=0[outv]`;
 
-  const cmd = `ffmpeg -y ${args.join(' ')} -filter_complex "${filter}" -map "[outv]" -map ${images.length}:a -c:v mpeg4 -q:v 5 -c:a aac -b:a 128k -pix_fmt yuv420p -shortest "${outPath}" 2>&1 | tail -3`;
+  const cmd = `ffmpeg -y ${args.join(' ')} -filter_complex "${filter}" -map "[outv]" -map ${images.length}:a -c:v ${VIDEO_CODEC} ${CODEC_OPTS} -c:a aac -b:a 128k -pix_fmt yuv420p -shortest "${outPath}" 2>&1 | tail -3`;
 
   try {
     execSync(cmd, { stdio: 'inherit', shell: '/data/data/com.termux/files/usr/bin/bash' });

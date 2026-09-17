@@ -10,10 +10,13 @@
  */
 
 const fs = require('fs');
+const cfg = require('./config');
+cfg.loadEnv();
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
 const OUTPUT = path.resolve(__dirname, 'output');
+fs.mkdirSync(OUTPUT, { recursive: true });
 
 const envPath = path.join(ROOT, 'frontend/.env.local');
 if (fs.existsSync(envPath)) {
