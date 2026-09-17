@@ -15,12 +15,16 @@ const ROOT = path.resolve(__dirname, '../..');
 const TMP = path.resolve(__dirname, 'tmp');
 const OUTPUT = path.resolve(__dirname, 'output');
 
-// ─── Load env ───
 const envPath = path.join(ROOT, 'frontend/.env.local');
-const envContent = fs.readFileSync(envPath, 'utf8');
-for (const line of envContent.split('\n')) {
-  const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-  if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+  console.log('📁 Env: .env.local');
+} else {
+  console.log('🌐 Env: process.env (GitHub Actions)');
 }
 
 const { Client } = require('pg');

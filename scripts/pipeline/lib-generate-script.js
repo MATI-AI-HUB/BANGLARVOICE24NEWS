@@ -7,10 +7,13 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '../..');
-const envContent = fs.readFileSync(path.join(ROOT, 'frontend/.env.local'), 'utf8');
-for (const line of envContent.split('\n')) {
-  const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-  if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+const envPath = path.join(ROOT, 'frontend/.env.local');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
 }
 
 const GROQ_KEY = process.env.GROQ_API_KEY;
