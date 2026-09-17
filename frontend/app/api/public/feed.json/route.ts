@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
