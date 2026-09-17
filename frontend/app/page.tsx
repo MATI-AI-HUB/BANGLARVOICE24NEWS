@@ -13,6 +13,8 @@ import { NewsletterCta } from '../components/newsletter-cta';
 import { mockFeedItems, mockLiveEntries, mockVideoItems } from '../lib/mockData';
 import type { FeedArticle } from '../lib/mockData';
 
+export const dynamic = 'force-dynamic';
+
 export const revalidate = 60; // ISR — rebuild at most once per minute
 
 export const metadata: Metadata = {
