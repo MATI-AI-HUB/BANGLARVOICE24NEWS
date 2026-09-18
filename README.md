@@ -191,3 +191,4 @@ npm run build && npm start
 - `build_apks.yml` — ৪-অ্যাপ job + **studio-র আলাদা `build-studio` job** + `release` job (tag push → GitHub Release)
 - `.gitattributes` (LFS reserved) + `.gitignore` hardening (`google-services.json` blocked)
 - Security scan: `sk_live` / `service_role` / `BEGIN PRIVATE KEY` → **০ hit**
+
