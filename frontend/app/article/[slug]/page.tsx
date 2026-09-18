@@ -1,5 +1,7 @@
 import { api } from '../../../lib/api';
 import { formatBnDate } from '../../../lib/bn-date';
+import { cookies } from 'next/headers';
+import { getLocaleFromCookie, LOCALE_COOKIE, type Locale } from '../../../lib/i18n';
 import { mockFeedItems } from '../../../lib/mockData';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -18,8 +20,11 @@ type PageProps = { params: Promise<{ slug: string }> };
 type ArticleData = {
   slug: string;
   title_bn: string;
+  title_en?: string;
   dek_bn?: string;
+  dek_en?: string;
   body_bn?: string;
+  body_en?: string;
   seo_description?: string;
   category?: string;
   featured_image?: string;
@@ -57,7 +62,7 @@ function sanitizeHtml(html: string): string {
     .replace(/data:text\/html/gi, '');
 }
 
-async function loadArticle(slug: string): Promise<ArticleData | null> {
+async function loadArticle(slug: string, locale: Locale = 'bn'): Promise<ArticleData | null> {
   try {
     const a = (await api.article(slug)) as Partial<ArticleData> | null;
     if (a && a.slug) return a as ArticleData;
@@ -87,22 +92,26 @@ async function loadArticle(slug: string): Promise<ArticleData | null> {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const a = await loadArticle(slug);
+  const cookieStore = await cookies();
+  const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
+  const a = await loadArticle(slug, locale);
   if (!a) return { title: 'পাতা নেই' };
+  const displayTitle = locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn;
+  const displayDek = locale === 'en' ? (a.dek_en || a.dek_bn) : a.dek_bn;
 
   const image = a.featured_image
-    ? { url: a.featured_image, alt: a.title_bn }
+    ? { url: a.featured_image, alt: displayTitle }
     : undefined;
 
   return {
-    title: a.title_bn,
-    description: a.dek_bn || a.seo_description,
+    title: displayTitle,
+    description: displayDek || a.seo_description,
     alternates: { canonical: `/article/${slug}` },
     openGraph: {
-      title: a.title_bn,
-      description: a.dek_bn,
+      title: displayTitle,
+      description: displayDek,
       type: 'article',
-      locale: 'bn_BD',
+      locale: locale === 'en' ? 'en_US' : 'bn_BD',
       publishedTime: a.published_at,
       authors: a.author_name ? [a.author_name] : undefined,
       images: image ? [image] : undefined,
@@ -112,18 +121,24 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ArticlePage({ params }: PageProps) {
   const { slug } = await params;
+  const cookieStore = await cookies();
+  const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
 
-  const a = await loadArticle(slug);
+  const a = await loadArticle(slug, locale);
   if (!a || !a.slug) notFound();
 
-  const sanitizedBody = sanitizeHtml(a.body_bn || '');
-  const narrateText = `${a.title_bn}। ${a.dek_bn || ''} ${toPlainText(a.body_bn || '')}`;
+  const displayTitle = locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn;
+  const displayDek = locale === 'en' ? (a.dek_en || a.dek_bn) : a.dek_bn;
+  const displayBody = locale === 'en' ? (a.body_en || a.body_bn) : a.body_bn;
+
+  const sanitizedBody = sanitizeHtml(displayBody || '');
+  const narrateText = `${displayTitle}। ${displayDek || ''} ${toPlainText(displayBody || '')}`;
 
   const newsArticleLd = {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
-    headline: a.title_bn,
-    description: a.dek_bn || a.seo_description,
+    headline: displayTitle,
+    description: displayDek || a.seo_description,
     datePublished: a.published_at || undefined,
     author: { '@type': 'Person', name: a.author_name || 'বাংলার ভয়েস ডেস্ক' },
     publisher: {
@@ -142,7 +157,7 @@ export default async function ArticlePage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleLd) }}
       />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Breadcrumb category={a.category} title={a.title_bn} />
+        <Breadcrumb category={a.category} title={displayTitle} />
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-crimson"
@@ -158,9 +173,9 @@ export default async function ArticlePage({ params }: PageProps) {
           </span>
         )}
       </div>
-      <h1 className="mt-2 font-serifbn text-3xl font-extrabold leading-tight md:text-4xl">{a.title_bn}</h1>
-      {a.dek_bn && (
-        <p className="mt-4 text-lg leading-relaxed text-neutral-600 dark:text-neutral-300">{a.dek_bn}</p>
+      <h1 className="mt-2 font-serifbn text-3xl font-extrabold leading-tight md:text-4xl">{displayTitle}</h1>
+      {displayDek && (
+        <p className="mt-4 text-lg leading-relaxed text-neutral-600 dark:text-neutral-300">{displayDek}</p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
         {a.author_name && <span>লেখক: {a.author_name}</span>}
@@ -169,11 +184,11 @@ export default async function ArticlePage({ params }: PageProps) {
           <span>• {formatBnDate(a.published_at, 'bn')}</span>
         ) : null}
         <span className="ml-auto">
-          <ShareButtons title={a.title_bn} />
+          <ShareButtons title={displayTitle} />
         </span>
       </div>
       {a.featured_image && (
-        <img src={a.featured_image} alt={a.title_bn} className="mt-6 aspect-video w-full rounded object-cover" />
+        <img src={a.featured_image} alt={displayTitle} className="mt-6 aspect-video w-full rounded object-cover" />
       )}
       <div
         className="prose mt-8 max-w-none whitespace-pre-wrap font-serifbn text-lg leading-[1.9]"
@@ -189,10 +204,10 @@ export default async function ArticlePage({ params }: PageProps) {
         </div>
       )}
 
-      <AudioPlayerWidget text={narrateText} title={a.title_bn} />
+      <AudioPlayerWidget text={narrateText} title={displayTitle} />
 
       <div className="mt-10 border-t border-border pt-6 dark:border-white/10">
-        <ShareButtons title={a.title_bn} />
+        <ShareButtons title={displayTitle} />
       </div>
 
       <RelatedArticles currentSlug={a.slug} category={a.category} />
