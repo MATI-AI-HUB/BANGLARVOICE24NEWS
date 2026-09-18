@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers';
+import { LOCALE_COOKIE, getLocaleFromCookie, t, type Locale } from '../lib/i18n';
 import { api } from '../lib/api';
 import type { Metadata } from 'next';
 import { HeroBentoGrid } from '../components/hero-bento';
@@ -22,11 +24,11 @@ export const metadata: Metadata = {
   description: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্ভীক',
 };
 
-const toBento = (a: FeedArticle) => ({
+const toBento = (a: FeedArticle, locale: Locale) => ({
   id: a.id,
   slug: a.slug,
-  title: a.title_bn,
-  summary: a.dek_bn,
+  title: locale === 'en' ? ((a as any).title_en || a.title_bn) : a.title_bn,
+  summary: locale === 'en' ? ((a as any).dek_en || a.dek_bn) : a.dek_bn,
   category: a.category,
   image_url: a.featured_image,
   read_time: a.reading_time_min,
@@ -35,6 +37,8 @@ const toBento = (a: FeedArticle) => ({
 });
 
 export default async function HomePage() {
+  const cookieStore = await cookies();
+  const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
   let items: FeedArticle[] = [];
   let error = '';
   let liveEntries: LiveEntry[] = [];
@@ -87,10 +91,10 @@ export default async function HomePage() {
         </span>
       </div>
         <h1 className="font-serifbn text-2xl font-extrabold leading-tight md:text-3xl">
-          স্বাধীন সংবাদ প্রচারে নির্ভীক
+          {t(locale, "hero_title")}
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
-          বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা
+          {t(locale, "hero_subtitle")}
         </p>
       </section>
 
@@ -101,7 +105,7 @@ export default async function HomePage() {
       )}
 
       {/* 60% lead + stacked secondary + tabbed right rail (সর্বশেষ/ট্রেন্ডিং) */}
-      <HeroBentoGrid articles={feed.map(toBento)} />
+      <HeroBentoGrid articles={feed.map((a) => toBento(a, locale))} />
 
       {/* App download banner — mobile users */}
       <section
@@ -137,11 +141,11 @@ export default async function HomePage() {
 
       {feed.length > 3 && (
         <section id="latest" className="mt-14 scroll-mt-24" aria-labelledby="latest-heading">
-          <LatestGrid articles={feed.map(toBento)} />
+          <LatestGrid articles={feed.map((a) => toBento(a, locale))} locale={locale} />
         </section>
       )}
 
-      {feed.length >= 6 && <CategoryModules articles={feed.map(toBento)} />}
+      {feed.length >= 6 && <CategoryModules articles={feed.map((a) => toBento(a, locale))} locale={locale} />}
 
       {items.length === 0 && !error && (
         <p className="py-10 text-center text-neutral-400">কোনো প্রকাশিত সংবাদ নেই।</p>

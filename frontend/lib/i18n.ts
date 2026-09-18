@@ -21,13 +21,28 @@ export const dict = {
     national: 'জাতীয়',
     sports: 'খেলা',
     entertainment: 'বিনোদন',
+    international: 'আন্তর্জাতিক',
+    education: 'শিক্ষা',
+    health: 'স্বাস্থ্য',
+    religion: 'ধর্ম',
+    science: 'বিজ্ঞান',
+    technology: 'প্রযুক্তি',
+    about: 'আমাদের সম্পর্কে',
+    contact: 'যোগাযোগ',
+    hero_title: 'স্বাধীন সংবাদ প্রচারে নির্ভীক',
+    hero_subtitle: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
+    latest_news_heading: 'সর্বশেষ সংবাদ',
+    advertisement: 'বিজ্ঞাপন',
+    no_articles: 'কোনো প্রকাশিত সংবাদ নেই।',
+    backend_error: 'ব্যাকএন্ডে সংযোগ হয়নি',
+    backend_error_hint: 'ডেমো মোডে নিচে নমুনা সংবাদ দেখানো হচ্ছে।',
+    all_categories: 'সব',
+    app_banner_title: 'বাংলার ভয়েস অ্যান্ড্রয়েড অ্যাপ',
+    app_banner_body: 'ব্রেকিং নিউজ, লাইভ টিভি, শর্টস ও অডিও মোড — এখন আপনার ফোনে।',
+    app_download_cta: 'অ্যাপ ডাউনলোড',
     search_placeholder: 'খবর খুঁজুন...',
     language: 'ভাষা',
     read_more: 'আরও পড়ুন',
-    hero_title: 'স্বাধীন সংবাদ প্রচারে নির্ভীক',
-    hero_subtitle: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
-    about: 'আমাদের সম্পর্কে',
-    contact: 'যোগাযোগ',
   },
   en: {
     home: 'Home',
@@ -39,16 +54,53 @@ export const dict = {
     national: 'National',
     sports: 'Sports',
     entertainment: 'Entertainment',
+    international: 'International',
+    education: 'Education',
+    health: 'Health',
+    religion: 'Religion',
+    science: 'Science',
+    technology: 'Technology',
+    about: 'About Us',
+    contact: 'Contact',
+    hero_title: 'Fearless in independent journalism',
+    hero_subtitle: 'Bangladesh and the world — neutral, responsible and reliable journalism',
+    latest_news_heading: 'Latest News',
+    advertisement: 'Advertisement',
+    no_articles: 'No published articles yet.',
+    backend_error: 'Backend connection failed',
+    backend_error_hint: 'Showing sample articles in demo mode below.',
+    all_categories: 'All',
+    app_banner_title: 'Banglar Voice Android App',
+    app_banner_body: 'Breaking news, live TV, shorts and audio mode — now on your phone.',
+    app_download_cta: 'Download App',
     search_placeholder: 'Search news...',
     language: 'Language',
     read_more: 'Read more',
-    hero_title: 'Fearless in independent journalism',
-    hero_subtitle: 'Bangladesh and the world — neutral, responsible and reliable journalism',
-    about: 'About Us',
-    contact: 'Contact',
   },
 } as const;
 
 export function t(locale: Locale, key: keyof typeof dict.bn): string {
   return dict[locale][key] || dict.bn[key] || key;
+}
+
+const CATEGORY_MAP: Record<string, keyof typeof dict.bn> = {
+  'রাজনীতি': 'politics',
+  'অর্থনীতি': 'economy',
+  'আন্তর্জাতিক': 'international',
+  'খেলা': 'sports',
+  'বিনোদন': 'entertainment',
+  'শিক্ষা': 'education',
+  'স্বাস্থ্য': 'health',
+  'ধর্ম': 'religion',
+  'বিজ্ঞান': 'science',
+  'প্রযুক্তি': 'technology',
+  'জাতীয়': 'national',
+  'সর্বশেষ': 'latest',
+};
+
+export function translateCategory(locale: Locale, bnCategory: string): string {
+  const c = (bnCategory || '').trim();
+  if (!c) return c;
+  const key = CATEGORY_MAP[c];
+  return key ? t(locale, key) : c;
 }

@@ -3,15 +3,11 @@
 import { useMemo, useState } from 'react';
 import { ArticleCard, type Article } from './hero-bento';
 import { AdSlot } from './ad-slot';
+import { t, translateCategory, type Locale } from '@/lib/i18n';
 
-const ALL = ''; // sentinel: show every category
+const ALL = '';
 
-/**
- * LatestGrid — BBC-style category filter chips + dense responsive card grid.
- * All filtering is client-side over the server-fetched (ISR-cached) list,
- * so no extra API calls and no layout shift.
- */
-export function LatestGrid({ articles }: { articles: Article[] }) {
+export function LatestGrid({ articles, locale = 'bn' as Locale }: { articles: Article[]; locale?: Locale }) {
   const chips = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
@@ -31,7 +27,6 @@ export function LatestGrid({ articles }: { articles: Article[] }) {
     [articles, active],
   );
   const shown = list.slice(0, 12);
-  // Insert a labelled "বিজ্ঞাপন" slot after every 6 items in the feed.
   const cells: (Article | 'ad')[] = [];
   shown.forEach((a, i) => {
     cells.push(a);
@@ -42,46 +37,47 @@ export function LatestGrid({ articles }: { articles: Article[] }) {
     <>
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <h2 id="latest-heading" className="mr-2 font-serifbn text-2xl font-extrabold leading-none tracking-tight text-ink dark:text-paper">
-          সর্বশেষ সংবাদ
+          {t(locale, 'latest_news_heading')}
         </h2>
         <div className="flex max-w-full flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => setActive(ALL)}
-            aria-pressed={active === ALL}
             className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
               active === ALL
-                ? 'border-ink bg-ink text-paper dark:border-paper dark:bg-paper dark:text-ink'
-                : 'border-border bg-white text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+                ? 'border-crimson bg-crimson text-white'
+                : 'border-border bg-paper text-ink/70 hover:border-crimson hover:text-crimson dark:border-white/15 dark:bg-neutral-900 dark:text-paper/70'
             }`}
           >
-            সবগুলো
+            {t(locale, 'all_categories')}
           </button>
           {chips.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setActive(c)}
-              aria-pressed={active === c}
               className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                 active === c
-                  ? 'border-ink bg-ink text-paper dark:border-paper dark:bg-paper dark:text-ink'
-                  : 'border-border bg-white text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+                  ? 'border-crimson bg-crimson text-white'
+                  : 'border-border bg-paper text-ink/70 hover:border-crimson hover:text-crimson dark:border-white/15 dark:bg-neutral-900 dark:text-paper/70'
               }`}
             >
-              {c}
+              {translateCategory(locale, c)}
             </button>
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {cells.map((c, i) =>
-          c === 'ad' ? (
-            <div key={`ad-${i}`} className="col-span-full my-2">
-              <AdSlot format="leaderboard" />
-            </div>
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {cells.map((cell, i) =>
+          cell === 'ad' ? (
+            <AdSlot key={`ad-${i}`} format="leaderboard" />
           ) : (
-            <ArticleCard key={c.id ?? c.slug ?? c.title} article={c} href={`/article/${c.slug ?? c.id ?? ''}`} />
+            <ArticleCard
+              key={cell.id ?? cell.slug ?? cell.title}
+              article={cell}
+              href={`/article/${cell.slug ?? cell.id ?? ''}`}
+            />
           ),
         )}
       </div>

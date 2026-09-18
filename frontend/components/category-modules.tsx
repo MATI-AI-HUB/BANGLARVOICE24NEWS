@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { ArticleCard, type Article } from './hero-bento';
 import { AdSlot } from './ad-slot';
+import { t, translateCategory, type Locale } from '@/lib/i18n';
 
 /**
  * CategoryModules — DW/AJ-inspired data-driven "বিভাগ অনুযায়ী" rows.
@@ -46,7 +47,7 @@ export function categorySlug(name: string): string {
   return map[name.trim()] ?? `cat-${name.trim().replace(/\s+/g, '-')}`;
 }
 
-export function CategoryModules({ articles }: { articles: Article[] }) {
+export function CategoryModules({ articles, locale = 'bn' as Locale }: { articles: Article[]; locale?: Locale }) {
   const modules = useMemo(() => {
     // Group by category, preserving editorial priority order.
     const buckets = new Map<string, Article[]>();
@@ -89,7 +90,7 @@ export function CategoryModules({ articles }: { articles: Article[] }) {
                 id={headingId}
                 className="font-serifbn text-2xl font-extrabold leading-none tracking-tight text-ink dark:text-paper"
               >
-                {category}
+                {translateCategory(locale, category)}
               </h2>
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
