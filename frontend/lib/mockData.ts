@@ -18,7 +18,9 @@ export type FeedArticle = {
   id: string;
   slug: string;
   title_bn: string;
+  title_en?: string;
   dek_bn?: string;
+  dek_en?: string;
   category?: string;
   featured_image?: string;
   reading_time_min?: number;

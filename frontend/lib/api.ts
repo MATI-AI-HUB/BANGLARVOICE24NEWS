@@ -96,7 +96,9 @@ async function safeFetch<T>(url: string, timeoutMs = 4000, empty: T): Promise<T>
 type SupabaseArticle = {
   id: string;
   title_bn: string;
+  title_en: string | null;
   content_bn: string;
+  content_en: string | null;
   category: string | null;
   thumbnail_url: string | null;
   status: string;
@@ -128,7 +130,9 @@ function mapArticle(row: SupabaseArticle): FeedArticle {
     id: row.id,
     slug: row.id,
     title_bn: row.title_bn,
+    title_en: row.title_en || undefined,
     dek_bn: summary,
+    dek_en: row.content_en ? stripHtml(row.content_en).slice(0, 220) : undefined,
     category: categoryLabel(row.category),
     featured_image: row.thumbnail_url || '',
     reading_time_min: readMin,
@@ -156,7 +160,7 @@ export const api = {
     try {
       const { data, error } = await supabase
         .from('articles')
-        .select('id, title_bn, content_bn, category, thumbnail_url, status, published_at, created_at, source_url, source_name, image_credit')
+        .select('id, title_bn, title_en, content_bn, content_en, category, thumbnail_url, status, published_at, created_at, source_url, source_name, image_credit')
         .eq('status', 'published')
         .order('published_at', { ascending: false })
         .limit(limit);
@@ -187,6 +191,7 @@ export const api = {
       return {
         ...base,
         body_bn: row.content_bn,
+        body_en: row.content_en || undefined,
         author_name: row.source_name || 'Banglar Voice',
         source_url: row.source_url || '',
         source_name: row.source_name || '',

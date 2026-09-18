@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 const toBento = (a: FeedArticle, locale: Locale) => ({
   id: a.id,
   slug: a.slug,
-  title: locale === 'en' ? ((a as any).title_en || a.title_bn) : a.title_bn,
-  summary: locale === 'en' ? ((a as any).dek_en || a.dek_bn) : a.dek_bn,
+  title: locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn,
+  summary: locale === 'en' ? (a.dek_en || a.dek_bn) : a.dek_bn,
   category: a.category,
   image_url: a.featured_image,
   read_time: a.reading_time_min,
