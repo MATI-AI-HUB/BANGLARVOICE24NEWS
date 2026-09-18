@@ -43,6 +43,9 @@ export const dict = {
     search_placeholder: 'খবর খুঁজুন...',
     language: 'ভাষা',
     read_more: 'আরও পড়ুন',
+    more_news: 'আরও সংবাদ পড়ুন',
+    see_all: 'সব দেখুন',
+    min_read: 'মিনিট পড়া',
   },
   en: {
     home: 'Home',
@@ -76,6 +79,9 @@ export const dict = {
     search_placeholder: 'Search news...',
     language: 'Language',
     read_more: 'Read more',
+    more_news: 'More News',
+    see_all: 'See All',
+    min_read: 'min read',
   },
 } as const;
 

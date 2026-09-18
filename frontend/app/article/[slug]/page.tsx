@@ -210,7 +210,7 @@ export default async function ArticlePage({ params }: PageProps) {
         <ShareButtons title={displayTitle} />
       </div>
 
-      <RelatedArticles currentSlug={a.slug} category={a.category} />
+      <RelatedArticles currentSlug={a.slug} category={a.category} locale={locale} />
     </article>
   );
 }

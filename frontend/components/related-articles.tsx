@@ -1,25 +1,19 @@
 import Link from 'next/link';
 import { api } from '../lib/api';
 import { mockFeedItems, type FeedArticle } from '../lib/mockData';
+import { t, translateCategory, type Locale } from '../lib/i18n';
 
 const _bn = (s: string | number): string =>
   String(s).replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'[+d]);
 
-
-/**
- * Banglar Voice — "আরও সংবাদ পড়ুন" (Related / More news) section.
- * Renders up to 4 related article cards below a single article.
- *
- * Data contract: uses the existing api.articles() feed (PocketBase/Supabase)
- * with the existing mockFeedItems fallback when the backend is unreachable —
- * exactly like the homepage. No data layer changes.
- */
 export async function RelatedArticles({
   currentSlug,
   category,
+  locale = 'bn' as Locale,
 }: {
   currentSlug: string;
   category?: string;
+  locale?: Locale;
 }) {
   let feed: FeedArticle[] = [];
   try {
@@ -30,7 +24,6 @@ export async function RelatedArticles({
   }
   if (feed.length === 0) feed = mockFeedItems;
 
-  // Prefer same-category items first, then fill with the latest, excluding self.
   const sameCategory = feed.filter(
     (a) => a.slug !== currentSlug && a.category === category,
   );
@@ -41,20 +34,29 @@ export async function RelatedArticles({
 
   if (related.length === 0) return null;
 
+  const displayTitle = (a: FeedArticle) =>
+    locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn;
+
+  const displayReadTime = (min?: number) => {
+    if (!min) return '';
+    const n = locale === 'en' ? String(min) : _bn(min);
+    return `${n} ${t(locale, 'min_read')}`;
+  };
+
   return (
     <section
-      aria-label="আরও সংবাদ পড়ুন"
+      aria-label={t(locale, 'more_news')}
       className="mt-12 border-t border-border pt-8"
     >
       <div className="mb-5 flex items-center justify-between">
         <h2 className="font-serifbn text-2xl font-bold text-ink dark:text-paper">
-          আরও সংবাদ পড়ুন
+          {t(locale, 'more_news')}
         </h2>
         <Link
           href="/#latest"
           className="inline-flex items-center gap-1 text-sm font-semibold text-primary transition-colors hover:text-crimson"
         >
-          সব দেখুন
+          {t(locale, 'see_all')}
           <span aria-hidden="true">→</span>
         </Link>
       </div>
@@ -71,7 +73,7 @@ export async function RelatedArticles({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={a.featured_image}
-                  alt={a.title_bn}
+                  alt={displayTitle(a)}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
@@ -81,15 +83,15 @@ export async function RelatedArticles({
             <div className="flex flex-1 flex-col p-3">
               {a.category ? (
                 <span className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-primary">
-                  {a.category}
+                  {translateCategory(locale, a.category)}
                 </span>
               ) : null}
               <h3 className="line-clamp-2 font-serifbn text-sm font-bold leading-snug text-ink dark:text-paper">
-                {a.title_bn}
+                {displayTitle(a)}
               </h3>
               {a.reading_time_min ? (
                 <span className="mt-auto pt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  {_bn(a.reading_time_min)} মিনিট পড়া
+                  {displayReadTime(a.reading_time_min)}
                 </span>
               ) : null}
             </div>
