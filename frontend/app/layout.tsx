@@ -59,9 +59,9 @@ export default async function RootLayout({
         className={`${notoSerifBengali.variable} ${hindSiliguri.variable} bg-paper font-sansbn text-ink antialiased min-h-screen flex flex-col`}
       >
         <PlausibleAnalytics />
-        <Header />
+        <Header locale={locale} />
         <main className="flex-1">{children}</main>
-        <Footer />
+        <Footer locale={locale} />
         <CookieBanner />
         <LearningHub />
       </body>
