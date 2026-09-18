@@ -46,6 +46,11 @@ export const dict = {
     more_news: 'আরও সংবাদ পড়ুন',
     see_all: 'সব দেখুন',
     min_read: 'মিনিট পড়া',
+    breadcrumb_home: 'হোম',
+    breadcrumb_aria: 'ব্রেডক্রাম্ব',
+    back_home: 'হোমে ফিরুন',
+    author_prefix: 'লেখক',
+    bias_score: 'বায়াস স্কোর',
   },
   en: {
     home: 'Home',
@@ -82,6 +87,11 @@ export const dict = {
     more_news: 'More News',
     see_all: 'See All',
     min_read: 'min read',
+    breadcrumb_home: 'Home',
+    breadcrumb_aria: 'Breadcrumb',
+    back_home: 'Back to Home',
+    author_prefix: 'Author',
+    bias_score: 'Bias Score',
   },
 } as const;
 

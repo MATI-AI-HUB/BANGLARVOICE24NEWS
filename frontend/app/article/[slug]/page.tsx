@@ -1,7 +1,7 @@
 import { api } from '../../../lib/api';
 import { formatBnDate } from '../../../lib/bn-date';
 import { cookies } from 'next/headers';
-import { getLocaleFromCookie, LOCALE_COOKIE, type Locale } from '../../../lib/i18n';
+import { getLocaleFromCookie, LOCALE_COOKIE, t, translateCategory, type Locale } from '../../../lib/i18n';
 import { mockFeedItems } from '../../../lib/mockData';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -157,19 +157,19 @@ export default async function ArticlePage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleLd) }}
       />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Breadcrumb category={a.category} title={displayTitle} />
+        <Breadcrumb category={a.category} title={displayTitle} locale={locale} />
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-crimson"
         >
-          <span aria-hidden="true">←</span> হোমে ফিরুন
+          <span aria-hidden="true">←</span> {t(locale, 'back_home')}
         </Link>
       </div>
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-primary">
-        <span>{a.category}</span>
+        <span>{translateCategory(locale, a.category || '')}</span>
         {typeof a.bias_index === 'number' && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-neutral-500 dark:bg-neutral-800">
-            বায়াস স্কোর {a.bias_index}/100
+            {t(locale, 'bias_score')} {a.bias_index}/100
           </span>
         )}
       </div>
@@ -178,10 +178,10 @@ export default async function ArticlePage({ params }: PageProps) {
         <p className="mt-4 text-lg leading-relaxed text-neutral-600 dark:text-neutral-300">{displayDek}</p>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-        {a.author_name && <span>লেখক: {a.author_name}</span>}
-        {a.reading_time_min ? <span>• {a.reading_time_min} মিনিট পড়া</span> : null}
+        {a.author_name && <span>{t(locale, 'author_prefix')}: {a.author_name}</span>}
+        {a.reading_time_min ? <span>• {a.reading_time_min} {t(locale, 'min_read')}</span> : null}
         {a.published_at ? (
-          <span>• {formatBnDate(a.published_at, 'bn')}</span>
+          <span>• {formatBnDate(a.published_at, locale)}</span>
         ) : null}
         <span className="ml-auto">
           <ShareButtons title={displayTitle} />
