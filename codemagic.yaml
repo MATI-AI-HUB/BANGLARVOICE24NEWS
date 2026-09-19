@@ -12,11 +12,21 @@ workflows:
         - ~/.gradle
     triggering:
       events:
+        - push                      # ← main push-এ trigger
         - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
       tag_patterns:
         - pattern: 'v*'
           include: true
     scripts:
+      - name: Skip LFS smudge (prevents 404 on missing LFS objects)
+        script: |
+          git lfs install --skip-smudge || echo "git-lfs not available — skipping"
+          echo "LFS smudge skipped"
+
       - name: Verify keystore env vars
         script: |
           if [ -z "$CM_KEYSTORE" ]; then
@@ -63,7 +73,6 @@ workflows:
 
     artifacts:
       - apks/*.apk
-
     publishing:
       email:
         recipients:

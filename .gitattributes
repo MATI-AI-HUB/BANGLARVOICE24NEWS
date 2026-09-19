@@ -2,7 +2,3 @@
 # No .apk/.aab are tracked in git (CI builds them and uploads to GitHub Releases).
 # No large binaries are tracked today — these patterns are reserved so that if a large
 # binary is ever added deliberately, it goes through LFS instead of bloating the repo.
-#*.apk filter=lfs diff=lfs merge=lfs -text
-#*.aab filter=lfs diff=lfs merge=lfs -text
-*.zip filter=lfs diff=lfs merge=lfs -text
-*.tar.gz filter=lfs diff=lfs merge=lfs -text
