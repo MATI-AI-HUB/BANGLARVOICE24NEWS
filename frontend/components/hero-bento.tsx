@@ -30,6 +30,19 @@ function timeAgo(iso?: string): string {
   return `${_bn(Math.round(hrs / 24))} দিন আগে`;
 }
 
+/** Renders "X minutes ago" only after client mount, to avoid hydration mismatch
+ *  when Date.now() differs between server render and client hydration. */
+function ClientTimeAgo({ iso, className }: { iso?: string; className?: string }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    setTick(1);
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  if (tick === 0) return <span className={className} aria-hidden>···</span>;
+  return <span className={className}>{timeAgo(iso)}</span>;
+}
+
 function biasBadge(bias?: number) {
   if (bias === undefined || bias === null) return null;
   const v = Math.max(0, Math.min(100, bias));
@@ -124,7 +137,7 @@ export function LeadCard({ article, href }: { article: Article; href: string }) 
         <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-neutral-500 dark:text-neutral-400">
           <span>{article.author || 'বাংলার ভয়েস'}</span>
           {article.read_time ? <span>• {article.read_time} মিনিট পড়া</span> : null}
-          <span>• {timeAgo(article.published_at)}</span>
+          <span>• <ClientTimeAgo iso={article.published_at} /></span>
         </div>
       </div>
     </a>
@@ -152,7 +165,7 @@ export function ArticleCard({ article, href }: { article: Article; href: string 
         <div className="mt-auto flex items-center gap-2 pt-3 text-[11px] text-neutral-500 dark:text-neutral-400">
           {article.read_time ? <span>{article.read_time} মিনিট</span> : null}
           <span>•</span>
-          <span>{timeAgo(article.published_at)}</span>
+          <span><ClientTimeAgo iso={article.published_at} /></span>
         </div>
       </div>
     </a>
@@ -175,7 +188,7 @@ export function TrendingItem({ rank, article, href }: { rank?: number; article: 
         <h4 className="line-clamp-2 text-sm font-bold leading-snug text-ink group-hover:text-primary dark:text-paper">
           {article.title}
         </h4>
-        <span className="mt-1 block text-[11px] text-neutral-500">{timeAgo(article.published_at)}</span>
+        <span className="mt-1 block text-[11px] text-neutral-500"><ClientTimeAgo iso={article.published_at} /></span>
       </div>
     </a>
   );
