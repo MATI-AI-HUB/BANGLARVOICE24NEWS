@@ -122,3 +122,11 @@ scripts/pipeline/output/
 
 *.before-fix
 frontend/supa-*.mjs
+
+# Local diagnostics, temporary pages, and manual pipeline backups
+frontend/page-*.html
+frontend/.env.local*
+supabase/functions/news-pipeline/index.ts.before-*
+archive/local-audit-artifacts/
+archive/pipeline-backups/
+backups/
