@@ -74,6 +74,6 @@ const Map<String, String> dictEn = {
   'tv_stream_error': 'Could not load stream',
   'tv_choose_channel': 'Choose a channel',
   'tv_channel': 'Channel',
-  'tv_today_broadcast': 'Today's Broadcast',
+  'tv_today_broadcast': "Today's Broadcast",
   'tv_main_channel': 'Main Channel',
 };
