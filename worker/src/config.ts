@@ -28,6 +28,8 @@ export interface WorkerConfig {
     linkedinOrganizationId: string;
   };
   pexelsApiKey: string;
+  supabaseUrl?: string;
+  supabaseServiceKey?: string;
 }
 
 const num = (v: string | undefined, d: number): number => {
@@ -49,6 +51,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     chatAiModel: env.CHAT_AI_MODEL ?? "gpt-4o-mini",
     chatAiKey: env.CHAT_AI_KEY ?? "",
     bvBaseUrl: (env.BV_BASE_URL ?? "http://127.0.0.1:8090").replace(/\/$/, ""),
+    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
     newsroomIngestKey: env.NEWSROOM_INGEST_KEY ?? "change-me",
     autoPublish: (env.AUTO_PUBLISH ?? "false").toLowerCase() === "true",
     telegramAllowedChatIds: csv(env.TELEGRAM_ALLOWED_CHAT_IDS),

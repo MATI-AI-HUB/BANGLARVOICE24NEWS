@@ -11,6 +11,8 @@ import { rewrite } from "./rewriter.js";
 import { fetchMedia } from "./media.js";
 import { edit } from "./chain-agents.js";
 import { verifyDraft } from "./specialists/router.js";
+import { checkDiversityQuota } from "./specialists/diversity.js";
+import { findCorroboratingSources } from "./specialists/multisource.js";
 import { decide } from "./supervisor.js";
 import type { DraftArticle, PipelineState, RawItem } from "./types.js";
 
@@ -82,6 +84,20 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{ collected: numbe
       duplicateOf: null,
     };
 
+    // Source diversity check (skip if source under cap)
+    const diversity = await checkDiversityQuota(cfg, draft.raw.sourceCategory || "unknown");
+    if (!diversity.allowed) {
+      console.warn(`[orchestrator] diversity reject: ${diversity.reason}`);
+      draft.status = "rejected";
+      rejected++;
+      continue;
+    }
+
+    // Corroborating sources (Google News RSS)
+    let primaryDomain = "";
+    try { primaryDomain = new URL(draft.raw.link).hostname; } catch {}
+    const corroborating = await findCorroboratingSources(draft.titleBn, primaryDomain, 3);
+
     // Specialist fact-check (multi-source, image, location, datetime, quality)
     try {
       const verdict = await verifyDraft(cfg, draft);
@@ -98,6 +114,12 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{ collected: numbe
       draft.status = "pending_review";
       continue;
     }
+
+    // Persist fact sources into draft
+    (draft as any).factSources = [
+      { name: draft.raw.sourceCategory || "primary", url: draft.raw.link, type: "primary" },
+      ...corroborating.map((s) => ({ name: s.name, url: s.url, type: "corroborating" })),
+    ];
 
     // Editor
     const edited = await edit(cfg, draft);
