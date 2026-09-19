@@ -30,17 +30,30 @@ export function isDuplicate(title: string, now = Date.now()): boolean {
 }
 
 /**
- * Compute a fact-check confidence score 0-100.
- *   - 100: has a verifiable source URL + a non-empty body
- *   - 50:  has a source URL but thin body
- *   - 0:   no source / looks like a hoax (very short, no link)
+ * Baseline fact-check score 0-100.
+ *
+ * ⚠️ This is a PLACEHOLDER. It NEVER auto-publishes on its own.
+ * Real verification lives in ./specialists/ — the specialists router
+ * REPLACES this score with a composite verification score before the
+ * supervisor decision is made.
+ *
+ * Baseline rules (conservative):
+ *   - No verifiable source URL      -> 0   (reject)
+ *   - Body shorter than 500 chars   -> 30  (reject — too thin)
+ *   - Body shorter than 1000 chars  -> 60  (editor review)
+ *   - Body has real substance       -> 70  (editor review)
+ *
+ * MAX = 70. Auto-publish requires specialist verification >= 85.
  */
 export function computeAiScore(draft: DraftArticle): number {
-  const hasSource = draft.raw.link.startsWith("http");
-  const bodyLen = draft.contentBn.trim().length;
+  const link = draft.raw?.link ?? "";
+  const hasSource = /^https?:\/\//i.test(link);
   if (!hasSource) return 0;
-  if (bodyLen < 200) return 50;
-  return 100;
+
+  const bodyLen = draft.contentBn.trim().length;
+  if (bodyLen < 500) return 30;
+  if (bodyLen < 1000) return 60;
+  return 70;
 }
 
 export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<SupervisorDecision> {

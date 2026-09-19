@@ -10,6 +10,7 @@ import { collect } from "./collector.js";
 import { rewrite } from "./rewriter.js";
 import { fetchMedia } from "./media.js";
 import { edit } from "./chain-agents.js";
+import { verifyDraft } from "./specialists/router.js";
 import { decide } from "./supervisor.js";
 import type { DraftArticle, PipelineState, RawItem } from "./types.js";
 
@@ -80,6 +81,23 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{ collected: numbe
       status: "draft",
       duplicateOf: null,
     };
+
+    // Specialist fact-check (multi-source, image, location, datetime, quality)
+    try {
+      const verdict = await verifyDraft(cfg, draft);
+      draft.verification = verdict;
+      draft.aiScore = verdict.compositeScore;
+      if (verdict.decision === "reject") {
+        draft.status = "rejected";
+        rejected++;
+        continue;
+      }
+    } catch (e) {
+      // Fail-safe: any error -> force human review
+      console.error("[orchestrator] specialist verify failed", e);
+      draft.status = "pending_review";
+      continue;
+    }
 
     // Editor
     const edited = await edit(cfg, draft);

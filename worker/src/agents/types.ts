@@ -35,6 +35,7 @@ export interface DraftArticle {
   aiSummary: string; // 3-bullet Bangla summary
   status: "draft" | "pending_review" | "approved" | "published" | "rejected";
   duplicateOf: string | null;
+  verification?: import('./specialists/types.js').SpecialistVerdict;
 }
 
 /** The pipeline state machine for one item. */
