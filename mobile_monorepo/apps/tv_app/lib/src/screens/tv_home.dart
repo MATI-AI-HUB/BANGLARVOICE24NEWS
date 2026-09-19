@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:bv_shared/bv_shared.dart';
 import 'package:video_player/video_player.dart';
 
 import '../config.dart';
@@ -103,7 +104,7 @@ class _TvHomeState extends State<TvHome> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'লাইভ: ${_current?.nameBn ?? "প্রধান চ্যানেল"}',
+              '${localeNotifier.t('live_title')}: ${_current?.nameBn ?? localeNotifier.t('tv_main_channel')}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -111,8 +112,46 @@ class _TvHomeState extends State<TvHome> {
               ),
             ),
           ),
+          const SizedBox(width: 12),
+          _languageToggle(),
         ],
       ),
+    );
+  }
+
+  Widget _languageToggle() {
+    return PopupMenuButton<AppLocale>(
+      icon: const Icon(Icons.language, color: Colors.white, size: 22),
+      tooltip: localeNotifier.t('settings_language'),
+      onSelected: (loc) => localeNotifier.set(loc),
+      itemBuilder: (ctx) => [
+        PopupMenuItem(
+          value: AppLocale.bn,
+          child: Row(
+            children: [
+              if (localeNotifier.current == AppLocale.bn)
+                const Icon(Icons.check, size: 18)
+              else
+                const SizedBox(width: 18),
+              const SizedBox(width: 8),
+              const Text('বাংলা'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: AppLocale.en,
+          child: Row(
+            children: [
+              if (localeNotifier.current == AppLocale.en)
+                const Icon(Icons.check, size: 18)
+              else
+                const SizedBox(width: 18),
+              const SizedBox(width: 8),
+              const Text('English'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -137,7 +176,7 @@ class _TvHomeState extends State<TvHome> {
                     const Icon(Icons.tv, color: Colors.white30, size: 80),
                     const SizedBox(height: 16),
                     Text(
-                      _error ?? 'চ্যানেল বেছে নিন',
+                      _error ?? localeNotifier.t('tv_choose_channel'),
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ],
@@ -159,7 +198,7 @@ class _TvHomeState extends State<TvHome> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'চ্যানেল',
+            localeNotifier.t('tv_channel'),
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -199,7 +238,7 @@ class _TvHomeState extends State<TvHome> {
           ),
           const Divider(color: Colors.white24),
           const Text(
-            'আজকের সম্প্রচার',
+            localeNotifier.t('tv_today_broadcast'),
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,

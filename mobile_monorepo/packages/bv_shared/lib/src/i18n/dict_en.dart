@@ -71,4 +71,9 @@ const Map<String, String> dictEn = {
   'error_cached': 'Showing cached news',
   'error_network': 'Network problem',
   'error_server': 'Could not reach server',
+  'tv_stream_error': 'Could not load stream',
+  'tv_choose_channel': 'Choose a channel',
+  'tv_channel': 'Channel',
+  'tv_today_broadcast': 'Today's Broadcast',
+  'tv_main_channel': 'Main Channel',
 };

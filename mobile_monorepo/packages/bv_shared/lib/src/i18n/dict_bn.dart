@@ -81,4 +81,9 @@ const Map<String, String> dictBn = {
   'error_cached': 'ক্যাশ করা সংবাদ দেখানো হচ্ছে',
   'error_network': 'নেটওয়ার্ক সমস্যা',
   'error_server': 'সার্ভারে সংযোগ হয়নি',
+  'tv_stream_error': 'স্ট্রিম লোড করা যায়নি',
+  'tv_choose_channel': 'চ্যানেল বেছে নিন',
+  'tv_channel': 'চ্যানেল',
+  'tv_today_broadcast': 'আজকের সম্প্রচার',
+  'tv_main_channel': 'প্রধান চ্যানেল',
 };
