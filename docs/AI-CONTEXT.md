@@ -21,9 +21,10 @@ Repo: https://github.com/banglarvoice33-byte/BANGLARVOICE-APPS
 - Not done: VideoHub, LiveBlog, AudioPlayerWidget narration
 
 ## Roadmap
-1. (next) VideoHub + LiveBlog + Audio locale — PR
-2. Disable broken `.github/workflows/vercel-deploy.yml` (red X, redundant)
-3. Backfill 8 missing `_en` translations via `frontend/backfill-v5.js`
+1. ✅ DONE (web side) — VideoHub + LiveBlog + Audio locale (commits `bd56a7f`, `bc369fe`, `bb6c161`)
+   - Remaining: mobile app (tv_app) locale — separate branch `fix/tv-app-listener`
+2. ✅ DONE — `.github/workflows/vercel-deploy.yml` + `build_apks` disabled in `4bc028f`
+3. ⏳ (next) Backfill 8 missing `_en` translations via `frontend/backfill-v5.js`
 4. URL-based locale routing (`/bn/...`, `/en/...`) — SEO priority
 5. hreflang + per-language sitemaps
 6. Translation editorial workspace (AI draft + human review)
@@ -45,15 +46,24 @@ Web i18n 70% complete. Mobile foundation ready.
 Keystore verified not committed.
 Disabled broken build_apks + vercel-deploy workflows.
 
-### Known remaining web bugs (next session)
-1. Homepage card meta (`time_ago_bn`, `reading_time_bn`) not locale-aware
-2. Homepage category chip not using translateCategory()
-3. Homepage bias chip shows `সূক্ষ্ম 50` on EN
-4. Live Blog section entirely Bengali
-5. App download banner entirely Bengali
-6. AudioPlayer widget shows `আ.` on EN
-7. Breaking ticker content not locale-aware
+### Known remaining web bugs
+All 7 known bugs fixed as of 2026-09-19:
+- ✅ Card meta, category chip, bias chip (commit `bd56a7f`)
+- ✅ Live Blog, App banner (commit `bc369fe`)
+- ✅ AudioPlayer, Breaking ticker (commit `bd56a7f`)
 
-### YYYY-MM-DD
-- (আজকের কাজ সংক্ষেপে)
-- (নতুন সমস্যা থাকলে)
+### 2026-09-19
+- Closed all 7 known homepage/web i18n bugs (commits `bd56a7f`, `bc369fe`)
+- homepages cards (LeadCard/ArticleCard/TrendingItem) fully locale-aware: timeAgo, biasBadge, read time, category chip
+- AudioPlayer + BreakingMarquee now locale-aware, support `text_en` fallback
+- LiveBlog: locale prop, `body_en` support, i18n heading/aria, locale-aware timeLabel
+- App download banner (inline in `app/page.tsx`): i18n keys wired (`app_banner_title`, `app_banner_body`, `app_download_cta`)
+- Added ~18 i18n keys × 2 locales (`bn` + `en`)
+- Roadmap updated: items 1 (web) + 2 closed
+- Next: backfill 8 missing `_en` (item 3), then URL-based locale routing (item 4)
+
+### 2026-09-19 — detailed
+- i18n fixes: 7/7 known bugs closed
+- Commits: `bd56a7f` (cards+audio+ticker), `bc369fe` (liveblog+banner)
+- Files touched: `components/hero-bento.tsx`, `audio-player.tsx`, `breaking-marquee.tsx`, `live-blog.tsx`, `Header.tsx`, `app/page.tsx`, `app/article/[slug]/page.tsx`, `lib/i18n.ts`
+- All TypeScript clean, all builds clean
