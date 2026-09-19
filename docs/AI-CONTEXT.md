@@ -29,6 +29,7 @@ Repo: https://github.com/banglarvoice33-byte/BANGLARVOICE-APPS
 5. hreflang + per-language sitemaps
 6. Translation editorial workspace (AI draft + human review)
 7. `article_translations` table — only if going 5+ languages
+8. **AI Specialist Fact-Check Phase 3** — vision LLM, credibility weights, `article_verifications` table, admin dashboard
 
 ## Key commands
 - Audit i18n coverage: `cd frontend && node scripts/audit-i18n-coverage.js`
@@ -67,3 +68,48 @@ All 7 known bugs fixed as of 2026-09-19:
 - Commits: `bd56a7f` (cards+audio+ticker), `bc369fe` (liveblog+banner)
 - Files touched: `components/hero-bento.tsx`, `audio-player.tsx`, `breaking-marquee.tsx`, `live-blog.tsx`, `Header.tsx`, `app/page.tsx`, `app/article/[slug]/page.tsx`, `lib/i18n.ts`
 - All TypeScript clean, all builds clean
+
+## AI Specialist Fact-Check System (new — 2026-09-20)
+
+### Flow
+Collect → Rewrite → Media → **Specialist Verify** → Editor → Supervisor → Publish
+
+### 6 Section Specialists (`worker/src/agents/specialists/`)
+- `politics.ts` — 2+ source rule, election/protest keywords
+- `health.ts` — strictest weights (45% multi-source), medical-claim flags
+- `sports.ts` — official board/federation sources
+- `economics.ts` — BBS/IMF/WB data requirement
+- `international.ts` — geopolitical 2-source rule
+- `national.ts` — local govt / disaster authority sources
+
+### 6 Checks per Specialist
+1. multi-source — Google News RSS distinct-domain count
+2. image-match — stub (Phase 3 vision LLM)
+3. video-match — stub (Phase 3)
+4. location — keyword gazetteer
+5. datetime — freshness score (fresh → 1.0, stale >3d → 0.4)
+6. rewriter quality — LLM similarity + hallucination penalty
+
+### Decision Gate
+- composite < 60 → reject
+- 60 ≤ composite < 85 → editor review
+- composite ≥ 85 + not sensitive → auto_publish
+- sensitive + composite < 90 → forced review
+
+### Safety Hardening
+- `computeAiScore` max 70 (was 100) — never auto-publishes
+- Specialist error → `pending_review` (fail-safe to human)
+- Sensitive keyword hard gate prevents auto-publish
+
+### Files
+- `worker/src/agents/specialists/types.ts`
+- `worker/src/agents/specialists/base.ts`
+- `worker/src/agents/specialists/router.ts`
+- 6 specialist files
+
+### Phase 3 (pending)
+- Vision LLM for image-match (Gemini 1.5 Flash)
+- Video transcript similarity
+- Multi-source credibility weighting (BBC=1.0, unknown=0.3)
+- Per-section `article_verifications` audit table
+- Admin dashboard for verification results
