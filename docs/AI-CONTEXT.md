@@ -36,3 +36,20 @@ Repo: https://github.com/banglarvoice33-byte/BANGLARVOICE-APPS
 
 ## Session startup (paste this at start of new chat)
 "Read docs/AI-CONTEXT.md and check git log --oneline -10"
+
+## Session log
+
+### 2026-09-19
+7 PRs merged: #1–#7.
+Web i18n 70% complete. Mobile foundation ready.
+Keystore verified not committed.
+Disabled broken build_apks + vercel-deploy workflows.
+
+### Known remaining web bugs (next session)
+1. Homepage card meta (`time_ago_bn`, `reading_time_bn`) not locale-aware
+2. Homepage category chip not using translateCategory()
+3. Homepage bias chip shows `সূক্ষ্ম 50` on EN
+4. Live Blog section entirely Bengali
+5. App download banner entirely Bengali
+6. AudioPlayer widget shows `আ.` on EN
+7. Breaking ticker content not locale-aware
