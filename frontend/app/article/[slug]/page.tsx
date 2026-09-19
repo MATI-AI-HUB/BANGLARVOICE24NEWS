@@ -7,6 +7,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AudioPlayerWidget } from '../../../components/audio-player';
+import { TrustSignals } from '../../../components/trust-signals';
 import { Breadcrumb } from '../../../components/breadcrumb';
 import { RelatedArticles } from '../../../components/related-articles';
 import { ShareButtons } from '../../../components/share-buttons';
@@ -33,6 +34,23 @@ type ArticleData = {
   published_at?: string;
   author_name?: string;
   tags?: string[];
+  // DB fields (via api.ts spread)
+  ai_model?: string;
+  ai_confidence?: number;
+  source_name?: string;
+  source_url?: string;
+  source_published_at?: string;
+  image_credit?: string;
+  category_key?: string;
+  verification_status?: string;
+  verification_score?: number;
+  ai_verified?: boolean;
+  human_verified?: boolean;
+  verified_by?: string;
+  verified_at?: string;
+  verification_notes?: string;
+  fact_sources?: unknown;
+  content_credentials?: unknown;
 };
 
 function toPlainText(html: string): string {
@@ -203,6 +221,21 @@ export default async function ArticlePage({ params }: PageProps) {
           ))}
         </div>
       )}
+
+      <TrustSignals
+        ai_model={a.ai_model}
+        ai_confidence={a.ai_confidence}
+        source_name={a.source_name}
+        source_url={a.source_url}
+        source_published_at={a.source_published_at}
+        image_credit={a.image_credit}
+        verification_status={a.verification_status}
+        verification_score={a.verification_score}
+        ai_verified={a.ai_verified}
+        human_verified={a.human_verified}
+        verified_at={a.verified_at}
+        locale={locale}
+      />
 
       <AudioPlayerWidget text={narrateText} title={displayTitle} locale={locale} />
 

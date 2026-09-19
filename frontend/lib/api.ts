@@ -190,8 +190,10 @@ export const api = {
       const base = mapArticle(row);
       return {
         ...base,
+        ...(row as Record<string, unknown>),          // pass through ALL DB fields
         body_bn: row.content_bn,
         body_en: row.content_en || undefined,
+        featured_image: (row as any).thumbnail_url,   // alias for legacy code
         author_name: row.source_name || 'Banglar Voice',
         source_url: row.source_url || '',
         source_name: row.source_name || '',
