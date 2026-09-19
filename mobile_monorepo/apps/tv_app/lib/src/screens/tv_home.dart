@@ -197,7 +197,7 @@ class _TvHomeState extends State<TvHome> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             localeNotifier.t('tv_channel'),
             style: TextStyle(
               color: Colors.white,
@@ -237,7 +237,7 @@ class _TvHomeState extends State<TvHome> {
             ),
           ),
           const Divider(color: Colors.white24),
-          const Text(
+          Text(
             localeNotifier.t('tv_today_broadcast'),
             style: TextStyle(
               color: Colors.white,
