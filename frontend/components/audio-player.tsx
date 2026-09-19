@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { t, type Locale } from '@/lib/i18n';
 
 /**
  * AudioPlayerWidget — floating bottom bar for Bengali text-to-speech narration.
  * Uses the Web Speech API (speechSynthesis) with the user's Bengali voice when
  * available. No external dependency, no keys — works offline of the AI APIs.
  */
-export function AudioPlayerWidget({ text, title }: { text: string; title?: string }) {
+export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string; title?: string; locale?: Locale }) {
   const [speaking, setSpeaking] = useState(false);
   const [rate, setRate] = useState(1);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -78,7 +79,7 @@ export function AudioPlayerWidget({ text, title }: { text: string; title?: strin
         <button
           onClick={toggle}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow transition-transform hover:scale-105 active:scale-95"
-          aria-label={speaking ? 'থামান' : 'শোনুন'}
+          aria-label={speaking ? t(locale, 'audio_stop_aria') : t(locale, 'audio_play_aria')}
         >
           {speaking ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
@@ -88,9 +89,9 @@ export function AudioPlayerWidget({ text, title }: { text: string; title?: strin
         </button>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-ink dark:text-paper">
-            {speaking ? 'পড়া হচ্ছে…' : title || 'শিরোনাম পড়ে শুনুন'}
+            {speaking ? t(locale, 'audio_playing') : (title || t(locale, 'audio_listen'))}
           </div>
-          <div className="text-[11px] text-neutral-500">বাংলা টেক্সট-টু-স্পিচ</div>
+          <div className="text-[11px] text-neutral-500">{t(locale, 'audio_tts_label')}</div>
         </div>
         {/* speed control */}
         <div className="flex shrink-0 items-center gap-1 rounded-full border border-border p-0.5 dark:border-neutral-700">

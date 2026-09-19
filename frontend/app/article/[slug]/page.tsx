@@ -204,7 +204,7 @@ export default async function ArticlePage({ params }: PageProps) {
         </div>
       )}
 
-      <AudioPlayerWidget text={narrateText} title={displayTitle} />
+      <AudioPlayerWidget text={narrateText} title={displayTitle} locale={locale} />
 
       <div className="mt-10 border-t border-border pt-6 dark:border-white/10">
         <ShareButtons title={displayTitle} />

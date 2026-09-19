@@ -100,7 +100,7 @@ export function CategoryModules({ articles, locale = 'bn' as Locale }: { article
                     <AdSlot format="leaderboard" />
                   </div>
                 ) : (
-                  <ArticleCard
+                  <ArticleCard locale={locale}
                     key={a.id ?? a.slug ?? a.title}
                     article={a}
                     href={`/article/${a.slug ?? a.id ?? ''}`}

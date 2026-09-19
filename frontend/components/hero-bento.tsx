@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { t, translateCategory, type Locale } from '@/lib/i18n';
 
 export type Article = {
   id?: string;
@@ -16,23 +17,25 @@ export type Article = {
 };
 
 
-const _bn = (s: string | number): string =>
-  String(s).replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'[+d]);
+const fmtNum = (s: string | number, locale: Locale): string =>
+  locale === 'bn'
+    ? String(s).replace(/[0-9]/g, (d) => '০১২৩৪৫৬৭৮৯'[+d])
+    : String(s);
 
-function timeAgo(iso?: string): string {
+function timeAgo(iso: string | undefined, locale: Locale): string {
   if (!iso) return '';
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const mins = Math.max(1, Math.round((Date.now() - then) / 60000));
-  if (mins < 60) return `${_bn(mins)} মিনিট আগে`;
+  if (mins < 60) return `${fmtNum(mins, locale)} ${t(locale, 'time_ago_minutes')}`;
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${_bn(hrs)} ঘণ্টা আগে`;
-  return `${_bn(Math.round(hrs / 24))} দিন আগে`;
+  if (hrs < 24) return `${fmtNum(hrs, locale)} ${t(locale, 'time_ago_hours')}`;
+  return `${fmtNum(Math.round(hrs / 24), locale)} ${t(locale, 'time_ago_days')}`;
 }
 
 /** Renders "X minutes ago" only after client mount, to avoid hydration mismatch
  *  when Date.now() differs between server render and client hydration. */
-function ClientTimeAgo({ iso, className }: { iso?: string; className?: string }) {
+function ClientTimeAgo({ iso, locale, className }: { iso?: string; locale: Locale; className?: string }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     setTick(1);
@@ -40,26 +43,30 @@ function ClientTimeAgo({ iso, className }: { iso?: string; className?: string })
     return () => clearInterval(id);
   }, []);
   if (tick === 0) return <span className={className} aria-hidden>···</span>;
-  return <span className={className}>{timeAgo(iso)}</span>;
+  return <span className={className}>{timeAgo(iso, locale)}</span>;
 }
 
-function biasBadge(bias?: number) {
+function biasBadge(bias: number | undefined, locale: Locale) {
   if (bias === undefined || bias === null) return null;
   const v = Math.max(0, Math.min(100, bias));
-  const tone = v < 35 ? 'বস্তুনিষ্ঠ' : v < 65 ? 'সুষম' : 'পক্ষপাত-ঝুঁকি';
+  const tone =
+    v < 35 ? t(locale, 'bias_unbiased')
+    : v < 65 ? t(locale, 'bias_balanced')
+    : t(locale, 'bias_risk');
   const cls =
     v < 35
       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
       : v < 65
         ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
         : 'bg-[#CC0000]/10 text-[#CC0000] dark:bg-[#CC0000]/25 dark:text-[#CC0000]';
+  const score = fmtNum(v, locale);
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}
-      title={`বায়াস ইনডেক্স স্কোর: ${v}/১০০`}
+      title={`${t(locale, 'bias_tooltip_prefix')}: ${score}/100`}
     >
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
-      {tone} {v}
+      {tone} {score}
     </span>
   );
 }
@@ -110,7 +117,7 @@ function ZeroClsImg({ src, alt, className }: { src?: string; alt: string; classN
 }
 
 /** Big lead card for the bento grid (featured article). */
-export function LeadCard({ article, href }: { article: Article; href: string }) {
+export function LeadCard({ article, href, locale }: { article: Article; href: string; locale: Locale }) {
   return (
     <a
       href={href}
@@ -123,8 +130,8 @@ export function LeadCard({ article, href }: { article: Article; href: string }) 
       />
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
-          <span>{article.category || 'সর্বশেষ'}</span>
-          {biasBadge(article.bias_index)}
+          <span>{translateCategory(locale, article.category || 'সর্বশেষ')}</span>
+          {biasBadge(article.bias_index, locale)}
         </div>
         <h3 className="font-serifbn text-2xl font-extrabold leading-snug text-ink group-hover:text-primary dark:text-paper md:text-3xl">
           {article.title}
@@ -135,9 +142,9 @@ export function LeadCard({ article, href }: { article: Article; href: string }) 
           </p>
         )}
         <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-neutral-500 dark:text-neutral-400">
-          <span>{article.author || 'বাংলার ভয়েস'}</span>
-          {article.read_time ? <span>• {article.read_time} মিনিট পড়া</span> : null}
-          <span>• <ClientTimeAgo iso={article.published_at} /></span>
+          <span>{article.author || t(locale, 'hero_title').split(' ')[0] /* fallback */ || 'Banglar Voice'}</span>
+          {article.read_time ? <span>• {fmtNum(article.read_time, locale)} {t(locale, 'min_read')}</span> : null}
+          <span>• <ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
       </div>
     </a>
@@ -145,7 +152,7 @@ export function LeadCard({ article, href }: { article: Article; href: string }) 
 }
 
 /** Compact card used in the secondary grid. */
-export function ArticleCard({ article, href }: { article: Article; href: string }) {
+export function ArticleCard({ article, href, locale }: { article: Article; href: string; locale: Locale }) {
   return (
     <a
       href={href}
@@ -155,17 +162,17 @@ export function ArticleCard({ article, href }: { article: Article; href: string 
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-            {article.category || 'সর্বশেষ'}
+            {translateCategory(locale, article.category || 'সর্বশেষ')}
           </span>
-          {biasBadge(article.bias_index)}
+          {biasBadge(article.bias_index, locale)}
         </div>
         <h3 className="font-serifbn text-lg font-bold leading-snug text-ink group-hover:text-primary dark:text-paper">
           {article.title}
         </h3>
         <div className="mt-auto flex items-center gap-2 pt-3 text-[11px] text-neutral-500 dark:text-neutral-400">
-          {article.read_time ? <span>{article.read_time} মিনিট</span> : null}
+          {article.read_time ? <span>{fmtNum(article.read_time, locale)} {t(locale, 'min_short')}</span> : null}
           <span>•</span>
-          <span><ClientTimeAgo iso={article.published_at} /></span>
+          <span><ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
       </div>
     </a>
@@ -173,7 +180,7 @@ export function ArticleCard({ article, href }: { article: Article; href: string 
 }
 
 /** Ranked list item for the "ট্রেন্ডিং" column. */
-export function TrendingItem({ rank, article, href }: { rank?: number; article: Article; href: string }) {
+export function TrendingItem({ rank, article, href, locale }: { rank?: number; article: Article; href: string; locale: Locale }) {
   return (
     <a
       href={href}
@@ -188,7 +195,7 @@ export function TrendingItem({ rank, article, href }: { rank?: number; article: 
         <h4 className="line-clamp-2 text-sm font-bold leading-snug text-ink group-hover:text-primary dark:text-paper">
           {article.title}
         </h4>
-        <span className="mt-1 block text-[11px] text-neutral-500"><ClientTimeAgo iso={article.published_at} /></span>
+        <span className="mt-1 block text-[11px] text-neutral-500"><ClientTimeAgo iso={article.published_at} locale={locale} /></span>
       </div>
     </a>
   );
@@ -199,7 +206,7 @@ export function TrendingItem({ rank, article, href }: { rank?: number; article: 
  * Reads articles from the same server-side data the page already fetched
  * (passed as props) so ISR caching applies once.
  */
-export function HeroBentoGrid({ articles }: { articles: Article[] }) {
+export function HeroBentoGrid({ articles, locale }: { articles: Article[]; locale: Locale }) {
   // Tabbed right rail: "সর্বশেষ" (recency) vs "ট্রেন্ডিং" (by bias, desc).
   const [tab, setTab] = useState<'latest' | 'trending'>('latest');
   const lead = articles[0];
@@ -228,13 +235,13 @@ export function HeroBentoGrid({ articles }: { articles: Article[] }) {
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {/* Large lead */}
       <div className="lg:col-span-2">
-        <LeadCard article={lead} href={`/article/${lead.slug ?? lead.id ?? ''}`} />
+        <LeadCard article={lead} locale={locale} href={`/article/${lead.slug ?? lead.id ?? ''}`} />
       </div>
       {/* Right rail: 2 secondary stacked + trending */}
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
           {secondary.map((a) => (
-            <ArticleCard key={a.id ?? a.slug ?? a.title} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
+            <ArticleCard locale={locale} key={a.id ?? a.slug ?? a.title} article={a} href={`/article/${a.slug ?? a.id ?? ''}`} />
           ))}
         </div>
         <div
@@ -270,7 +277,7 @@ export function HeroBentoGrid({ articles }: { articles: Article[] }) {
           </div>
           <div className="flex flex-col gap-1">
             {railItems.map((a, i) => (
-              <TrendingItem
+              <TrendingItem locale={locale}
                 key={a.id ?? a.slug ?? a.title}
                 rank={tab === 'trending' ? i + 1 : undefined}
                 article={a}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { createClient } from '@/lib/supabase/client';
+import { t, type Locale } from '@/lib/i18n';
 
 /**
  * BreakingMarquee — BBC-style scrolling ticker.
@@ -24,12 +25,13 @@ import { createClient } from '@/lib/supabase/client';
  * fallback line below instead (never crashes the build or the page).
  */
 
-const FALLBACK_TEXTS = [
-  'এআই অটোমেশন এর মাধ্যমে পরিচালিত বাংলার ভয়েস এর পরীক্ষামূলক সম্প্রচার চলছে।',
-];
+const FALLBACK_TEXTS: Record<Locale, string[]> = {
+  bn: ['এআই অটোমেশন এর মাধ্যমে পরিচালিত বাংলার ভয়েস এর পরীক্ষামূলক সম্প্রচার চলছে।'],
+  en: ['Banglar Voice is running an experimental broadcast powered by AI automation.'],
+};
 
-export function BreakingMarquee() {
-  const [texts, setTexts] = useState<string[]>(FALLBACK_TEXTS);
+export function BreakingMarquee({ locale = 'bn' as Locale }: { locale?: Locale }) {
+  const [texts, setTexts] = useState<string[]>(FALLBACK_TEXTS[locale]);
 
   useEffect(() => {
     // Lazy init: createClient() throws if env keys are missing. Client-only
@@ -45,12 +47,19 @@ export function BreakingMarquee() {
     const load = async () => {
       const { data } = await sb
         .from('breaking_ticker')
-        .select('text')
+        .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(10);
       if (data?.length) {
-        setTexts(data.map((d: { text: string }) => d.text));
+        const picked = data
+          .map((d: { text?: string; text_bn?: string; text_en?: string }) =>
+            locale === 'en'
+              ? (d.text_en ?? d.text_bn ?? d.text ?? '')
+              : (d.text_bn ?? d.text ?? ''),
+          )
+          .filter((x: string) => x.length > 0);
+        if (picked.length) setTexts(picked);
       }
     };
 
@@ -68,7 +77,7 @@ export function BreakingMarquee() {
     return () => {
       sb.removeChannel(channel);
     };
-  }, []);
+  }, [locale]);
 
   return (
     <div className="group relative flex h-9 overflow-hidden bg-[#CC0000]">
@@ -76,11 +85,11 @@ export function BreakingMarquee() {
       <div
         className="z-20 flex h-full shrink-0 items-center bg-black px-6 shadow-[6px_0_12px_rgba(0,0,0,0.4)]"
         role="status"
-        aria-label="ব্রেকিং নিউজ"
+        aria-label={t(locale, 'breaking_badge')}
       >
         <span className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#CC0000]" aria-hidden />
-          Breaking
+          {t(locale, 'breaking_badge')}
         </span>
       </div>
 
@@ -88,7 +97,7 @@ export function BreakingMarquee() {
       <div
         className="relative h-full flex-1 overflow-hidden bg-[#CC0000]"
         role="region"
-        aria-label="ব্রেকিং নিউজ টিকার"
+        aria-label={t(locale, 'marquee_aria')}
       >
         <p className="sr-only">{texts[0]}</p>
         {/* Only this inner text div animates; the track never moves */}

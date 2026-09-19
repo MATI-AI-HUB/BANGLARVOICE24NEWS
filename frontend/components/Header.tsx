@@ -195,7 +195,7 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
           </>
         )}
 
-        <BreakingMarquee />
+        <BreakingMarquee locale={locale} />
       </header>
     </>
   );

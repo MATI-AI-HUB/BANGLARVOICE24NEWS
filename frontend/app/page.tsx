@@ -105,7 +105,7 @@ export default async function HomePage() {
       )}
 
       {/* 60% lead + stacked secondary + tabbed right rail (সর্বশেষ/ট্রেন্ডিং) */}
-      <HeroBentoGrid articles={feed.map((a) => toBento(a, locale))} />
+      <HeroBentoGrid articles={feed.map((a) => toBento(a, locale))} locale={locale} />
 
       {/* App download banner — mobile users */}
       <section
@@ -168,7 +168,7 @@ export default async function HomePage() {
       {/* Membership / newsletter hook */}
       <NewsletterCta />
 
-      <AudioPlayerWidget text={feed.map((a) => `${a.title_bn}। ${a.dek_bn || ''}`).join(' ')} title="আজকের প্রধান সংবাদ শুনুন" />
+      <AudioPlayerWidget text={feed.map((a) => `${a.title_bn}। ${a.dek_bn || ''}`).join(' ')} title={t(locale, 'audio_today_headlines')} locale={locale} />
     </main>
   );
 }

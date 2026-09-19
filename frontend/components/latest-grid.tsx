@@ -73,7 +73,7 @@ export function LatestGrid({ articles, locale = 'bn' as Locale }: { articles: Ar
           cell === 'ad' ? (
             <AdSlot key={`ad-${i}`} format="leaderboard" />
           ) : (
-            <ArticleCard
+            <ArticleCard locale={locale}
               key={cell.id ?? cell.slug ?? cell.title}
               article={cell}
               href={`/article/${cell.slug ?? cell.id ?? ''}`}
