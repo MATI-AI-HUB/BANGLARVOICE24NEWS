@@ -6,11 +6,16 @@ library;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'src/i18n/i18n.dart';
+
 class Article {
   final String slug;
   final String titleBn;
+  final String? titleEn;
   final String dekBn;
+  final String? dekEn;
   final String bodyBn;
+  final String? bodyEn;
   final String category;
   final List<String> tags;
   final String? image;
@@ -20,8 +25,11 @@ class Article {
   const Article({
     required this.slug,
     required this.titleBn,
+    this.titleEn,
     required this.dekBn,
+    this.dekEn,
     required this.bodyBn,
+    this.bodyEn,
     required this.category,
     required this.tags,
     this.image,
@@ -32,8 +40,11 @@ class Article {
   factory Article.fromJson(Map<String, dynamic> j) => Article(
         slug: (j['slug'] ?? '').toString(),
         titleBn: (j['title_bn'] ?? '').toString(),
+        titleEn: j['title_en']?.toString(),
         dekBn: (j['dek_bn'] ?? '').toString(),
+        dekEn: j['dek_en']?.toString(),
         bodyBn: (j['body_bn'] ?? '').toString(),
+        bodyEn: j['body_en']?.toString(),
         category: (j['category'] ?? '').toString(),
         tags: (j['tags'] is List)
             ? (j['tags'] as List).map((e) => e.toString()).toList()
@@ -46,6 +57,30 @@ class Article {
                 : null),
         isBreaking: j['is_breaking'] == true,
       );
+
+  /// Returns the title in the requested locale, falling back to Bengali.
+  String titleFor(AppLocale loc) {
+    if (loc == AppLocale.en && titleEn != null && titleEn!.isNotEmpty) {
+      return titleEn!;
+    }
+    return titleBn;
+  }
+
+  /// Returns the dek in the requested locale, falling back to Bengali.
+  String dekFor(AppLocale loc) {
+    if (loc == AppLocale.en && dekEn != null && dekEn!.isNotEmpty) {
+      return dekEn!;
+    }
+    return dekBn;
+  }
+
+  /// Returns the body in the requested locale, falling back to Bengali.
+  String bodyFor(AppLocale loc) {
+    if (loc == AppLocale.en && bodyEn != null && bodyEn!.isNotEmpty) {
+      return bodyEn!;
+    }
+    return bodyBn;
+  }
 }
 
 class BvApi {
