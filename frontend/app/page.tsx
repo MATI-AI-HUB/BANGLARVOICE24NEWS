@@ -109,7 +109,7 @@ export default async function HomePage() {
 
       {/* App download banner — mobile users */}
       <section
-        aria-label="অ্যাপ ডাউনলোড"
+        aria-label={t(locale, 'app_download_cta')}
         className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-crimson/20 bg-gradient-to-r from-crimson/10 via-paper to-paper p-5 sm:flex-row sm:p-6 dark:from-crimson/20 dark:via-neutral-900 dark:to-neutral-900"
       >
         <div className="flex items-center gap-4">
@@ -120,9 +120,9 @@ export default async function HomePage() {
             </svg>
           </span>
           <div>
-            <p className="font-serif text-lg font-bold text-ink dark:text-paper">বাংলার ভয়েস অ্যান্ড্রয়েড অ্যাপ</p>
+            <p className="font-serif text-lg font-bold text-ink dark:text-paper">{t(locale, 'app_banner_title')}</p>
             <p className="text-[13px] text-neutral-600 dark:text-neutral-400">
-              ব্রেকিং নিউজ, লাইভ টিভি, শর্টস ও অডিও মোড — এখন আপনার ফোনে।
+              {t(locale, 'app_banner_body')}
             </p>
           </div>
         </div>
@@ -135,7 +135,7 @@ export default async function HomePage() {
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          অ্যাপ ডাউনলোড
+          {t(locale, 'app_download_cta')}
         </a>
       </section>
 
@@ -152,7 +152,7 @@ export default async function HomePage() {
       )}
 
       {/* Al Jazeera-style live-blog timeline */}
-      <LiveBlog entries={live} />
+      <LiveBlog entries={live} locale={locale} />
 
       {/* Dark video & podcast hub */}
       <VideoHub videos={videos} />

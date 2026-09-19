@@ -62,6 +62,8 @@ export const dict = {
     audio_today_headlines: 'আজকের প্রধান সংবাদ শুনুন',
     marquee_aria: 'ব্রেকিং নিউজ টিকার',
     breaking_badge: 'ব্রেকিং',
+    liveblog_heading: 'লাইভ ব্লগ — মিনিটে মিনিট আপডেট',
+    liveblog_aria: 'লাইভ ব্লগ টাইমলাইন',
 
     breadcrumb_home: 'হোম',
     breadcrumb_aria: 'ব্রেডক্রাম্ব',
@@ -120,6 +122,8 @@ export const dict = {
     audio_today_headlines: "Listen to today's top stories",
     marquee_aria: 'Breaking news ticker',
     breaking_badge: 'Breaking',
+    liveblog_heading: 'Live Blog — minute-by-minute updates',
+    liveblog_aria: 'Live blog timeline',
 
     breadcrumb_home: 'Home',
     breadcrumb_aria: 'Breadcrumb',

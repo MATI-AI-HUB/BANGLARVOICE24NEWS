@@ -1,17 +1,23 @@
 'use client';
 
+import { t, type Locale } from '@/lib/i18n';
+
 export type LiveEntry = {
   id?: string;
   body_bn?: string;
+  body_en?: string;
   author?: string;
   created_at?: string;
 };
 
-function timeLabel(iso?: string): string {
+function timeLabel(iso: string | undefined, locale: Locale): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('bn-BD', { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString(locale === 'en' ? 'en-US' : 'bn-BD', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 /**
@@ -19,18 +25,19 @@ function timeLabel(iso?: string): string {
  * Pure presentational: parent fetches /api/public/live.json (or demo data).
  * Renders newest-first entries as a vertical timeline with pulsing dot.
  */
-export function LiveBlog({ entries }: { entries: LiveEntry[] }) {
+export function LiveBlog({ entries, locale = 'bn' as Locale }: { entries: LiveEntry[]; locale?: Locale }) {
   if (!entries || entries.length === 0) return null;
 
   return (
     <section
       aria-labelledby="liveblog-heading"
+      aria-label={t(locale, 'liveblog_aria')}
       className="my-14 overflow-hidden rounded-3xl border border-[#CC0000]/30 bg-gradient-to-b from-[#CC0000]/[0.05] to-white dark:from-neutral-900 dark:to-neutral-950"
     >
       <div className="border-b border-[#CC0000]/40 bg-[#CC0000] px-5 py-3 text-white">
         <h2 id="liveblog-heading" className="flex items-center gap-2 font-serifbn text-lg font-extrabold tracking-tight">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" aria-hidden />
-          লাইভ ব্লগ — মিনিটে মিনিট আপডেট
+          {t(locale, 'liveblog_heading')}
         </h2>
       </div>
       <ol className="max-h-[560px] space-y-0 overflow-y-auto p-5">
@@ -43,10 +50,10 @@ export function LiveBlog({ entries }: { entries: LiveEntry[] }) {
             </div>
             <div className="min-w-0">
               <time className="text-xs font-bold text-[#CC0000] dark:text-[#CC0000]">
-                {timeLabel(e.created_at)}
+                {timeLabel(e.created_at, locale)}
               </time>
               <p className="mt-1 text-sm leading-relaxed text-neutral-700 dark:text-neutral-200">
-                {e.body_bn}
+                {locale === 'en' ? (e.body_en ?? e.body_bn) : e.body_bn}
               </p>
               {e.author && (
                 <span className="mt-1 inline-block text-[11px] font-semibold text-neutral-400">
