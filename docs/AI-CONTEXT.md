@@ -53,3 +53,7 @@ Disabled broken build_apks + vercel-deploy workflows.
 5. App download banner entirely Bengali
 6. AudioPlayer widget shows `আ.` on EN
 7. Breaking ticker content not locale-aware
+
+### YYYY-MM-DD
+- (আজকের কাজ সংক্ষেপে)
+- (নতুন সমস্যা থাকলে)
