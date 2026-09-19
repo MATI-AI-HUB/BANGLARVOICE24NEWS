@@ -113,3 +113,12 @@ Collect → Rewrite → Media → **Specialist Verify** → Editor → Superviso
 - Multi-source credibility weighting (BBC=1.0, unknown=0.3)
 - Per-section `article_verifications` audit table
 - Admin dashboard for verification results
+
+### 2026-09-20 (Session 2 — long)
+- 7 i18n bugs closed (commits bd56a7f, bc369fe)
+- AI score hardened: max 70 (was 100 dangerous)
+- 6 section specialists + 6-check framework (f91f43e)
+- TrustSignals widget + 19 DB field unlock (386992a)
+- source_registry table + diversity enforcement (6913045)
+- Source diversity: was 88.7% first-alo, target max 30% per source
+- Next: Worker → Supabase writeback (verification_status, fact_sources)
