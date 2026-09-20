@@ -189,7 +189,8 @@ JSON:
     body: JSON.stringify({
       model: AI_MODEL,
       temperature: 0.2,
-      max_tokens: 700,
+      max_tokens: 1400,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
@@ -210,7 +211,17 @@ JSON:
     .replace(/```json\s*|\s*```/g, "")
     .trim();
 
-  const parsed = JSON.parse(raw) as Rewrite;
+  let parsed: Rewrite;
+  try {
+    parsed = JSON.parse(raw) as Rewrite;
+  } catch (error) {
+    const finishReason = String(data?.choices?.[0]?.finish_reason || "unknown");
+    throw new Error(
+      `AI returned invalid JSON (finish_reason=${finishReason}, chars=${raw.length}): ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 
   if (
     !parsed.title_bn ||
