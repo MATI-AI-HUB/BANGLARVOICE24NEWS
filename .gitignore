@@ -130,3 +130,12 @@ supabase/functions/news-pipeline/index.ts.before-*
 archive/local-audit-artifacts/
 archive/pipeline-backups/
 backups/
+
+# Local-only audit and backup artifacts
+.local-backups/
+audit-output/
+backups/
+logs/
+frontend/.next/
+frontend/page-*.html
+supabase/functions/news-pipeline/index.ts.before-*
