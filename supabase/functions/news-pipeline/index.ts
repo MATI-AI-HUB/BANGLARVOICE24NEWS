@@ -248,17 +248,21 @@ Deno.serve(async () => {
   } catch (error) {
     const message = String(error);
 
-    await supabase.from("news_pipeline_runs").insert({
-      stage: "collector",
-      status: "failed",
-      fetched,
-      queued,
-      skipped,
-      failed: failed + 1,
-      duration_ms: Date.now() - started,
-      error_message: message.slice(0, 2000),
-      completed_at: new Date().toISOString(),
-    }).catch(() => undefined);
+    try {
+      await supabase.from("news_pipeline_runs").insert({
+        stage: "collector",
+        status: "failed",
+        fetched,
+        queued,
+        skipped,
+        failed: failed + 1,
+        duration_ms: Date.now() - started,
+        error_message: message.slice(0, 2000),
+        completed_at: new Date().toISOString(),
+      });
+    } catch {
+      // Keep the HTTP error response available even if run logging fails.
+    }
 
     return response(
       { ok: false, stage: "collector", error: message },
