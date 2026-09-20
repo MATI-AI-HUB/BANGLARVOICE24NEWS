@@ -328,7 +328,7 @@ Deno.serve(async (req) => {
 
       // Keep each invocation comfortably below the pg_net 90-second timeout.
       // The next scheduled run continues with remaining unseen items.
-      if (fresh.length >= 3) break;
+      if (fresh.length >= 1) break;
     }
 
     let published = 0;
