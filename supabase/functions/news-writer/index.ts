@@ -190,7 +190,47 @@ JSON:
       model: AI_MODEL,
       temperature: 0.2,
       max_tokens: 1400,
-      response_format: { type: "json_object" },
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "bangla_news_rewrite",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              title_bn: {
+                type: "string",
+                description: "Concise Bangla news headline",
+              },
+              content_bn: {
+                type: "string",
+                description: "Complete Bangla news article body",
+              },
+              excerpt_bn: {
+                type: "string",
+                description: "Short Bangla summary",
+              },
+              category_key: {
+                type: "string",
+                enum: CATEGORY_ENUM,
+              },
+              confidence: {
+                type: "number",
+                minimum: 0,
+                maximum: 1,
+              },
+            },
+            required: [
+              "title_bn",
+              "content_bn",
+              "excerpt_bn",
+              "category_key",
+              "confidence",
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
