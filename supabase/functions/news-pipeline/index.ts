@@ -1,12 +1,8 @@
-// =============================================================================
-// Banglar Voice — Stage 1 Collector
-// Purpose: RSS/allowed feed -> durable news_ingest_queue
-// No AI model call. No image call. No article publication.
-// =============================================================================
+// Banglar Voice — Stage 1 RSS Collector
+// No AI, no image lookup, no article publishing.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { XMLParser } from "npm:fast-xml-parser@4";
-import { handleCors, json } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -15,22 +11,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-type Source = {
-  name: string;
-  url: string;
-  category_hint: string;
-};
-
-type RssItem = {
-  title: string;
-  link: string;
-  description: string;
-  pubDate?: string;
-  source_name: string;
-  category_hint: string;
-};
-
-const RSS_SOURCES: Source[] = [
+const RSS_SOURCES = [
   {
     name: "প্রথম আলো",
     url: "https://www.prothomalo.com/feed",
@@ -46,31 +27,47 @@ const RSS_SOURCES: Source[] = [
     url: "https://www.dhakapost.com/rss.xml",
     category_hint: "national",
   },
-];
+] as const;
 
-const MAX_ITEMS_PER_SOURCE = 5;
+type RssItem = {
+  title: string;
+  link: string;
+  description: string;
+  publishedAt: string | null;
+  sourceName: string;
+  categoryHint: string;
+};
 
-function text(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  if (value && typeof value === "object" && "#text" in value) {
-    return String((value as Record<string, unknown>)["#text"] || "");
+function response(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function asText(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
   }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return String(record["#text"] || record["__cdata"] || "");
+  }
+
   return "";
 }
 
-function cleanHtml(value: string): string {
-  return value
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function clean(value: string): string {
+  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function normalizeUrl(value: string): string {
+function canonicalUrl(value: string): string {
   try {
     const url = new URL(value.trim());
     url.hash = "";
-    [
+
+    for (const key of [
       "utm_source",
       "utm_medium",
       "utm_campaign",
@@ -78,72 +75,71 @@ function normalizeUrl(value: string): string {
       "utm_content",
       "fbclid",
       "gclid",
-    ].forEach((key) => url.searchParams.delete(key));
+    ]) {
+      url.searchParams.delete(key);
+    }
+
     return url.toString();
   } catch {
     return value.trim();
   }
 }
 
-function parseDate(value?: string): string | null {
+function isoDate(value: string): string | null {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-async function fetchRSS(source: Source): Promise<RssItem[]> {
+async function readFeed(
+  source: (typeof RSS_SOURCES)[number],
+): Promise<RssItem[]> {
   try {
-    const response = await fetch(source.url, {
-      signal: AbortSignal.timeout(6000),
+    const result = await fetch(source.url, {
       headers: {
-        "User-Agent": "BanglarVoiceNewsroom/1.0 (+https://banglarvoice24news.com)",
-        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        "User-Agent": "BanglarVoiceNewsroom/1.0",
+        "Accept": "application/rss+xml,application/xml,text/xml,*/*",
       },
+      signal: AbortSignal.timeout(6000),
     });
 
-    if (!response.ok) {
-      console.warn(`[collector] ${source.name}: HTTP ${response.status}`);
+    if (!result.ok) {
+      console.warn(`[rss] ${source.name}: HTTP ${result.status}`);
       return [];
     }
 
-    const xml = await response.text();
-
-    if (xml.length < 100) {
-      console.warn(`[collector] ${source.name}: empty/short response`);
-      return [];
-    }
-
-    const parser = new XMLParser({
+    const xml = await result.text();
+    const parsed = new XMLParser({
       ignoreAttributes: false,
       trimValues: true,
-    });
+    }).parse(xml);
 
-    const parsed = parser.parse(xml);
-    const raw = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
-    const items = Array.isArray(raw) ? raw : [raw];
+    const rawItems = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
+    const items = Array.isArray(rawItems) ? rawItems : [rawItems];
 
     return items
-      .map((item: Record<string, unknown>) => {
-        const rawLink = item.link;
+      .map((raw: Record<string, unknown>) => {
+        const rawLink = raw.link;
         const link =
           typeof rawLink === "string"
             ? rawLink
-            : text((rawLink as Record<string, unknown>)?.["@_href"]);
-
-        const title = cleanHtml(text(item.title));
-        const description = cleanHtml(
-          text(item.description) ||
-          text(item.summary) ||
-          text(item["content:encoded"]),
-        );
+            : asText((rawLink as Record<string, unknown>)?.["@_href"]);
 
         return {
-          title,
-          link: normalizeUrl(link),
-          description,
-          pubDate: text(item.pubDate) || text(item.published) || text(item.updated),
-          source_name: source.name,
-          category_hint: source.category_hint,
+          title: clean(asText(raw.title)),
+          link: canonicalUrl(link),
+          description: clean(
+            asText(raw.description) ||
+              asText(raw.summary) ||
+              asText(raw["content:encoded"]),
+          ),
+          publishedAt: isoDate(
+            asText(raw.pubDate) ||
+              asText(raw.published) ||
+              asText(raw.updated),
+          ),
+          sourceName: source.name,
+          categoryHint: source.category_hint,
         };
       })
       .filter((item) =>
@@ -151,19 +147,16 @@ async function fetchRSS(source: Source): Promise<RssItem[]> {
         item.link.startsWith("http") &&
         item.description.length >= 60
       )
-      .slice(0, MAX_ITEMS_PER_SOURCE);
+      .slice(0, 5);
   } catch (error) {
-    console.warn(`[collector] ${source.name}: ${String(error)}`);
+    console.warn(`[rss] ${source.name}: ${String(error)}`);
     return [];
   }
 }
 
-Deno.serve(async (req) => {
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
-
-  const startedAt = new Date().toISOString();
+Deno.serve(async () => {
   const started = Date.now();
+  const startedAt = new Date().toISOString();
 
   let fetched = 0;
   let queued = 0;
@@ -171,52 +164,58 @@ Deno.serve(async (req) => {
   let failed = 0;
 
   try {
-    const result = await Promise.allSettled(
-      RSS_SOURCES.map((source) => fetchRSS(source)),
+    const results = await Promise.all(
+      RSS_SOURCES.map((source) => readFeed(source)),
     );
 
-    const items = result.flatMap((entry) =>
-      entry.status === "fulfilled" ? entry.value : [],
-    );
+    const all = results.flat();
+    fetched = all.length;
 
-    fetched = items.length;
-
-    const seen = new Set<string>();
-    const uniqueItems = items.filter((item) => {
-      if (seen.has(item.link)) return false;
-      seen.add(item.link);
+    const known = new Set<string>();
+    const unique = all.filter((item) => {
+      if (known.has(item.link)) return false;
+      known.add(item.link);
       return true;
     });
 
-    for (const item of uniqueItems) {
-      const { error } = await supabase
+    for (const item of unique) {
+      const { data: existing, error: lookupError } = await supabase
         .from("news_ingest_queue")
-        .upsert(
-          {
-            source_name: item.source_name,
-            source_url: item.link,
-            source_published_at: parseDate(item.pubDate),
-            title: item.title.slice(0, 500),
-            description: item.description.slice(0, 6000),
-            category_hint: item.category_hint,
-            status: "queued",
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "source_url",
-            ignoreDuplicates: true,
-          },
-        );
+        .select("id")
+        .eq("source_url", item.link)
+        .maybeSingle();
 
-      if (error) {
-        console.error(`[collector] queue failed: ${error.message}`);
+      if (lookupError) {
+        console.error(`[queue] lookup: ${lookupError.message}`);
+        failed++;
+        continue;
+      }
+
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      const { error: insertError } = await supabase
+        .from("news_ingest_queue")
+        .insert({
+          source_name: item.sourceName,
+          source_url: item.link,
+          source_published_at: item.publishedAt,
+          title: item.title.slice(0, 500),
+          description: item.description.slice(0, 6000),
+          category_hint: item.categoryHint,
+          status: "queued",
+          updated_at: new Date().toISOString(),
+        });
+
+      if (insertError) {
+        console.error(`[queue] insert: ${insertError.message}`);
         failed++;
       } else {
         queued++;
       }
     }
-
-    skipped = fetched - uniqueItems.length;
 
     const durationMs = Date.now() - started;
 
@@ -230,23 +229,24 @@ Deno.serve(async (req) => {
       duration_ms: durationMs,
       details: {
         sources: RSS_SOURCES.length,
-        unique_items: uniqueItems.length,
+        unique_items: unique.length,
       },
       completed_at: new Date().toISOString(),
     });
 
-    return json({
+    return response({
       ok: true,
       stage: "collector",
+      started_at: startedAt,
       fetched,
-      unique: uniqueItems.length,
+      unique: unique.length,
       queued,
       skipped,
       failed,
       duration_ms: durationMs,
     });
   } catch (error) {
-    const errorMessage = String(error);
+    const message = String(error);
 
     await supabase.from("news_pipeline_runs").insert({
       stage: "collector",
@@ -256,17 +256,12 @@ Deno.serve(async (req) => {
       skipped,
       failed: failed + 1,
       duration_ms: Date.now() - started,
-      error_message: errorMessage.slice(0, 2000),
+      error_message: message.slice(0, 2000),
       completed_at: new Date().toISOString(),
     }).catch(() => undefined);
 
-    return json(
-      {
-        ok: false,
-        stage: "collector",
-        error: errorMessage,
-        started_at: startedAt,
-      },
+    return response(
+      { ok: false, stage: "collector", error: message },
       500,
     );
   }
