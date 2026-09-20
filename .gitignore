@@ -139,3 +139,7 @@ logs/
 frontend/.next/
 frontend/page-*.html
 supabase/functions/news-pipeline/index.ts.before-*
+
+# Local-only diagnostic and generated files
+deno.lock
+docs/newsroom/audit/
