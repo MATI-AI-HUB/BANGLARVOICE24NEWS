@@ -100,6 +100,100 @@ type Rewrite = {
   confidence: number;
 };
 
+type RiskLevel = "low" | "medium" | "high" | "critical";
+
+type PublicationDecision = {
+  risk_level: RiskLevel;
+  status: "published" | "pending";
+  editorial_status: "auto_published" | "pending_review";
+  verification_status: "pending";
+  review_reason: string | null;
+};
+
+function publicationDecision(
+  category: CategoryKey,
+  title: string,
+  content: string,
+): PublicationDecision {
+  const text = `${title} ${content}`.toLowerCase();
+
+  const criticalTerms = [
+    "ধর্ষণ",
+    "যৌন নির্যাতন",
+    "শিশু নির্যাতন",
+    "শিশুকে হত্যা",
+    "আত্মহত্যা",
+    "সাম্প্রদায়িক",
+    "সাম্প্রদায়িক",
+    "গণহত্যা",
+    "যুদ্ধাপরাধ",
+  ];
+
+  const highTerms = [
+    "হত্যা",
+    "নিহত",
+    "মৃত",
+    "মৃত্যু",
+    "যুদ্ধ",
+    "হামলা",
+    "বিস্ফোরণ",
+    "বোমা",
+    "ককটেল",
+    "গ্রেপ্তার",
+    "আদালত",
+    "রায়",
+    "রায়",
+    "জামিন",
+    "নির্বাচন",
+    "ভোট",
+    "মহামারি",
+    "হাম",
+    "স্বাস্থ্য",
+    "আক্রান্ত",
+    "ব্যাংক",
+    "মুদ্রা",
+    "নিষেধাজ্ঞা",
+  ];
+
+  const highRiskCategories: CategoryKey[] = [
+    "politics",
+    "health",
+    "economy",
+    "international",
+  ];
+
+  if (criticalTerms.some((term) => text.includes(term))) {
+    return {
+      risk_level: "critical",
+      status: "pending",
+      editorial_status: "pending_review",
+      verification_status: "pending",
+      review_reason: "Critical/sensitive subject requires senior human editorial review",
+    };
+  }
+
+  if (
+    highRiskCategories.includes(category) ||
+    highTerms.some((term) => text.includes(term))
+  ) {
+    return {
+      risk_level: "high",
+      status: "pending",
+      editorial_status: "pending_review",
+      verification_status: "pending",
+      review_reason: "High-impact subject requires human editorial review",
+    };
+  }
+
+  return {
+    risk_level: "low",
+    status: "published",
+    editorial_status: "auto_published",
+    verification_status: "pending",
+    review_reason: null,
+  };
+}
+
 async function aiRewrite(groqKey: string, item: RssItem): Promise<Rewrite | null> {
   const systemPrompt = `তুমি বাংলার ভয়েসের সিনিয়র সংবাদ সম্পাদক। নিচে একটি মূল সোর্স নিউজ দেওয়া হলো।
 
@@ -227,25 +321,65 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Pexels image (category-aware query, Bangladesh context)
+      const decision = publicationDecision(
+        rewritten.category_key,
+        rewritten.title_bn,
+        rewritten.content_bn,
+      );
+
+      // Pexels is representative media unless a rights-cleared event image exists.
       const image = await fetchPexelsImage(
         supabase,
         `${rewritten.category_key} bangladesh`,
       );
+
+      const now = new Date().toISOString();
 
       const { error } = await supabase.from("articles").insert({
         title_bn: rewritten.title_bn.slice(0, 250),
         title_en: "",
         content_bn: rewritten.content_bn,
         content_en: "",
+
         thumbnail_url: image?.url || "",
+        featured_image: image?.url || "",
+        image_alt_bn: rewritten.title_bn.slice(0, 250),
         image_credit: image?.credit || "",
+        image_is_representational: !!image?.url,
+        media_type: image?.url ? "image" : "none",
+
         category: rewritten.category_key,
         category_key: rewritten.category_key,
-        status: "published",
-        published_at: new Date().toISOString(),
+
+        status: decision.status,
+        editorial_status: decision.editorial_status,
+        verification_status: decision.verification_status,
+        human_verified: false,
+        risk_level: decision.risk_level,
+        review_reason: decision.review_reason,
+        published_at: decision.status === "published" ? now : null,
+
+        source_type: "syndicated",
+        source_language: "bn",
         source_url: item.link,
+        canonical_url: item.link,
         source_name: item.source_name,
+        source_published_at: item.pubDate
+          ? new Date(item.pubDate).toISOString()
+          : null,
+
+        fact_sources: [
+          {
+            name: item.source_name,
+            url: item.link,
+            type: "publisher",
+            checked_at: now,
+            claim_scope: "RSS source item",
+          },
+        ],
+        claims: [],
+        context_blocks: [],
+
         ai_model: AI_MODEL,
         ai_confidence: rewritten.confidence,
       });
