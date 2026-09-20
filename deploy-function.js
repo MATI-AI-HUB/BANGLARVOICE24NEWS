@@ -49,6 +49,13 @@ function apiRequest(method, path, body) {
     verify_jwt: false,
     body: code,
     entrypoint_path: 'index.ts',
+    import_map_path: null,
+    import_map: {
+      imports: {
+        "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+        "fast-xml-parser": "npm:fast-xml-parser@4"
+      }
+    },
   });
 
   const createRes = await apiRequest('POST', `/v1/projects/${PROJECT_REF}/functions`, createBody);
