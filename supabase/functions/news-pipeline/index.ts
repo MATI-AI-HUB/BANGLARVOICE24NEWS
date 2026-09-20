@@ -155,11 +155,12 @@ function publicationDecision(
     "নিষেধাজ্ঞা",
   ];
 
-  const highRiskCategories: CategoryKey[] = [
+  const reviewRequiredCategories: CategoryKey[] = [
     "politics",
     "health",
     "economy",
     "international",
+    "national",
   ];
 
   if (criticalTerms.some((term) => text.includes(term))) {
@@ -173,7 +174,7 @@ function publicationDecision(
   }
 
   if (
-    highRiskCategories.includes(category) ||
+    reviewRequiredCategories.includes(category) ||
     highTerms.some((term) => text.includes(term))
   ) {
     return {
@@ -280,6 +281,14 @@ Deno.serve(async (req) => {
   if (corsRes) return corsRes;
 
   const start = Date.now();
+  const runStartedAt = new Date().toISOString();
+  let runFetched = 0;
+  let runUnique = 0;
+  let runPublished = 0;
+  let runPendingReview = 0;
+  let runDuplicates = 0;
+  let runSkipped = 0;
+
   try {
     const groqKey = await vaultKey(supabase, "GROQ_API_KEY");
     if (!groqKey) {
@@ -291,6 +300,7 @@ Deno.serve(async (req) => {
       RSS_SOURCES.map((s) => fetchRSS(s.url, s.name)),
     );
     const allItems = feedResults.flat();
+    runFetched = allItems.length;
 
     // Dedup within this batch by URL (first occurrence wins)
     const seen = new Set<string>();
@@ -301,19 +311,27 @@ Deno.serve(async (req) => {
     });
 
     // Fresh items only, limited
-    const fresh = unique.slice(0, MAX_PER_RUN);
+    runUnique = unique.length;
 
-    let published = 0;
+    const fresh: RssItem[] = [];
     let duplicates = 0;
-    let skipped = 0;
 
-    for (const item of fresh) {
-      // Dedup against DB
+    for (const item of unique) {
       if (await sourceUrlExists(item.link)) {
         duplicates++;
         continue;
       }
 
+      fresh.push(item);
+
+      if (fresh.length >= MAX_PER_RUN) break;
+    }
+
+    let published = 0;
+    let pendingReview = 0;
+    let skipped = 0;
+
+    for (const item of fresh) {
       // AI rewrite
       const rewritten = await aiRewrite(groqKey, item);
       if (!rewritten) {
@@ -390,7 +408,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      published++;
+      if (decision.status === "published") {
+        published++;
+      } else {
+        pendingReview++;
+      }
 
       // Audit log
       await supabase.from("ai_audit_log").insert({
@@ -405,17 +427,21 @@ Deno.serve(async (req) => {
     }
 
     const durationMs = Date.now() - start;
-    const pendingReview = fresh.length - published - duplicates - skipped;
+    runPublished = published;
+    runPendingReview = pendingReview;
+    runDuplicates = duplicates;
+    runSkipped = skipped;
 
     await supabase.from("pipeline_runs").insert({
+      started_at: runStartedAt,
       completed_at: new Date().toISOString(),
       status: skipped > 0 ? "partial" : "success",
-      fetched: allItems.length,
-      unique_items: unique.length,
-      published,
-      pending_review: Math.max(0, pendingReview),
-      duplicates,
-      skipped,
+      fetched: runFetched,
+      unique_items: runUnique,
+      published: runPublished,
+      pending_review: runPendingReview,
+      duplicates: runDuplicates,
+      skipped: runSkipped,
       duration_ms: durationMs,
     });
 
@@ -424,7 +450,7 @@ Deno.serve(async (req) => {
       fetched: allItems.length,
       unique: unique.length,
       published,
-      pending_review: Math.max(0, pendingReview),
+      pending_review: pendingReview,
       duplicates,
       skipped,
       duration_ms: durationMs,
@@ -434,8 +460,15 @@ Deno.serve(async (req) => {
     console.error("news-pipeline error:", errorMessage);
 
     await supabase.from("pipeline_runs").insert({
+      started_at: runStartedAt,
       completed_at: new Date().toISOString(),
       status: "failed",
+      fetched: runFetched,
+      unique_items: runUnique,
+      published: runPublished,
+      pending_review: runPendingReview,
+      duplicates: runDuplicates,
+      skipped: runSkipped,
       error_message: errorMessage.slice(0, 2000),
       duration_ms: Date.now() - start,
     }).catch(() => undefined);
