@@ -1,0 +1,8 @@
+{
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "check:collector": "deno check supabase/functions/news-pipeline/index.ts",
+    "test:collector": "deno test supabase/functions/news-pipeline/collector.test.ts",
+    "test:risk": "deno test supabase/functions/news-pipeline/risk-gate.test.ts"
+  }
+}
