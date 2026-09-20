@@ -37,7 +37,7 @@ type CategoryKey = typeof CATEGORY_ENUM[number];
 
 const MIN_CONTENT = 300;
 const MAX_PER_RUN = 8;
-const AI_MODEL = "llama-3.3-70b-versatile";
+const AI_MODEL = "openai/gpt-oss-120b";
 const AI_BASE = "https://api.groq.com/openai/v1";
 
 // ─── RSS ───

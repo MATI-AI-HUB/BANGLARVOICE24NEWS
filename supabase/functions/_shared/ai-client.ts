@@ -13,15 +13,24 @@ export interface ChatOptions {
   userPrompt: string;
   temperature?: number;
   maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export async function chat(opts: ChatOptions): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${opts.apiKey}`,
+  };
+  // OpenRouter requires/recommends these
+  if (opts.baseUrl.includes("openrouter.ai")) {
+    headers["HTTP-Referer"] = "https://banglarvoice24news.com";
+    headers["X-Title"] = "Banglar Voice";
+  }
+  const timeoutMs = opts.timeoutMs ?? 20000;
   const res = await fetch(`${opts.baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${opts.apiKey}`,
-    },
+    signal: AbortSignal.timeout(timeoutMs),
+    headers,
     body: JSON.stringify({
       model: opts.model,
       temperature: opts.temperature ?? 0.3,
