@@ -295,7 +295,9 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "GROQ_API_KEY not in vault" }, 400);
     }
 
-    // Fetch all feeds in parallel
+    // Fetch all feeds in parallel.
+    // Each feed has its own timeout; slow/unreachable publishers must not
+    // prevent the function from returning within pg_net's request timeout.
     const feedResults = await Promise.all(
       RSS_SOURCES.map((s) => fetchRSS(s.url, s.name)),
     );
@@ -324,7 +326,9 @@ Deno.serve(async (req) => {
 
       fresh.push(item);
 
-      if (fresh.length >= MAX_PER_RUN) break;
+      // Keep each invocation comfortably below the pg_net 90-second timeout.
+      // The next scheduled run continues with remaining unseen items.
+      if (fresh.length >= 3) break;
     }
 
     let published = 0;
@@ -333,8 +337,13 @@ Deno.serve(async (req) => {
 
     for (const item of fresh) {
       // AI rewrite
-      const rewritten = await aiRewrite(groqKey, item);
+      const rewritten = await Promise.race([
+        aiRewrite(groqKey, item),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 15000)),
+      ]);
+
       if (!rewritten) {
+        console.warn(`[ai] skipped after timeout or invalid result: ${item.title.slice(0, 70)}`);
         skipped++;
         continue;
       }
