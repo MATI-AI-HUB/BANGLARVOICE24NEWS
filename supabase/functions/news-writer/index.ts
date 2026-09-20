@@ -7,7 +7,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const AI_MODEL = "llama-3.3-70b-versatile";
+const AI_MODEL = "openai/gpt-oss-120b";
 const AI_BASE = "https://api.groq.com/openai/v1";
 
 type CategoryKey =
@@ -199,7 +199,10 @@ JSON:
   });
 
   if (!response.ok) {
-    throw new Error(`AI HTTP ${response.status}`);
+    const errorBody = (await response.text()).slice(0, 800);
+    throw new Error(
+      `AI HTTP ${response.status} at ${AI_BASE}/chat/completions: ${errorBody}`,
+    );
   }
 
   const data = await response.json();
