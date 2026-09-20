@@ -21,7 +21,7 @@ Supabase Postgres is the only canonical production database for article state.
 - live_update
 - opinion
 
-## Source policy
+## Required source data
 
 Every article must include:
 - source_name
@@ -30,58 +30,31 @@ Every article must include:
 - source_published_at when available
 - public attribution
 
-No source may be ingested unless enabled in source_registry.
+Only enabled source_registry records may be ingested.
 
 ## Risk policy
 
-### Low risk
+### Low
+Examples: weather, verified utility notice, public event schedule, official timetable.
 
-Examples:
-- weather
-- verified utility notice
-- public event schedule
-- official appointment timetable
+### Medium
+Examples: jobs, education, business, sports, entertainment.
 
-May be auto-published only when all required source and provenance data is present.
+### High
+Examples: death, injury, violence, crime, arrest, court, health claim, financial/policy claim, political allegation.
 
-### Medium risk
+### Critical
+Examples: child safety, sexual violence, communal tension, war, election, self-harm, emergency public-safety information.
 
-Examples:
-- business updates
-- jobs
-- education
-- sports
-- entertainment
+## Publication rules
 
-Must be source-attributed. Editorial spot-check is preferred.
+Low-risk content may be auto-published only with complete provenance.
 
-### High risk
+Medium-risk content requires source attribution and editorial spot-check.
 
-Examples:
-- death
-- injury
-- violence
-- crime
-- arrest
-- court
-- health claim
-- financial/policy claim
-- political allegation
+High-risk content must enter pending review and requires human approval before publication.
 
-Must enter pending review. Human approval is required before publication.
-
-### Critical risk
-
-Examples:
-- child safety
-- sexual violence
-- communal tension
-- war
-- election
-- self-harm
-- emergency public safety information
-
-Requires senior editorial approval and primary or multi-source corroboration.
+Critical-risk content requires senior editorial approval plus official-primary or multi-source corroboration.
 
 ## Publication states
 
@@ -108,18 +81,18 @@ verification_status:
 - disputed
 - rejected
 
-## Minimum auto-publication requirements
+## Auto-publication requirements
 
 - enabled source_registry record
 - source_name and source_url
 - canonical URL deduplication
 - valid category
 - meaningful source-bound content
-- fact_sources includes at least one source
-- no high or critical risk condition
-- image credit when an image is used
-- representative image label when applicable
-- audit log event
+- fact_sources with at least one source
+- no high/critical risk condition
+- image credit when image exists
+- representative-image label when applicable
+- AI audit event
 
 ## High-risk publication requirements
 
@@ -127,29 +100,28 @@ verification_status:
 - verification note
 - verified_by and verified_at
 - public source attribution
-- source corroboration or official primary source
+- official or independent corroborating source
 - sensitive details minimised
 - correction/update path enabled
 
 ## Media policy
 
 - Use licensed, source-provided, official, reporter-owned, or clearly labelled representative media.
-- Never imply a stock/representative image depicts the event.
-- Show photographer/provider credit.
-- Embed third-party video only when embedding and attribution are permitted.
-- Do not download or re-upload video without rights.
+- Never present stock media as event media.
+- Display photographer/provider credit.
+- Do not re-upload third-party video without permission.
 
 ## Reader trust
 
-Every article should provide:
+Every article should show:
 - source attribution
-- AI assistance disclosure when applicable
+- AI-assistance disclosure
 - verification state
-- last updated time
+- last-updated time
 - correction/change log
 - error-report option
 
-## Engineering rule
+## Engineering workflow
 
 Read-only inspection -> backup -> minimal change -> test -> deploy -> verify.
 No production deploy from a dirty working tree.
