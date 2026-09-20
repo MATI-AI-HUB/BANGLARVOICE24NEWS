@@ -237,22 +237,18 @@ Deno.serve(async () => {
   let failed = 0;
 
   try {
-    const { data: item, error: claimError } = await supabase
+    const { data: candidates, error: candidateError } = await supabase
       .from("news_ingest_queue")
-      .update({
-        status: "processing",
-        locked_at: now,
-        locked_by: "news-writer",
-        attempts: 1,
-        updated_at: now,
-      })
+      .select("*")
       .eq("status", "queued")
       .order("created_at", { ascending: true })
-      .select("*")
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
-    if (claimError) throw new Error(`Queue claim failed: ${claimError.message}`);
+    if (candidateError) {
+      throw new Error(`Queue lookup failed: ${candidateError.message}`);
+    }
+
+    const item = candidates?.[0] ?? null;
 
     if (!item) {
       await supabase.from("news_pipeline_runs").insert({
@@ -266,9 +262,35 @@ Deno.serve(async () => {
       return json({ ok: true, stage: "writer", message: "No queued items" });
     }
 
-    processed = 1;
-
     const queueItem = item as QueueItem;
+
+    const { data: lockedItem, error: lockError } = await supabase
+      .from("news_ingest_queue")
+      .update({
+        status: "processing",
+        locked_at: now,
+        locked_by: "news-writer",
+        attempts: (queueItem.attempts || 0) + 1,
+        updated_at: now,
+      })
+      .eq("id", queueItem.id)
+      .eq("status", "queued")
+      .select("*")
+      .maybeSingle();
+
+    if (lockError) {
+      throw new Error(`Queue lock failed: ${lockError.message}`);
+    }
+
+    if (!lockedItem) {
+      return json({
+        ok: true,
+        stage: "writer",
+        message: "Queue item was claimed by another worker",
+      });
+    }
+
+    processed = 1;
 
     const { data: existing } = await supabase
       .from("articles")
