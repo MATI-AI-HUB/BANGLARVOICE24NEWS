@@ -97,7 +97,7 @@ export async function sendPasswordReset(email: string): Promise<void> {
   const { error } = await sb.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${siteUrl}/login` },
+    options: { redirectTo: `${siteUrl}/reset-password` },
   });
   if (error) throw error;
 }
