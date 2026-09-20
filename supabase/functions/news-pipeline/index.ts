@@ -51,7 +51,7 @@ type RssItem = {
 
 async function fetchRSS(url: string, sourceName: string): Promise<RssItem[]> {
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!r.ok) {
       console.warn(`[rss] ${sourceName}: HTTP ${r.status}`);
       return [];
@@ -228,7 +228,7 @@ Output শুধু একটি JSON, অন্য কিছু নয়:
       systemPrompt,
       userPrompt,
       temperature: 0.3,
-      maxTokens: 1500,
+      maxTokens: 700,
     });
 
     const cleaned = raw.replace(/```json\s*|\s*```/g, "").trim();
@@ -355,10 +355,15 @@ Deno.serve(async (req) => {
       );
 
       // Pexels is representative media unless a rights-cleared event image exists.
-      const image = await fetchPexelsImage(
-        supabase,
-        `${rewritten.category_key} bangladesh`,
-      );
+      const image = await Promise.race([
+        fetchPexelsImage(
+          supabase,
+          `${rewritten.category_key} bangladesh`,
+        ),
+        new Promise<ImageResult | null>((resolve) =>
+          setTimeout(() => resolve(null), 4000)
+        ),
+      ]);
 
       const now = new Date().toISOString();
 
