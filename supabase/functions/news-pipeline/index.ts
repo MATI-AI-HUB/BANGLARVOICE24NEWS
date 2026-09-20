@@ -404,17 +404,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    const durationMs = Date.now() - start;
+    const pendingReview = fresh.length - published - duplicates - skipped;
+
+    await supabase.from("pipeline_runs").insert({
+      completed_at: new Date().toISOString(),
+      status: skipped > 0 ? "partial" : "success",
+      fetched: allItems.length,
+      unique_items: unique.length,
+      published,
+      pending_review: Math.max(0, pendingReview),
+      duplicates,
+      skipped,
+      duration_ms: durationMs,
+    });
+
     return json({
       ok: true,
       fetched: allItems.length,
       unique: unique.length,
       published,
+      pending_review: Math.max(0, pendingReview),
       duplicates,
       skipped,
-      duration_ms: Date.now() - start,
+      duration_ms: durationMs,
     });
   } catch (e) {
-    console.error("news-pipeline error:", e);
-    return json({ ok: false, error: String(e) }, 500);
+    const errorMessage = String(e);
+    console.error("news-pipeline error:", errorMessage);
+
+    await supabase.from("pipeline_runs").insert({
+      completed_at: new Date().toISOString(),
+      status: "failed",
+      error_message: errorMessage.slice(0, 2000),
+      duration_ms: Date.now() - start,
+    }).catch(() => undefined);
+
+    return json({ ok: false, error: errorMessage }, 500);
   }
 });
