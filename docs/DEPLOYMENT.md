@@ -54,7 +54,7 @@ git push origin main
 
 ### Frontend — Vercel (সঠিক কনফিগারেশন)
 
-**রিপোজিটরি:** `github.com/hizlanews46-design/Banglarvoice-apps` (monorepo — frontend একটি subfolder)
+**রিপোজিটরি:** `github.com/banglarvoice33-byte/BANGLARVOICE-APPS` (monorepo — frontend একটি subfolder)
 
 Vercel-এ import করার সময় **এই সেটিংস** ব্যবহার করো (Vercel ডিপ্লয় ত্রুটির ৯০% কারণ এখানে ভুল):
 

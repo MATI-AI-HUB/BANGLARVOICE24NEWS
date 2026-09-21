@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const revalidate = 3600; // 1h ISR
 
-const GITHUB_REPO = 'hizlanews46-design/Banglarvoice-apps';
+const GITHUB_REPO = 'banglarvoice33-byte/BANGLARVOICE-APPS';
 const FALLBACK_VERSION = 'v1.0.0';
 
 export const metadata: Metadata = {

@@ -147,3 +147,27 @@ docs/newsroom/audit/
 # Local-only diagnostic and generated files
 deno.lock
 docs/newsroom/audit/
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Worker runtime
+worker/node_modules/
+worker/.env
+worker/dist/
+
+# Mobile build outputs
+mobile_monorepo/**/build/
+mobile_monorepo/**/.dart_tool/
+mobile_monorepo/**/.flutter-plugins*
+
+# OS / Editor
+.DS_Store
+*.swp
+
+# Compiled binaries
+archive/**/bv-pocketbase
+*.exe
+*.bin
+
