@@ -38,7 +38,7 @@ class BvTvApp extends StatelessWidget {
             useMaterial3: true,
             brightness: Brightness.dark,
           ),
-          home: const TvHome(),
+          home: TvHome(),
         );
       },
     );

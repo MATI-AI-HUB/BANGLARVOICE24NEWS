@@ -71,6 +71,13 @@ class _TvHomeState extends State<TvHome> {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: localeNotifier,
+      builder: (context, _) => _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F0F),
       body: SafeArea(
