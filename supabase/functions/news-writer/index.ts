@@ -280,6 +280,193 @@ JSON:
   return parsed;
 }
 
+/**
+ * Pexels is used only for representative media.
+ *
+ * A Pexels photo must never be described as the actual event photo.
+ * The frontend must display image_credit with a representative-image label.
+ */
+const CATEGORY_MEDIA_QUERIES: Record<CategoryKey, string[]> = {
+  national: [
+    "bangladesh city",
+    "dhaka street",
+    "bangladesh people",
+    "bangladesh landscape",
+  ],
+  politics: [
+    "government building",
+    "parliament building",
+    "press conference",
+    "official meeting",
+  ],
+  economy: [
+    "business finance",
+    "banking",
+    "trade commerce",
+    "stock market",
+  ],
+  sports: [
+    "cricket match",
+    "football stadium",
+    "sports arena",
+    "athlete running",
+  ],
+  entertainment: [
+    "concert stage",
+    "cinema theatre",
+    "cultural festival",
+    "music performance",
+  ],
+  tech: [
+    "technology computer",
+    "digital innovation",
+    "software development",
+    "smartphone technology",
+  ],
+  health: [
+    "hospital doctor",
+    "medical care",
+    "health wellness",
+    "medical laboratory",
+  ],
+  education: [
+    "students classroom",
+    "university library",
+    "school books",
+    "study desk",
+  ],
+  international: [
+    "world news",
+    "global affairs",
+    "united nations",
+    "international diplomacy",
+  ],
+  city: [
+    "urban street",
+    "city skyline",
+    "public transport",
+    "neighborhood city",
+  ],
+};
+
+type PexelsImage = {
+  url: string;
+  credit: string;
+};
+
+const usedPexelsPhotoIds = new Set<number>();
+
+async function imageUsedBefore(url: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("articles")
+    .select("id")
+    .eq("thumbnail_url", url)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("PEXELS_DUPLICATE_CHECK_FAILED", {
+      message: error.message,
+    });
+    return false;
+  }
+
+  return Boolean(data);
+}
+
+/**
+ * Returns one unused landscape Pexels image.
+ *
+ * This function fails closed: an unavailable secret, API, or network returns
+ * null and does not block the article-writing pipeline.
+ */
+async function fetchPexelsImage(
+  category: CategoryKey,
+): Promise<PexelsImage | null> {
+  const key = await vaultKey("PEXELS_API_KEY");
+
+  if (!key) {
+    console.warn("PEXELS_API_KEY_NOT_AVAILABLE");
+    return null;
+  }
+
+  const queries =
+    CATEGORY_MEDIA_QUERIES[category] ||
+    CATEGORY_MEDIA_QUERIES.national;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const query = queries[Math.floor(Math.random() * queries.length)];
+    const page = Math.floor(Math.random() * 5) + 1;
+
+    try {
+      const params = new URLSearchParams({
+        query,
+        per_page: "10",
+        page: String(page),
+        orientation: "landscape",
+      });
+
+      const response = await fetch(
+        `https://api.pexels.com/v1/search?${params.toString()}`,
+        {
+          headers: {
+            Authorization: key,
+          },
+          signal: AbortSignal.timeout(7000),
+        },
+      );
+
+      if (!response.ok) {
+        console.warn("PEXELS_HTTP_ERROR", {
+          status: response.status,
+        });
+        continue;
+      }
+
+      const payload = await response.json();
+      const photos = Array.isArray(payload?.photos)
+        ? payload.photos
+        : [];
+
+      for (const photo of photos.sort(() => Math.random() - 0.5)) {
+        const photoId = Number(photo?.id);
+        const url = String(
+          photo?.src?.large ||
+          photo?.src?.original ||
+          "",
+        );
+
+        if (!Number.isFinite(photoId) || !url) continue;
+        if (usedPexelsPhotoIds.has(photoId)) continue;
+        if (await imageUsedBefore(url)) continue;
+
+        usedPexelsPhotoIds.add(photoId);
+
+        const photographer = String(
+          photo?.photographer || "Unknown photographer",
+        ).trim();
+
+        const photoPage = String(
+          photo?.url || "https://www.pexels.com",
+        );
+
+        return {
+          url,
+          credit:
+            `প্রতীকী ছবি — ${photographer} / Pexels (${photoPage})`,
+        };
+      }
+    } catch (error) {
+      console.warn("PEXELS_LOOKUP_FAILED", {
+        message: error instanceof Error
+          ? error.message
+          : String(error),
+      });
+    }
+  }
+
+  return null;
+}
 Deno.serve(async () => {
   const started = Date.now();
   const now = new Date().toISOString();
@@ -378,6 +565,15 @@ Deno.serve(async () => {
         rewritten.category_key,
       );
 
+      /**
+       * Only low-risk auto-published articles receive automatic stock media.
+       * Sensitive or pending-review articles require editorial media review.
+       */
+      const image =
+        publishDecision.status === "published"
+          ? await fetchPexelsImage(rewritten.category_key)
+          : null;
+
       const { data: article, error: insertError } = await supabase
         .from("articles")
         .insert({
@@ -414,12 +610,14 @@ Deno.serve(async () => {
           claims: [],
           context_blocks: [],
 
-          thumbnail_url: "",
-          featured_image: "",
-          image_alt_bn: "",
-          image_credit: "",
-          image_is_representational: false,
-          media_type: "none",
+          thumbnail_url: image?.url || "",
+          featured_image: image?.url || "",
+          image_alt_bn: image
+            ? `প্রতীকী ছবি: ${rewritten.title_bn.slice(0, 180)}`
+            : "",
+          image_credit: image?.credit || "",
+          image_is_representational: Boolean(image),
+          media_type: image ? "image" : "none",
 
           ai_model: AI_MODEL,
           ai_confidence: rewritten.confidence,
