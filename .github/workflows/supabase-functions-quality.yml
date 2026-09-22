@@ -1,0 +1,39 @@
+name: Supabase Function Quality
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-functions-quality.yml'
+  push:
+    branches: ['feat/**', 'fix/**', 'chore/**']
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+      - '.github/workflows/supabase-functions-quality.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deno-check:
+    name: Deno format and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Validate all Edge Function TypeScript
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find supabase/functions -type f -name '*.ts' -print | sort)
+          test "${#files[@]}" -gt 0
+          deno fmt --check "${files[@]}"
+          deno check "${files[@]}"

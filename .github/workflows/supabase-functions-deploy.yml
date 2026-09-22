@@ -36,14 +36,15 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Validate changed Edge Function source
+      - name: Validate all Edge Function source
         run: |
           set -euo pipefail
-
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_PROJECT_REF"
-
-          deno check supabase/functions/news-writer/index.ts
+          mapfile -t files < <(find supabase/functions -type f -name '*.ts' -print | sort)
+          test "${#files[@]}" -gt 0
+          deno fmt --check "${files[@]}"
+          deno check "${files[@]}"
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
@@ -53,6 +54,4 @@ jobs:
       - name: Deploy all Edge Functions
         run: |
           set -euo pipefail
-
-          supabase functions deploy \
-            --project-ref "$SUPABASE_PROJECT_REF"
+          supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"

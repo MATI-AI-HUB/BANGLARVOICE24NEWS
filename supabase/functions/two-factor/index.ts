@@ -1,85 +1,41 @@
-// =============================================================================
-// two-factor — TOTP 2FA for Banglar Voice admin/editor accounts.
-// -----------------------------------------------------------------------------
-//   POST /two-factor/enable   -> generates a TOTP secret + otpauth URL (QR)
-//   POST /two-factor/verify   -> verifies a 6-digit code (speakeasy-compatible
-//                                TOTP: HMAC-SHA1, 30s step, 6 digits)
-//   POST /two-factor/disable  -> disables 2FA (requires a valid code)
-//
-// The secret is stored on profiles.two_factor_secret. In production, prefer
-// pgsodium encryption (see getApiKey) — this function keeps it plaintext only
-// for the demo path and logs an audit row on enable/disable.
-// =============================================================================
-
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, handleCors, json } from "../_shared/cors.ts";
+import { handleCors, json } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-// --- minimal TOTP (RFC 6238) — no external dep needed -----------------------
-function base32Encode(buf: Uint8Array): string {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = 0, value = 0, out = "";
-  for (const b of buf) {
-    value = (value << 8) | b;
+function base32Encode(bytes: Uint8Array): string {
+  let bits = 0;
+  let value = 0;
+  let output = "";
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
     bits += 8;
     while (bits >= 5) {
-      out += alphabet[(value >>> (bits - 5)) & 31];
+      output += BASE32[(value >>> (bits - 5)) & 31];
       bits -= 5;
     }
   }
-  if (bits > 0) out += alphabet[(value << (5 - bits)) & 31];
-  return out;
+  if (bits > 0) output += BASE32[(value << (5 - bits)) & 31];
+  return output;
 }
 
-function hmacSha1(key: Uint8Array, msg: Uint8Array): Uint8Array {
-  const blockSize = 64;
-  const keyBytes = key.length > blockSize ? key.slice(0, blockSize) : key;
-  const padded = new Uint8Array(blockSize);
-  padded.set(keyBytes);
-  const ipad = new Uint8Array(blockSize), opad = new Uint8Array(blockSize);
-  for (let i = 0; i < blockSize; i++) {
-    ipad[i] = padded[i] ^ 0x36;
-    opad[i] = padded[i] ^ 0x5c;
-  }
-  const inner = new Uint8Array(ipad.length + msg.length);
-  inner.set(ipad); inner.set(msg, ipad.length);
-  const innerHash = new Uint8Array(await crypto.subtle.digest("SHA-1", inner));
-  const outer = new Uint8Array(opad.length + innerHash.length);
-  outer.set(opad); outer.set(innerHash, opad.length);
-  return new Uint8Array(await crypto.subtle.digest("SHA-1", outer));
-}
-
-function base32Decode(s: string): Uint8Array {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  const clean = s.toUpperCase().replace(/=+$/, "");
-  let bits = 0, value = 0;
-  const out: number[] = [];
-  for (const c of clean) {
-    const idx = alphabet.indexOf(c);
-    if (idx < 0) continue;
-    value = (value << 5) | idx;
+function base32Decode(value: string): Uint8Array {
+  let bits = 0;
+  let buffer = 0;
+  const output: number[] = [];
+  for (const character of value.toUpperCase().replace(/=+$/g, "")) {
+    const index = BASE32.indexOf(character);
+    if (index < 0) continue;
+    buffer = (buffer << 5) | index;
     bits += 5;
     if (bits >= 8) {
-      out.push((value >>> (bits - 8)) & 0xff);
+      output.push((buffer >>> (bits - 8)) & 255);
       bits -= 8;
     }
   }
-  return new Uint8Array(out);
-}
-
-function totp(secretB32: string, timeStep = 30, digits = 6): string {
-  const counter = Math.floor(Date.now() / 1000 / timeStep);
-  const msg = new Uint8Array(8);
-  let c = counter;
-  for (let i = 7; i >= 0; i--) { msg[i] = c & 0xff; c = Math.floor(c / 256); }
-  const key = base32Decode(secretB32);
-  const hash = hmacSha1(key, msg);
-  const offset = hash[hash.length - 1] & 0x0f;
-  const bin = ((hash[offset] & 0x7f) << 24) | ((hash[offset + 1] & 0xff) << 16) |
-    ((hash[offset + 2] & 0xff) << 8) | (hash[offset + 3] & 0xff);
-  return String(bin % 10 ** digits).padStart(digits, "0");
+  return new Uint8Array(output);
 }
 
 function randomSecret(): string {
@@ -88,22 +44,45 @@ function randomSecret(): string {
   return base32Encode(bytes);
 }
 
-function base32Encode(buf: Uint8Array): string {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = 0, value = 0, out = "";
-  for (const b of buf) {
-    value = (value << 8) | b;
-    bits += 8;
-    while (bits >= 5) { out += alphabet[(value >>> (bits - 5)) & 31]; bits -= 5; }
+async function hmacSha1(key: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    key,
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, message));
+}
+
+async function totp(secret: string, counter: number): Promise<string> {
+  const message = new Uint8Array(8);
+  let value = counter;
+  for (let index = 7; index >= 0; index -= 1) {
+    message[index] = value & 255;
+    value = Math.floor(value / 256);
   }
-  if (bits > 0) out += alphabet[(value << (5 - bits)) & 31];
-  return out;
+  const digest = await hmacSha1(base32Decode(secret), message);
+  const offset = digest[digest.length - 1] & 15;
+  const code = ((digest[offset] & 127) << 24) |
+    ((digest[offset + 1] & 255) << 16) |
+    ((digest[offset + 2] & 255) << 8) |
+    (digest[offset + 3] & 255);
+  return String(code % 1_000_000).padStart(6, "0");
+}
+
+async function verifyTotp(secret: string, code: string): Promise<boolean> {
+  const counter = Math.floor(Date.now() / 30_000);
+  for (const offset of [-1, 0, 1]) {
+    if (await totp(secret, counter + offset) === code) return true;
+  }
+  return false;
 }
 
 function callerClient(req: Request) {
-  const auth = req.headers.get("Authorization") ?? "";
+  const authorization = req.headers.get("Authorization") ?? "";
   return createClient(SUPABASE_URL, SERVICE_ROLE, {
-    global: { headers: { Authorization: auth } },
+    global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }
@@ -111,43 +90,48 @@ function callerClient(req: Request) {
 Deno.serve(async (req: Request) => {
   const cors = handleCors(req);
   if (cors) return cors;
-  const url = new URL(req.url);
-  const action = url.pathname.split("/").pop() ?? "";
 
-  try {
-    const client = callerClient(req);
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) return json({ error: "unauthorized" }, 401);
+  const action = new URL(req.url).pathname.split("/").pop() ?? "";
+  const client = callerClient(req);
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError || !user) return json({ error: "unauthorized" }, 401);
 
-    if (action === "enable") {
-      const secret = randomSecret();
-      await client.from("profiles").update({ two_factor_secret: secret, two_factor_enabled: true }).eq("id", user.id);
-      await client.from("audit_log").insert({ actor_id: user.id, action: "2fa_enable", detail: {} });
-      const otpauth = `otpauth://totp/BanglarVoice:${user.email}?secret=${secret}&issuer=BanglarVoice`;
-      return json({ secret, otpauth_url: otpauth });
-    }
-
-    if (action === "verify") {
-      const { code } = await req.json();
-      const { data: prof } = await client.from("profiles").select("two_factor_secret").eq("id", user.id).single();
-      if (!prof?.two_factor_secret) return json({ error: "2fa not enabled" }, 400);
-      const ok = generate(prof.two_factor_secret) === String(code);
-      return json({ valid: ok });
-    }
-
-    if (action === "disable") {
-      const { code } = await req.json();
-      const { data: prof } = await client.from("profiles").select("two_factor_secret").eq("id", user.id).single();
-      if (!prof?.two_factor_secret) return json({ error: "2fa not enabled" }, 400);
-      if (generate(prof.two_factor_secret) !== String(code)) return json({ error: "invalid code" }, 400);
-      await client.from("profiles").update({ two_factor_secret: "", two_factor_enabled: false }).eq("id", user.id);
-      await client.from("audit_log").insert({ actor_id: user.id, action: "2fa_disable", detail: {} });
-      return json({ ok: true });
-    }
-
-    return json({ error: "unknown action" }, 404);
-  } catch (e) {
-    console.error("two-factor", e);
-    return json({ error: String(e?.message ?? e) }, 500);
+  if (action === "enable") {
+    const secret = randomSecret();
+    const { error } = await client.from("profiles").update({
+      two_factor_secret: secret,
+      two_factor_enabled: true,
+    }).eq("id", user.id);
+    if (error) return json({ error: "could not enable 2fa" }, 500);
+    await client.from("audit_log").insert({ actor_id: user.id, action: "2fa_enable", detail: {} });
+    return json({
+      secret,
+      otpauth_url: `otpauth://totp/BanglarVoice:${encodeURIComponent(user.email ?? user.id)}?secret=${secret}&issuer=BanglarVoice`,
+    });
   }
+
+  const { data: profile, error: profileError } = await client
+    .from("profiles")
+    .select("two_factor_secret")
+    .eq("id", user.id)
+    .single();
+  if (profileError || !profile?.two_factor_secret) return json({ error: "2fa not enabled" }, 400);
+
+  const body = await req.json().catch(() => ({}));
+  const code = String(body.code ?? "");
+  const valid = /^\d{6}$/.test(code) && await verifyTotp(profile.two_factor_secret, code);
+
+  if (action === "verify") return json({ valid });
+  if (action === "disable") {
+    if (!valid) return json({ error: "invalid code" }, 400);
+    const { error } = await client.from("profiles").update({
+      two_factor_secret: "",
+      two_factor_enabled: false,
+    }).eq("id", user.id);
+    if (error) return json({ error: "could not disable 2fa" }, 500);
+    await client.from("audit_log").insert({ actor_id: user.id, action: "2fa_disable", detail: {} });
+    return json({ ok: true });
+  }
+
+  return json({ error: "unknown action" }, 404);
 });

@@ -1,14 +1,4 @@
-// =============================================================================
-// rate-limit — shared Upstash Redis rate-limit middleware for edge functions.
-// -----------------------------------------------------------------------------
-// Usage (in any edge function):
-//   import { rateLimit } from "../_shared/rate-limit.ts";
-//   const rl = await rateLimit(req, "login", 60, "1 m");
-//   if (rl.limited) return json({ error: "rate limited" }, 429);
-//
-// Falls back to the DB-backed login_attempts table when UPSTASH_REDIS_REST_URL
-// is not configured, so it works in local/dev without Redis.
-// =============================================================================
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 export interface RateLimitResult {
   limited: boolean;
@@ -16,55 +6,83 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
-const WINDOW_SECONDS: Record<string, number> = {
+const WINDOW_SECONDS: Record<"1 m" | "1 h" | "1 d", number> = {
   "1 m": 60,
-  "1 h": 3600,
-  "1 d": 86400,
+  "1 h": 60 * 60,
+  "1 d": 24 * 60 * 60,
 };
+
+function requestIdentifier(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
 
 export async function rateLimit(
   req: Request,
-  identifier: string,
+  scope: string,
   max: number,
   window: "1 m" | "1 h" | "1 d" = "1 m",
 ): Promise<RateLimitResult> {
+  const seconds = WINDOW_SECONDS[window];
+  const key = `rl:${scope}:${requestIdentifier(req)}`;
   const url = Deno.env.get("UPSTASH_REDIS_REST_URL");
   const token = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
-  const key = `rl:${identifier}`;
-  const windowMs = WINDOW_MS[window] ?? 60;
 
   if (url && token) {
     try {
-      const res = await fetch(`${url}/incr`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify([key]),
+      const encodedKey = encodeURIComponent(key);
+      const increment = await fetch(`${url}/incr/${encodedKey}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      const count = Number(data?.result ?? 0);
+      const count = Number((await increment.json())?.result ?? 0);
+      if (!increment.ok || !Number.isFinite(count)) throw new Error("Upstash increment failed");
       if (count === 1) {
-        await fetch(`${url}/expire`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify([key, Math.ceil(windowMs / 1000)]),
+        const expire = await fetch(`${url}/expire/${encodedKey}/${seconds}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
+        if (!expire.ok) throw new Error("Upstash expiry failed");
       }
-      return { limited: count > max, remaining: Math.max(0, max - count) };
-    } catch {
-      // fall through to DB fallback
+      return {
+        limited: count > max,
+        remaining: Math.max(0, max - count),
+        retryAfterSeconds: seconds,
+      };
+    } catch (error) {
+      console.error("rate-limit redis fallback", error);
     }
   }
 
-  // DB fallback: count login_attempts in the window.
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-  const { data, error } = await supabase.rpc("is_rate_limited", {
-    p_identifier: identifier,
-    p_window_minutes: Math.max(1, Math.ceil(windowMs / 60000)),
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    return { limited: false, remaining: max, retryAfterSeconds: seconds };
+  }
+
+  const client = createClient(supabaseUrl, serviceRoleKey);
+  const windowMinutes = Math.max(1, Math.ceil(seconds / 60));
+  const { error: insertError } = await client.from("login_attempts").insert({
+    identifier: key,
+    success: false,
+  });
+  if (insertError) {
+    console.error("rate-limit database insert failed", insertError);
+    return { limited: false, remaining: max, retryAfterSeconds: seconds };
+  }
+
+  const { data, error } = await client.rpc("is_rate_limited", {
+    p_identifier: key,
+    p_window_minutes: windowMinutes,
     p_max: max,
   });
-  if (error) return { limited: false, remaining: max };
-  return { limited: data === true, remaining: data === true ? 0 : max };
+  if (error) {
+    console.error("rate-limit database check failed", error);
+    return { limited: false, remaining: max, retryAfterSeconds: seconds };
+  }
+
+  return {
+    limited: data === true,
+    remaining: data === true ? 0 : max,
+    retryAfterSeconds: seconds,
+  };
 }
