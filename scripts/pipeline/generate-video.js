@@ -147,6 +147,10 @@ async function main() {
   console.log('══════════════════════════════════════');
   console.log('');
 
+  if (!DB) {
+    throw new Error('SUPABASE_DB_URL is not set');
+  }
+
   const client = new Client({ connectionString: DB, ssl: { rejectUnauthorized: false } });
   await client.connect();
 

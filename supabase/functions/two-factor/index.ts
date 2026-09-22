@@ -44,15 +44,21 @@ function randomSecret(): string {
   return base32Encode(bytes);
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer as ArrayBuffer;
+}
+
 async function hmacSha1(key: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
-    key,
+    toArrayBuffer(key),
     { name: "HMAC", hash: "SHA-1" },
     false,
     ["sign"],
   );
-  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, message));
+  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, toArrayBuffer(message)));
 }
 
 async function totp(secret: string, counter: number): Promise<string> {

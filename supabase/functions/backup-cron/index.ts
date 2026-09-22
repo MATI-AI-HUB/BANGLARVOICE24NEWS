@@ -21,10 +21,22 @@ async function sha256Hex(s: string): Promise<string> {
   return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer as ArrayBuffer;
+}
+
 async function hmac(key: string | Uint8Array, data: string): Promise<Uint8Array> {
-  const k = typeof key === "string" ? new TextEncoder().encode(key) : key;
-  const h = await crypto.subtle.importKey("raw", k, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = await crypto.subtle.sign("HMAC", h, new TextEncoder().encode(data));
+  const encoded = typeof key === "string" ? new TextEncoder().encode(key) : key;
+  const h = await crypto.subtle.importKey(
+    "raw",
+    toArrayBuffer(encoded),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", h, toArrayBuffer(new TextEncoder().encode(data)));
   return new Uint8Array(sig);
 }
 
@@ -111,8 +123,9 @@ Deno.serve(async () => {
     return new Response(JSON.stringify({ ok: true, filename, bytes: body.length }), {
       headers: { "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
     console.error("backup-cron", e);
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message ?? e) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: message }), { status: 500 });
   }
 });

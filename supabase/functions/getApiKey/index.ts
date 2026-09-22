@@ -82,8 +82,9 @@ Deno.serve(async (req: Request) => {
       key: plain,
       usage_percent: row.usage_percent,
     });
-  } catch (e) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
     console.error("getApiKey", e);
-    return json({ error: String(e?.message ?? e) }, 500);
+    return json({ error: message }, 500);
   }
 });

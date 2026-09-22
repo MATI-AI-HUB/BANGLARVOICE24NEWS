@@ -24,10 +24,23 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
           pip install --quiet edge-tts
+      - name: Check required secrets
+        id: secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "SUPABASE_DB_URL is not configured; skipping video pipeline."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install deps
+        if: steps.secrets.outputs.configured == 'true'
         working-directory: ./frontend
         run: npm install --no-audit --no-fund
       - name: Generate video
+        if: steps.secrets.outputs.configured == 'true'
         working-directory: ./frontend
         run: NODE_PATH="$(pwd)/node_modules" node ../scripts/pipeline/generate-video.js --latest
         env:
@@ -36,6 +49,7 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       - name: Upload to YouTube
+        if: steps.secrets.outputs.configured == 'true'
         working-directory: ./frontend
         run: NODE_PATH="$(pwd)/node_modules" node ../scripts/pipeline/upload-youtube.js --latest
         env:

@@ -187,8 +187,9 @@ Deno.serve(async (req: Request) => {
     }).maybeSingle();
 
     return json({ ok: true, id: report.id, ai_score: score, ai_summary: summary, ai_duplicate_of: duplicateOf });
-  } catch (e) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
     console.error("ai-process-report", e);
-    return json({ error: String(e?.message ?? e) }, 500);
+    return json({ error: message }, 500);
   }
 });
