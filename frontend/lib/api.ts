@@ -149,27 +149,76 @@ export type ArticleResponse = { items: FeedArticle[] };
 export type LiveResponse = { entries: LiveEntry[] };
 export type VideosResponse = { videos: VideoItem[] };
 
+
+type PublicFeedItem = {
+  id: string;
+  url?: string;
+  title?: string;
+  summary?: string;
+  content_text?: string;
+  date_published?: string;
+  category_key?: string;
+  category_label?: string;
+  banner_image?: string;
+};
+
+type PublicFeedResponse = {
+  items?: PublicFeedItem[];
+};
+
+function publicFeedItemToArticle(item: PublicFeedItem): FeedArticle {
+  const fallbackSlug = item.url
+    ? item.url.replace(/\/+$/, '').split('/').pop() || item.id
+    : item.id;
+  const content = item.content_text || item.summary || '';
+  const publishedAt = item.date_published || new Date(0).toISOString();
+  const readingTime = estimateReadTime(content);
+
+  return {
+    id: item.id,
+    slug: fallbackSlug,
+    title_bn: item.title || 'শিরোনাম পাওয়া যায়নি',
+    dek_bn: item.summary || stripHtml(content).slice(0, 220),
+    category: categoryLabel(item.category_label || item.category_key),
+    featured_image: item.banner_image || '',
+    reading_time_min: readingTime,
+    bias_index: 50,
+    published_at: publishedAt,
+    published_at_bn: bengaliDate(publishedAt),
+    time_ago_bn: timeAgoBn(publishedAt),
+    reading_time_bn: `${toBn(readingTime)} মিনিট পড়া`,
+  };
+}
+
 export const api = {
   base: PB_BASE,
 
   async articles(limit = 20): Promise<ArticleResponse> {
-    if (!supabase) {
-      console.warn('[api.articles] Supabase not configured — returning empty');
-      return { items: [] };
+    const siteOrigin = (
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://banglarvoice24news.com'
+    ).replace(/\/+$/, '');
+
+    const response = await fetch(`${siteOrigin}/api/public/feed.json`, {
+      next: { revalidate: 60 },
+      signal: AbortSignal.timeout(8000),
+      headers: { Accept: 'application/feed+json, application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Public feed request failed with HTTP ${response.status}`);
     }
-    try {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('id, title_bn, title_en, content_bn, content_en, category, thumbnail_url, status, published_at, created_at, source_url, source_name, image_credit')
-        .eq('status', 'published')
-        .order('published_at', { ascending: false })
-        .limit(limit);
-      if (error) throw error;
-      return { items: (data as SupabaseArticle[] | null || []).map(mapArticle) };
-    } catch (e) {
-      console.warn('[api.articles] Supabase failed:', e);
-      return { items: [] };
+
+    const feed = (await response.json()) as PublicFeedResponse;
+    const sourceItems = Array.isArray(feed.items) ? feed.items : [];
+
+    if (!sourceItems.length) {
+      throw new Error('Public feed returned zero published articles');
     }
+
+    return {
+      items: sourceItems.slice(0, limit).map(publicFeedItemToArticle),
+    };
   },
 
   async article(slug: string): Promise<Record<string, unknown>> {

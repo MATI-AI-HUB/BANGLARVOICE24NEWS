@@ -65,9 +65,17 @@ export default async function HomePage() {
     /* demo fallback below */
   }
 
-  const feed: FeedArticle[] = items.length ? items : mockFeedItems;
-  const live: LiveEntry[] = liveEntries.length ? liveEntries : mockLiveEntries;
-  const videos: VideoItem[] = videoItems.length ? videoItems : mockVideoItems;
+  // Demo data is local-development only; production must never show mock news.
+  const demoMode = process.env.NODE_ENV !== 'production';
+
+  const feed: FeedArticle[] =
+    items.length > 0 ? items : (demoMode ? mockFeedItems : []);
+
+  const live: LiveEntry[] =
+    liveEntries.length > 0 ? liveEntries : (demoMode ? mockLiveEntries : []);
+
+  const videos: VideoItem[] =
+    videoItems.length > 0 ? videoItems : (demoMode ? mockVideoItems : []);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 pb-28">
