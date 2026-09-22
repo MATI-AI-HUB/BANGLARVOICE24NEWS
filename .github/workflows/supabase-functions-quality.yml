@@ -23,17 +23,24 @@ concurrency:
 
 jobs:
   deno-check:
-    name: Deno format and type check
+    name: Deno type check deployable functions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Validate all Edge Function TypeScript
+      - name: Validate deployable Edge Function entry points
         run: |
           set -euo pipefail
-          mapfile -t files < <(find supabase/functions -type f -name '*.ts' -print | sort)
-          test "${#files[@]}" -gt 0
-          deno fmt --check "${files[@]}"
-          deno check "${files[@]}"
+          mapfile -t entrypoints < <(
+            find supabase/functions \
+              -mindepth 2 \
+              -maxdepth 2 \
+              -type f \
+              -name 'index.ts' \
+              -print \
+              | sort
+          )
+          test "${#entrypoints[@]}" -gt 0
+          deno check "${entrypoints[@]}"

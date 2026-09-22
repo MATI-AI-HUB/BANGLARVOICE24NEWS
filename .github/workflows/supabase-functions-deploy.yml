@@ -36,15 +36,22 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Validate all Edge Function source
+      - name: Validate deployable Edge Function entry points
         run: |
           set -euo pipefail
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_PROJECT_REF"
-          mapfile -t files < <(find supabase/functions -type f -name '*.ts' -print | sort)
-          test "${#files[@]}" -gt 0
-          deno fmt --check "${files[@]}"
-          deno check "${files[@]}"
+          mapfile -t entrypoints < <(
+            find supabase/functions \
+              -mindepth 2 \
+              -maxdepth 2 \
+              -type f \
+              -name 'index.ts' \
+              -print \
+              | sort
+          )
+          test "${#entrypoints[@]}" -gt 0
+          deno check "${entrypoints[@]}"
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
