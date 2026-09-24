@@ -1,12 +1,41 @@
 import { NextResponse } from 'next/server';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8090';
-
 export const revalidate = 30;
 
-async function tryBackend() {
+const UNAVAILABLE = {
+  stream_url: '',
+  title: 'বাংলার ভয়েস ২৪/৭',
+  now_playing: '',
+  is_live: false,
+  available: false,
+  thumbnail: null,
+};
+
+function isLegacyPocketBaseEnabled(): boolean {
+  return (
+    process.env.ENABLE_LEGACY_POCKETBASE === 'true' &&
+    process.env.NODE_ENV !== 'production'
+  );
+}
+
+function isLoopbackOrPrivate(raw: string): boolean {
   try {
-    const res = await fetch(`${API_BASE}/api/public/stream.json`, {
+    const host = new URL(raw).hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+    if (/^192\.168\./.test(host) || /^10\./.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+async function tryBackend() {
+  if (!isLegacyPocketBaseEnabled()) return null;
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || '';
+  if (!apiBase || isLoopbackOrPrivate(apiBase)) return null;
+  try {
+    const res = await fetch(`${apiBase}/api/public/stream.json`, {
       signal: AbortSignal.timeout(4000),
       next: { revalidate: 30 },
     });
@@ -17,27 +46,22 @@ async function tryBackend() {
   }
 }
 
-function currentSlot(): string {
-  const hour = new Date().getHours();
-  if (hour < 6) return 'রাতের সংবাদ';
-  if (hour < 9) return 'সকালের সংবাদ';
-  if (hour < 12) return 'অর্থনীতি ডেস্ক';
-  if (hour < 15) return 'মধ্যাহ্ন সংবাদ';
-  if (hour < 18) return 'খেলাধুলা';
-  if (hour < 21) return 'প্রধান সংবাদ';
-  return 'রাতের সংবাদ';
-}
-
 export async function GET() {
   const backend = await tryBackend();
-  const fallback = {
-    stream_url: process.env.NEXT_PUBLIC_STREAM_URL || '',
-    title: 'বাংলার ভয়েস ২৪/৭',
-    now_playing: currentSlot(),
-    is_live: true,
-    thumbnail: null,
-  };
-  const data = backend && backend.stream_url ? backend : fallback;
+  const envStream = process.env.NEXT_PUBLIC_STREAM_URL || '';
+  const data =
+    backend && backend.stream_url
+      ? backend
+      : envStream
+        ? {
+            stream_url: envStream,
+            title: 'বাংলার ভয়েস ২৪/৭',
+            now_playing: '',
+            is_live: true,
+            available: true,
+            thumbnail: null,
+          }
+        : UNAVAILABLE;
   return NextResponse.json(data, {
     headers: { 'Cache-Control': 'public, max-age=30, s-maxage=30' },
   });

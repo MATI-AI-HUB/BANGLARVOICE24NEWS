@@ -22,7 +22,10 @@ export async function RelatedArticles({
   } catch {
     feed = [];
   }
-  if (feed.length === 0) feed = mockFeedItems;
+  if (feed.length === 0) {
+    if (process.env.NODE_ENV === 'production') return null;
+    feed = mockFeedItems;
+  }
 
   const sameCategory = feed.filter(
     (a) => a.slug !== currentSlug && a.category === category,

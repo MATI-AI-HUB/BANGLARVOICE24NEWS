@@ -43,6 +43,36 @@ const csv = (v: string | undefined): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+function requireBvBaseUrl(env: NodeJS.ProcessEnv): string {
+  const raw = (env.BV_BASE_URL ?? "").trim().replace(/\/$/, "");
+  const isProd = (env.NODE_ENV ?? "") === "production";
+  if (!raw) {
+    if (isProd) {
+      throw new Error(
+        "BV_BASE_URL is required in production. Refusing to start with a localhost fallback.",
+      );
+    }
+    return "";
+  }
+  let host = "";
+  try {
+    host = new URL(raw).hostname;
+  } catch {
+    throw new Error(`BV_BASE_URL is not a valid URL: ${raw}`);
+  }
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    /^192\.168\./.test(host);
+  if (isProd && isLocal) {
+    throw new Error(
+      "BV_BASE_URL must not point at localhost or a private LAN address in production.",
+    );
+  }
+  return raw;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
   return {
     intervalMinutes: num(env.INTERVAL_MINUTES, 15),
@@ -50,7 +80,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     chatAiBaseUrl: (env.CHAT_AI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, ""),
     chatAiModel: env.CHAT_AI_MODEL ?? "gpt-4o-mini",
     chatAiKey: env.CHAT_AI_KEY ?? "",
-    bvBaseUrl: (env.BV_BASE_URL ?? "http://127.0.0.1:8090").replace(/\/$/, ""),
+    bvBaseUrl: requireBvBaseUrl(env),
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
     newsroomIngestKey: env.NEWSROOM_INGEST_KEY ?? "change-me",

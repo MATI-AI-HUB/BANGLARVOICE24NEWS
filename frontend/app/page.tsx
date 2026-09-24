@@ -108,7 +108,13 @@ export default async function HomePage() {
 
       {error && (
         <div className="mx-auto mb-6 max-w-xl rounded border border-amber-300 bg-amber-50 p-4 text-center text-sm dark:bg-amber-900/30">
-          ব্যাকএন্ডে সংযোগ হয়নি ({error}) — <code>NEXT_PUBLIC_API_URL</code> ঠিক করুন। ডেমো মোডে নিচে নমুনা সংবাদ দেখানো হচ্ছে।
+          {demoMode ? (
+            <>
+              ব্যাকএন্ডে সংযোগ হয়নি ({error}) — <code>NEXT_PUBLIC_API_URL</code> ঠিক করুন। ডেমো মোডে নিচে নমুনা সংবাদ দেখানো হচ্ছে।
+            </>
+          ) : (
+            <>ব্যাকএন্ডে সংযোগ হয়নি ({error})। প্রকাশিত সংবাদ এই মুহূর্তে লোড করা যায়নি।</>
+          )}
         </div>
       )}
 

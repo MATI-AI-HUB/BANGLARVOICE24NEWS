@@ -9,7 +9,11 @@ import { createClient } from '@supabase/supabase-js';
  *   • live/videos → PocketBase (secondary feeds)
  */
 
-const PB_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8090';
+const PB_BASE =
+  process.env.ENABLE_LEGACY_POCKETBASE === 'true' &&
+  process.env.NODE_ENV !== 'production'
+    ? process.env.NEXT_PUBLIC_API_URL || ''
+    : '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
@@ -222,10 +226,11 @@ export const api = {
   },
 
   async article(slug: string): Promise<Record<string, unknown>> {
-    if (!supabase) return {};
     if (!UUID_RE.test(slug)) {
-      // Legacy mock slug — caller will fall back to mock data
       return {};
+    }
+    if (!supabase) {
+      throw new Error('Article backend unavailable');
     }
     try {
       const { data, error } = await supabase
@@ -239,10 +244,10 @@ export const api = {
       const base = mapArticle(row);
       return {
         ...base,
-        ...(row as Record<string, unknown>),          // pass through ALL DB fields
+        ...(row as Record<string, unknown>),
         body_bn: row.content_bn,
         body_en: row.content_en || undefined,
-        featured_image: (row as any).thumbnail_url,   // alias for legacy code
+        featured_image: (row as any).thumbnail_url,
         author_name: row.source_name || 'Banglar Voice',
         source_url: row.source_url || '',
         source_name: row.source_name || '',
@@ -250,8 +255,9 @@ export const api = {
         tags: [] as string[],
       };
     } catch (e) {
-      console.warn('[api.article] Supabase failed:', e);
-      return {};
+      throw new Error(
+        e instanceof Error ? e.message : 'Article backend unavailable',
+      );
     }
   },
 

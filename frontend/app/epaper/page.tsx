@@ -19,8 +19,24 @@ export const metadata: Metadata = {
 
 export default async function EpaperPage() {
   const backendEdition = await epaperApi.latest();
-  const edition = backendEdition ?? buildDemoEdition();
-  const isDemo = !backendEdition;
+  const demoMode = process.env.NODE_ENV !== 'production';
+  const edition = backendEdition ?? (demoMode ? buildDemoEdition() : null);
+  const isDemo = demoMode && !backendEdition;
+
+  if (!edition) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <header className="mb-6 border-b-2 border-primary pb-4">
+          <h1 className="font-serifbn text-3xl font-bold text-primary">
+            ই-পেপার
+          </h1>
+        </header>
+        <p className="text-neutral-600 dark:text-neutral-300">
+          ই-পেপার এই মুহূর্তে লভ্য নয়। কোনো সংস্করণ প্রকাশিত হয়নি।
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -36,7 +52,7 @@ export default async function EpaperPage() {
 
       {isDemo && (
         <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          ⚠ ডেমো মোড — ব্যাকএন্ড সংযোগ নেই। নমুনা সংস্করণ দেখানো হচ্ছে।
+          ডেমো মোড — ব্যাকএন্ড সংযোগ নেই। নমুনা সংস্করণ দেখানো হচ্ছে।
         </div>
       )}
 

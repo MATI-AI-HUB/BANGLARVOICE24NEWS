@@ -8,7 +8,11 @@ const nextConfig = {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },
   async rewrites() {
-    const api = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8090'
+    const legacy =
+      process.env.ENABLE_LEGACY_POCKETBASE === 'true' &&
+      process.env.NODE_ENV !== 'production'
+    const api = process.env.NEXT_PUBLIC_API_URL || ''
+    if (!legacy || !api) return []
     return [
       { source: '/api/backend/:path*', destination: `${api}/api/:path*` },
     ]
