@@ -173,3 +173,4 @@ archive/**/bv-pocketbase
 
 tatus -sb
 supabase/.temp/
+tatus -sb
