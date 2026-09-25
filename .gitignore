@@ -172,3 +172,8 @@ archive/**/bv-pocketbase
 *.bin
 
 tatus -sb
+<<<<<<< HEAD
+=======
+supabase/.temp/
+tatus -sb
+>>>>>>> a9394ff1a9f9212b16b6fac669dd351625c2c95b
