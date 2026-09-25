@@ -36,9 +36,49 @@ type QueueItem = {
 type Rewrite = {
   title_bn: string;
   content_bn: string;
+  excerpt_bn: string;
   category_key: CategoryKey;
   confidence: number;
 };
+
+class TransientAiError extends Error {
+  readonly retryable = true as const;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "TransientAiError";
+  }
+}
+
+const MAX_AI_ATTEMPTS = 3;
+const MAX_QUEUE_ATTEMPTS = 3;
+const FRESHNESS_MS = 24 * 60 * 60 * 1000;
+
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof TransientAiError) return true;
+
+  const name = error instanceof Error ? error.name : "";
+  if (name === "AbortError" || name === "TimeoutError") return true;
+
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    /AbortError|TimeoutError|timed?\s*out|network|ECONNRESET|ETIMEDOUT|fetch failed|Failed to fetch/i
+      .test(message)
+  ) {
+    return true;
+  }
+
+  if (/AI HTTP 429\b/.test(message)) return true;
+  if (/AI HTTP 5\d\d\b/.test(message)) return true;
+  if (
+    /AI HTTP 400\b/.test(message) &&
+    /json|schema|validat|failed_generation|response_format/i.test(message)
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 type Decision = {
   risk_level: "low" | "high" | "critical";
@@ -154,24 +194,26 @@ async function vaultKey(serviceName: string): Promise<string | null> {
   return typeof data === "string" && data.length > 0 ? data : null;
 }
 
-async function rewrite(groqKey: string, item: QueueItem): Promise<Rewrite> {
+async function rewriteOnce(groqKey: string, item: QueueItem): Promise<Rewrite> {
   const system = `তুমি বাংলার ভয়েসের সংবাদ সহকারী।
 
 কঠোর নিয়ম:
 1. শুধু প্রদত্ত উৎসের শিরোনাম ও বিবরণে থাকা তথ্য ব্যবহার করবে।
 2. কোনো নতুন নাম, সংখ্যা, স্থান, সময়, অভিযোগ বা কারণ যোগ করবে না।
 3. অনিশ্চিত তথ্যকে নিশ্চিত হিসেবে লিখবে না।
-4. 120-220 শব্দের মধ্যে সংক্ষিপ্ত বাংলা সংবাদ লিখবে।
-5. শিরোনাম 8-14 শব্দ; ক্লিকবেট নয়।
-6. শেষে শুধু এই বাক্য থাকবে: "সূত্র: ${item.source_name}"
-7. category_key অবশ্যই এই তালিকার একটি:
+4. content_bn 80-140 শব্দের সংক্ষিপ্ত বাংলা সংবাদ।
+5. title_bn 8-14 শব্দ; ক্লিকবেট নয়।
+6. excerpt_bn 20-40 শব্দের সারাংশ; নতুন তথ্য যোগ করবে না।
+7. শেষে শুধু এই বাক্য থাকবে: "সূত্র: ${item.source_name}"
+8. category_key অবশ্যই এই তালিকার একটি:
 national | politics | economy | sports | entertainment | tech | health | education | international | city
-8. শুধু JSON ফেরত দেবে।
+9. শুধু JSON ফেরত দেবে।
 
 JSON:
 {
   "title_bn": "string",
   "content_bn": "string",
+  "excerpt_bn": "string",
   "category_key": "string",
   "confidence": 0.0
 }`;
@@ -180,70 +222,90 @@ JSON:
 উৎসের শিরোনাম: ${item.title}
 উৎসের বিবরণ: ${item.description}`;
 
-  const response = await fetch(`${AI_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${groqKey}`,
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      temperature: 0.2,
-      max_tokens: 1400,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "bangla_news_rewrite",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              title_bn: {
-                type: "string",
-                description: "Concise Bangla news headline",
+  let response: Response;
+  try {
+    response = await fetch(`${AI_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        temperature: 0.2,
+        max_tokens: 900,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "bangla_news_rewrite",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                title_bn: {
+                  type: "string",
+                  description: "Concise Bangla news headline, 8-14 words",
+                },
+                content_bn: {
+                  type: "string",
+                  description: "Complete Bangla news article body, 80-140 words",
+                },
+                excerpt_bn: {
+                  type: "string",
+                  description: "Short Bangla summary, 20-40 words",
+                },
+                category_key: {
+                  type: "string",
+                  enum: CATEGORY_ENUM,
+                },
+                confidence: {
+                  type: "number",
+                  minimum: 0,
+                  maximum: 1,
+                },
               },
-              content_bn: {
-                type: "string",
-                description: "Complete Bangla news article body",
-              },
-              excerpt_bn: {
-                type: "string",
-                description: "Short Bangla summary",
-              },
-              category_key: {
-                type: "string",
-                enum: CATEGORY_ENUM,
-              },
-              confidence: {
-                type: "number",
-                minimum: 0,
-                maximum: 1,
-              },
+              required: [
+                "title_bn",
+                "content_bn",
+                "excerpt_bn",
+                "category_key",
+                "confidence",
+              ],
+              additionalProperties: false,
             },
-            required: [
-              "title_bn",
-              "content_bn",
-              "excerpt_bn",
-              "category_key",
-              "confidence",
-            ],
-            additionalProperties: false,
           },
         },
-      },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-    signal: AbortSignal.timeout(18000),
-  });
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+      signal: AbortSignal.timeout(18000),
+    });
+  } catch (error) {
+    if (isRetryableError(error)) {
+      throw error instanceof TransientAiError
+        ? error
+        : new TransientAiError(
+          error instanceof Error ? error.message : String(error),
+        );
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const errorBody = (await response.text()).slice(0, 800);
-    throw new Error(
-      `AI HTTP ${response.status} at ${AI_BASE}/chat/completions: ${errorBody}`,
-    );
+    const message =
+      `AI HTTP ${response.status} at ${AI_BASE}/chat/completions: ${errorBody}`;
+    const retryableStatus =
+      response.status === 429 ||
+      response.status >= 500 ||
+      (response.status === 400 &&
+        /json|schema|validat|failed_generation|response_format/i.test(errorBody));
+    if (retryableStatus) {
+      throw new TransientAiError(message);
+    }
+    throw new Error(message);
   }
 
   const data = await response.json();
@@ -256,7 +318,7 @@ JSON:
     parsed = JSON.parse(raw) as Rewrite;
   } catch (error) {
     const finishReason = String(data?.choices?.[0]?.finish_reason || "unknown");
-    throw new Error(
+    throw new TransientAiError(
       `AI returned invalid JSON (finish_reason=${finishReason}, chars=${raw.length}): ${
         error instanceof Error ? error.message : String(error)
       }`,
@@ -268,7 +330,12 @@ JSON:
     !parsed.content_bn ||
     parsed.content_bn.length < 180
   ) {
-    throw new Error("AI output is incomplete");
+    throw new TransientAiError("AI output is incomplete");
+  }
+
+  parsed.excerpt_bn = String(parsed.excerpt_bn || "").trim();
+  if (!parsed.excerpt_bn) {
+    parsed.excerpt_bn = parsed.content_bn.slice(0, 160).trim();
   }
 
   if (!CATEGORY_ENUM.includes(parsed.category_key)) {
@@ -278,6 +345,25 @@ JSON:
   parsed.confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
 
   return parsed;
+}
+
+async function rewrite(groqKey: string, item: QueueItem): Promise<Rewrite> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_AI_ATTEMPTS; attempt += 1) {
+    try {
+      return await rewriteOnce(groqKey, item);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableError(error) || attempt === MAX_AI_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(String(lastError));
 }
 
 /**
@@ -470,19 +556,23 @@ async function fetchPexelsImage(
 Deno.serve(async () => {
   const started = Date.now();
   const now = new Date().toISOString();
+  const freshSince = new Date(Date.now() - FRESHNESS_MS).toISOString();
 
   let processed = 0;
   let published = 0;
   let pendingReview = 0;
   let skipped = 0;
   let failed = 0;
+  let claimedId: string | null = null;
+  let claimedAttempts = 0;
 
   try {
     const { data: candidates, error: candidateError } = await supabase
       .from("news_ingest_queue")
       .select("*")
       .eq("status", "queued")
-      .order("created_at", { ascending: true })
+      .gte("created_at", freshSince)
+      .order("created_at", { ascending: false })
       .limit(1);
 
     if (candidateError) {
@@ -531,6 +621,8 @@ Deno.serve(async () => {
       });
     }
 
+    claimedId = String(lockedItem.id);
+    claimedAttempts = Number(lockedItem.attempts) || Number(queueItem.attempts) || 1;
     processed = 1;
 
     const { data: existing } = await supabase
@@ -685,19 +777,36 @@ Deno.serve(async () => {
   } catch (error) {
     const message = String(error);
     failed = 1;
+    const shouldRequeue =
+      Boolean(claimedId) &&
+      isRetryableError(error) &&
+      claimedAttempts < MAX_QUEUE_ATTEMPTS;
 
-    try {
-      await supabase
-        .from("news_ingest_queue")
-        .update({
-          status: "failed",
-          last_error: message.slice(0, 2000),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("status", "processing")
-        .eq("locked_by", "news-writer");
-    } catch {
-      // Preserve primary failure response.
+    if (claimedId) {
+      try {
+        await supabase
+          .from("news_ingest_queue")
+          .update(
+            shouldRequeue
+              ? {
+                status: "queued",
+                locked_at: null,
+                locked_by: null,
+                last_error: message.slice(0, 2000),
+                updated_at: new Date().toISOString(),
+              }
+              : {
+                status: "failed",
+                locked_at: null,
+                locked_by: null,
+                last_error: message.slice(0, 2000),
+                updated_at: new Date().toISOString(),
+              },
+          )
+          .eq("id", claimedId);
+      } catch {
+        // Preserve primary failure response.
+      }
     }
 
     try {

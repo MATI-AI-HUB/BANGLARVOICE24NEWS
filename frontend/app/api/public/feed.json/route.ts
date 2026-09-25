@@ -46,6 +46,8 @@ export async function GET() {
       .from('articles')
       .select('*')
       .eq('status', 'published')
+      .not('published_at', 'is', null)
+      .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false })
       .limit(50);
 
@@ -82,10 +84,20 @@ export async function GET() {
         'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
       },
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { version: 'https://jsonfeed.org/version/1.1', title: 'বাংলার ভয়েস', items: [], error: String(err) },
-      { status: 200 },
+      {
+        version: 'https://jsonfeed.org/version/1.1',
+        title: 'বাংলার ভয়েস',
+        items: [],
+        error: 'feed_unavailable',
+      },
+      {
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
     );
   }
 }
