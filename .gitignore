@@ -1,179 +1,127 @@
-# --- Root ignore ---
-.DS_Store
-Thumbs.db
-*.log
-*.tmp
-.env
-.env.local
-.env.*
-!.env.example
 
+!**/google-services.json.template
+!**/key.properties.template
+!.env.example
+!frontend/next.config.js
+!frontend/postcss.config.js
+!frontend/seed-videos.js
+!frontend/tailwind.config.js
+!frontend/vitest.config.js
+!key.properties.template
+#   ANDROID_KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+# --- Android build output ---
 # --- Backend ---
-backend/pb_data/
-backend/pb_data_test/
-backend/pb_public/
-backend/pb_migrations/*.bak
-backend/bv-pocketbase
+# --- Editor ---
+# --- Flutter / Dart ---
+# --- Frontend ---
+# --- Root ignore ---
+# --- TS build cache ---
+# --- 🚨 SECRETS: NEVER COMMIT (use GitHub Secrets instead) ---
+# Allow specific helper scripts (git add -f needed otherwise)
+# Allow video seeding script (one-time setup, needed for new deploys)
+# Android signing local secrets
+# Backup files
+# Compiled binaries
+# Dev helpers — do not commit
+# Local diagnostics, temporary pages, and manual pipeline backups
+# Local-only audit and backup artifacts
+# Local-only diagnostic and generated files
+# Mobile build outputs
+# OS / Editor
+# Python/script backup files
+# Secrets
+# Vercel local config
+# Worker runtime
+# keystore, key.properties & google-services.json কখনো Git-এ যাবে না।
+# বিস্তারিত: android_keystore/README.md
+# সাইনিং কী GitHub Secrets-এ রাখা হয়:
+# ── Deploy helper ──
+# ── Dev utility scripts (one-time helpers) ──
+# ── Supabase function backups ──
+**/google-services.json
+**/key.properties
+**/keystore/
+*.aab
+*.ap_
+*.apk
+*.bak
+*.before-fix
+*.bin
 *.db
 *.db-shm
 *.db-wal
-
-# --- Frontend ---
-frontend/node_modules/
+*.exe
+*.iml
+*.jks
+*.keystore
+*.log
+*.pre-*
+*.pre-fix
+*.pre-verify
+*.swp
+*.tmp
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+.env.local
+.idea/
+.local-backups/
+.vercel/
+.vscode/
+/node_modules/
+/package-lock.json
+Thumbs.db
+archive/**/bv-pocketbase
+archive/local-audit-artifacts/
+archive/pipeline-backups/
+audit-output/
+backend/bv-pocketbase
+backend/pb_data/
+backend/pb_data_test/
+backend/pb_migrations/*.bak
+backend/pb_public/
+backups/
+deno.lock
+deploy-function.js
+deploy-v2.js
+docs/newsroom/audit/
+frontend/**/*.bak*
+frontend/*-backup-*.json
+frontend/*.bak*
+frontend/*.js
+frontend/.env.local
+frontend/.env.local*
 frontend/.next/
-frontend/out/
+frontend/_sentry_disabled/
+frontend/articles-backup-*.json
+frontend/deploy-*.js
 frontend/dist/
-
-# --- Flutter / Dart ---
-mobile_monorepo/**/build/
+frontend/lib/*.bak*
+frontend/node_modules/
+frontend/out/
+frontend/page-*.html
+frontend/seed-videos.js
+frontend/supa-*.mjs
+frontend/sync-youtube-videos.js
+key.properties
+logs/
 mobile_monorepo/**/.dart_tool/
 mobile_monorepo/**/.flutter-plugins*
 mobile_monorepo/**/.packages
 mobile_monorepo/**/.pub-cache/
 mobile_monorepo/**/android/.gradle/
 mobile_monorepo/**/android/local.properties
-*.iml
-
-# --- Android build output ---
-*.apk
-*.aab
-*.ap_
-
-# --- 🚨 SECRETS: NEVER COMMIT (use GitHub Secrets instead) ---
-# keystore, key.properties & google-services.json কখনো Git-এ যাবে না।
-# সাইনিং কী GitHub Secrets-এ রাখা হয়:
-#   ANDROID_KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
-# বিস্তারিত: android_keystore/README.md
-*.jks
-*.keystore
-key.properties
-**/key.properties
-!key.properties.template
-!**/key.properties.template
-**/keystore/
-**/google-services.json
-!**/google-services.json.template
-
-# --- Editor ---
-.idea/
-.vscode/
-*.swp
-
-# --- TS build cache ---
-*.tsbuildinfo
-
-# Backup files
-*.bak
-
-# Android signing local secrets
+mobile_monorepo/**/build/
 mobile_monorepo/keystores/
-*.jks
-*.keystore
-frontend/.env.local
-.env.local
-
-# Vercel local config
-.vercel/
 package-lock.json
-/node_modules/
-/package-lock.json
-
-# ── Dev utility scripts (one-time helpers) ──
-frontend/*.js
-!frontend/next.config.js
-!frontend/postcss.config.js
-!frontend/tailwind.config.js
-!frontend/vitest.config.js
-frontend/*.bak*
-frontend/*-backup-*.json
-frontend/articles-backup-*.json
-
-# ── Supabase function backups ──
+scripts/pipeline/output/
+scripts/pipeline/tmp/
+supabase/.temp/
 supabase/functions/news-pipeline/*.bak*
 supabase/functions/news-pipeline/fix-sensitive.js
-
-# ── Deploy helper ──
-deploy-function.js
-frontend/lib/*.bak*
-frontend/**/*.bak*
-frontend/lib/*.bak*
-frontend/**/*.bak*
-frontend/lib/*.bak*
-frontend/**/*.bak*
-frontend/_sentry_disabled/
-
-# Dev helpers — do not commit
-deploy-v2.js
-frontend/deploy-*.js
-
-# Allow video seeding script (one-time setup, needed for new deploys)
-!frontend/seed-videos.js
-
-# Allow specific helper scripts (git add -f needed otherwise)
-frontend/sync-youtube-videos.js
-frontend/seed-videos.js
-scripts/pipeline/tmp/
-scripts/pipeline/output/
-
-# Python/script backup files
-*.pre-*
-*.pre-fix
-*.pre-verify
-
-*.before-fix
-frontend/supa-*.mjs
-
-# Local diagnostics, temporary pages, and manual pipeline backups
-frontend/page-*.html
-frontend/.env.local*
 supabase/functions/news-pipeline/index.ts.before-*
-archive/local-audit-artifacts/
-archive/pipeline-backups/
-backups/
-
-# Local-only audit and backup artifacts
-.local-backups/
-audit-output/
-backups/
-logs/
-frontend/.next/
-frontend/page-*.html
-supabase/functions/news-pipeline/index.ts.before-*
-
-# Local-only diagnostic and generated files
-deno.lock
-docs/newsroom/audit/
-
-# Local-only diagnostic and generated files
-deno.lock
-docs/newsroom/audit/
-# Secrets
-.env
-.env.*
-!.env.example
-
-# Worker runtime
-worker/node_modules/
+tatus -sb
 worker/.env
 worker/dist/
-
-# Mobile build outputs
-mobile_monorepo/**/build/
-mobile_monorepo/**/.dart_tool/
-mobile_monorepo/**/.flutter-plugins*
-
-# OS / Editor
-.DS_Store
-*.swp
-
-# Compiled binaries
-archive/**/bv-pocketbase
-*.exe
-*.bin
-
-tatus -sb
-<<<<<<< HEAD
-=======
-supabase/.temp/
-tatus -sb
->>>>>>> a9394ff1a9f9212b16b6fac669dd351625c2c95b
+worker/node_modules/
