@@ -53,7 +53,13 @@ export async function GET(req: Request) {
         },
       },
     );
-  } catch (err) {
-    return NextResponse.json({ videos: [], error: String(err) }, { status: 200 });
+  } catch {
+    return NextResponse.json(
+      { videos: [], total: 0, error: 'videos_unavailable' },
+      {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store' },
+      },
+    );
   }
 }

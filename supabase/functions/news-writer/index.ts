@@ -657,14 +657,7 @@ Deno.serve(async () => {
         rewritten.category_key,
       );
 
-      /**
-       * Only low-risk auto-published articles receive automatic stock media.
-       * Sensitive or pending-review articles require editorial media review.
-       */
-      const image =
-        publishDecision.status === "published"
-          ? await fetchPexelsImage(rewritten.category_key)
-          : null;
+      const image = await fetchPexelsImage(rewritten.category_key);
 
       const { data: article, error: insertError } = await supabase
         .from("articles")
@@ -673,6 +666,7 @@ Deno.serve(async () => {
           title_en: "",
           content_bn: rewritten.content_bn,
           content_en: "",
+          excerpt_bn: rewritten.excerpt_bn.slice(0, 400),
           category: rewritten.category_key,
           category_key: rewritten.category_key,
 

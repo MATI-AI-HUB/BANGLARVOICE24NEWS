@@ -105,6 +105,8 @@ type SupabaseArticle = {
   content_en: string | null;
   category: string | null;
   thumbnail_url: string | null;
+  featured_image?: string | null;
+  excerpt_bn?: string | null;
   status: string;
   published_at: string | null;
   created_at: string;
@@ -127,7 +129,7 @@ function estimateReadTime(content: string): number {
 }
 
 function mapArticle(row: SupabaseArticle): FeedArticle {
-  const summary = stripHtml(row.content_bn).slice(0, 220);
+  const summary = stripHtml(row.excerpt_bn || row.content_bn).slice(0, 220);
   const pubIso = row.published_at || row.created_at;
   const readMin = estimateReadTime(row.content_bn);
   return {
@@ -138,7 +140,7 @@ function mapArticle(row: SupabaseArticle): FeedArticle {
     dek_bn: summary,
     dek_en: row.content_en ? stripHtml(row.content_en).slice(0, 220) : undefined,
     category: categoryLabel(row.category),
-    featured_image: row.thumbnail_url || '',
+    featured_image: row.thumbnail_url || row.featured_image || '',
     reading_time_min: readMin,
     bias_index: 50,
     published_at: pubIso,
@@ -247,7 +249,7 @@ export const api = {
         ...(row as Record<string, unknown>),
         body_bn: row.content_bn,
         body_en: row.content_en || undefined,
-        featured_image: (row as any).thumbnail_url,
+        featured_image: row.thumbnail_url || row.featured_image || '',
         author_name: row.source_name || 'Banglar Voice',
         source_url: row.source_url || '',
         source_name: row.source_name || '',

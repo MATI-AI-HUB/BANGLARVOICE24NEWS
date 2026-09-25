@@ -67,14 +67,14 @@ export async function GET() {
           id: a.id,
           url: `${SITE}/article/${a.id}`,
           title: a.title_bn,
-          summary: (a.content_bn || '').slice(0, 200),
+          summary: (a.excerpt_bn || a.content_bn || '').slice(0, 200),
           content_text: a.content_bn,
           date_published: a.published_at,
           tags,
           category_key: cat.key,
           category_label: cat.label,
           authors: [{ name: 'বাংলার ভয়েস ডেস্ক' }],
-          banner_image: a.thumbnail_url || '',
+          banner_image: a.thumbnail_url || a.featured_image || '',
         };
       }),
     };

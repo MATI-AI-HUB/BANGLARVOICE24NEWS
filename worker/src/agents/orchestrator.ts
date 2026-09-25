@@ -9,7 +9,7 @@ import type { WorkerConfig } from "../config.js";
 import { collect } from "./collector.js";
 import { rewrite } from "./rewriter.js";
 import { fetchMedia } from "./media.js";
-import { edit } from "./chain-agents.js";
+import { broadcast, edit } from "./chain-agents.js";
 import { verifyDraft } from "./specialists/router.js";
 import { checkDiversityQuota } from "./specialists/diversity.js";
 import { findCorroboratingSources } from "./specialists/multisource.js";
@@ -20,9 +20,14 @@ export interface PublishResult {
   ok: boolean;
   url?: string;
   error?: string;
+  id?: string;
+  status?: string;
 }
 
 export async function publishArticle(cfg: WorkerConfig, draft: DraftArticle): Promise<PublishResult> {
+  if (!cfg.bvBaseUrl || !cfg.newsroomIngestKey) {
+    return { ok: false, error: "ingest_disabled" };
+  }
   try {
     const res = await fetch(`${cfg.bvBaseUrl}/api/newsroom/ingest`, {
       method: "POST",
@@ -45,8 +50,13 @@ export async function publishArticle(cfg: WorkerConfig, draft: DraftArticle): Pr
       }),
     });
     if (!res.ok) return { ok: false, error: `ingest ${res.status}` };
-    const data: any = await res.json();
-    return { ok: true, url: data?.id ? `${cfg.bvBaseUrl}/article/${data.id}` : undefined };
+    const data = (await res.json()) as { id?: string; status?: string };
+    return {
+      ok: true,
+      id: data?.id,
+      status: data?.status,
+      url: data?.id ? `${cfg.bvBaseUrl}/article/${data.id}` : undefined,
+    };
   } catch (e: any) {
     return { ok: false, error: e?.message };
   }
@@ -143,13 +153,19 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{ collected: numbe
       continue;
     }
 
-    // Publish
-    draft.status = "approved";
+    draft.status = decision.action === "publish" ? "published" : "pending_review";
     const result = await publishArticle(cfg, draft);
     if (result.ok) {
-      draft.status = "published";
+      draft.status = result.status === "published" ? "published" : "pending_review";
       published++;
       state.stage = "published";
+      if (draft.status === "published" && result.url) {
+        try {
+          await broadcast(cfg, { titleBn: draft.titleBn, url: result.url });
+        } catch (e) {
+          console.error("[orchestrator] social broadcast failed", e);
+        }
+      }
     } else {
       state.stage = "rejected";
       rejected++;

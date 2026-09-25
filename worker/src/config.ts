@@ -43,6 +43,20 @@ const csv = (v: string | undefined): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+function requireNewsroomIngestKey(env: NodeJS.ProcessEnv): string {
+  const raw = (env.NEWSROOM_INGEST_KEY ?? "").trim();
+  const isProd = (env.NODE_ENV ?? "") === "production";
+  if (!raw || raw === "change-me") {
+    if (isProd) {
+      throw new Error(
+        "NEWSROOM_INGEST_KEY is required in production. Refusing the change-me default.",
+      );
+    }
+    return "";
+  }
+  return raw;
+}
+
 function requireBvBaseUrl(env: NodeJS.ProcessEnv): string {
   const raw = (env.BV_BASE_URL ?? "").trim().replace(/\/$/, "");
   const isProd = (env.NODE_ENV ?? "") === "production";
@@ -83,7 +97,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     bvBaseUrl: requireBvBaseUrl(env),
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
-    newsroomIngestKey: env.NEWSROOM_INGEST_KEY ?? "change-me",
+    newsroomIngestKey: requireNewsroomIngestKey(env),
     autoPublish: (env.AUTO_PUBLISH ?? "false").toLowerCase() === "true",
     telegramAllowedChatIds: csv(env.TELEGRAM_ALLOWED_CHAT_IDS),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN ?? "",

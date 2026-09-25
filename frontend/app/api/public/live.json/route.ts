@@ -28,10 +28,13 @@ export async function GET() {
       },
       { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=30' } },
     );
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { ticker: null, entries: [], error: String(err) },
-      { status: 200 },
+      { ticker: null, entries: [], error: 'live_unavailable' },
+      {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store' },
+      },
     );
   }
 }
