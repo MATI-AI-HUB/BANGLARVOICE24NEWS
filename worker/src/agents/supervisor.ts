@@ -73,6 +73,9 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
   }
 
   if (score >= 50) {
+    if (cfg.autoPublish && (draft.imageUrl || "").trim()) {
+      return { itemId: draft.raw.id, action: "publish", reason: "auto-publish with image, ai_score 50-79", score };
+    }
     return { itemId: draft.raw.id, action: "wait", reason: "ai_score 50-79, editor review", score };
   }
 

@@ -1,0 +1,29 @@
+name: News ingest
+
+on:
+  schedule:
+    - cron: "20 */2 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: Run one news cycle
+        env:
+          NODE_ENV: production
+          BV_BASE_URL: https://www.banglarvoice24news.com
+          NEWSROOM_INGEST_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
+          AUTO_PUBLISH: "true"
+        run: npx tsx src/once.ts
