@@ -5,5 +5,6 @@ node_modules/
 *.before-*
 supabase/.temp/
 worker/dist/
-.vercel
-.env*
+frontend/next/
+frontend/tsconfig.tsbuildinfo
+bun.lockb
