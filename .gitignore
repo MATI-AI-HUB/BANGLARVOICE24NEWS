@@ -8,3 +8,5 @@ worker/dist/
 frontend/next/
 frontend/tsconfig.tsbuildinfo
 bun.lockb
+.vercel
+.env*
