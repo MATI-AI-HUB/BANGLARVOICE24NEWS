@@ -11,14 +11,8 @@ class StudioConfig {
   static const int deepBlue = 0xFF0A1931;
 
   // ─── Supabase (real auth for mobile) ───
-  static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://iqdpuedsykjicquvnmii.supabase.co',
-  );
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxZHB1ZWRzeWtqaWNxdXZubWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDkzNzMsImV4cCI6MjEwNDg4NTM3M30.HAu0axyxFgX8ADclCHoT50F_XwKX8F9GrFvTjJ5P7t8',
-  );
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   // ─── Live infrastructure (unchanged) ───
   static const String liveKitUrl = String.fromEnvironment('BV_LIVEKIT_URL', defaultValue: '');

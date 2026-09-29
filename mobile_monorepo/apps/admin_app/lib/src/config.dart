@@ -9,14 +9,8 @@ class AdminConfig {
   static String currentBase = _defined.isNotEmpty ? _defined : defaultBase;
 
   // ─── Supabase (real auth for mobile) ───
-  static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'https://iqdpuedsykjicquvnmii.supabase.co',
-  );
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxZHB1ZWRzeWtqaWNxdXZubWlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzMDkzNzMsImV4cCI6MjEwNDg4NTM3M30.HAu0axyxFgX8ADclCHoT50F_XwKX8F9GrFvTjJ5P7t8',
-  );
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
   // ─── Admin endpoints ───
   static const String statsPath = '/api/admin/stats';
