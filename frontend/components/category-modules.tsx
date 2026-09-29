@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ArticleCard, type Article } from './hero-bento';
 import { AdSlot } from './ad-slot';
 import { t, translateCategory, type Locale } from '@/lib/i18n';
+import { categorySlug } from '@/lib/category';
 
 /**
  * CategoryModules — DW/AJ-inspired data-driven "বিভাগ অনুযায়ী" rows.
@@ -29,23 +30,7 @@ const PRIORITY: string[] = [
   'সর্বশেষ',
 ];
 
-/** Bangla category name -> ascii anchor slug (used for nav deep-links). */
-export function categorySlug(name: string): string {
-  const map: Record<string, string> = {
-    রাজনীতি: 'politics',
-    অর্থনীতি: 'economy',
-    আন্তর্জাতিক: 'international',
-    খেলা: 'sports',
-    বিনোদন: 'entertainment',
-    শিক্ষা: 'education',
-    স্বাস্থ্য: 'health',
-    ধর্ম: 'religion',
-    বিজ্ঞান: 'science',
-    প্রযুক্তি: 'technology',
-    সর্বশেষ: 'latest',
-  };
-  return map[name.trim()] ?? `cat-${name.trim().replace(/\s+/g, '-')}`;
-}
+export { categorySlug } from '@/lib/category';
 
 export function CategoryModules({ articles, locale = 'bn' as Locale }: { articles: Article[]; locale?: Locale }) {
   const modules = useMemo(() => {

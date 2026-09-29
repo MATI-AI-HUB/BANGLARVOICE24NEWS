@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { api } from '../../../lib/api';
 import { LOCALE_COOKIE, getLocaleFromCookie, t, translateCategory } from '../../../lib/i18n';
 import { ArticleCard } from '../../../components/hero-bento';
-import { categorySlug } from '../../../components/category-modules';
+import { categorySlug, isKnownCategorySlug } from '../../../lib/category';
 import type { FeedArticle } from '../../../lib/mockData';
 
 export const revalidate = 60;
@@ -24,13 +24,16 @@ export default async function CategoryPage({ params }: PageProps) {
     items = [];
   }
 
+  if (!isKnownCategorySlug(slug)) notFound();
   const matches = items.filter((a) => categorySlug(a.category || '') === slug);
-  if (matches.length === 0) notFound();
-  const label = translateCategory(locale, matches[0].category || slug);
+  const label = translateCategory(locale, matches[0]?.category || slug);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="font-serifbn text-3xl font-extrabold">{label}</h1>
+      {matches.length === 0 ? (
+        <p className="mt-8 text-neutral-500">{t(locale, 'no_articles')}</p>
+      ) : null}
       <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {matches.map((a) => (
           <ArticleCard
