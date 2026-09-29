@@ -5,6 +5,7 @@ import {
   ingestConfigured,
   ingestExpectedKey,
   ingestKeyOk,
+  sourceLabelFromUrl,
 } from '../../../../lib/ingest-auth';
 
 export const dynamic = 'force-dynamic';
@@ -59,15 +60,6 @@ function json(body: unknown, status = 200) {
 
 function asText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-export function sourceLabelFromUrl(url: string): string {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./i, '');
-    return host || 'সূত্র';
-  } catch {
-    return 'সূত্র';
-  }
 }
 
 function mapCategory(raw: string): string {

@@ -26,3 +26,12 @@ export function ingestKeyOk(provided: string, expected: string): boolean {
   if (!provided || !expected) return false;
   return timingSafeEqual(digest(provided), digest(expected));
 }
+
+export function sourceLabelFromUrl(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, '');
+    return host || 'সূত্র';
+  } catch {
+    return 'সূত্র';
+  }
+}
