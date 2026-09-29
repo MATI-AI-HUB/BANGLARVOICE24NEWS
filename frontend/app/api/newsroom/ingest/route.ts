@@ -1,6 +1,11 @@
-import { createHash, timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  extractProvidedKey,
+  ingestConfigured,
+  ingestExpectedKey,
+  ingestKeyOk,
+} from '../../../../lib/ingest-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -31,9 +36,15 @@ type IngestBody = {
   tags?: unknown;
   imageUrl?: unknown;
   imageAlt?: unknown;
+  imageCredit?: unknown;
+  imageLicense?: unknown;
+  imageSource?: unknown;
+  rewriteMethod?: unknown;
+  fallback?: unknown;
   aiScore?: unknown;
   aiSummary?: unknown;
   sourceUrl?: unknown;
+  sourceName?: unknown;
   sourceCategory?: unknown;
   status?: unknown;
   contentHash?: unknown;
@@ -50,13 +61,13 @@ function asText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function digest(value: string): Buffer {
-  return createHash('sha256').update(value).digest();
-}
-
-function ingestKeyOk(provided: string, expected: string): boolean {
-  if (!provided || !expected) return false;
-  return timingSafeEqual(digest(provided), digest(expected));
+export function sourceLabelFromUrl(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, '');
+    return host || 'সূত্র';
+  } catch {
+    return 'সূত্র';
+  }
 }
 
 function mapCategory(raw: string): string {
@@ -102,22 +113,26 @@ function getAdmin() {
   });
 }
 
+function isUniqueViolation(message: string | undefined): boolean {
+  const m = (message || '').toLowerCase();
+  return m.includes('duplicate key') || m.includes('unique constraint') || m.includes('23505');
+}
+
 export async function GET() {
   return json({
     service: 'banglar-voice-newsroom-ingest',
     method: 'POST',
-    auth: 'x-ingest-key header',
+    auth: 'Authorization: Bearer <NEWSROOM_INGEST_KEY> or x-ingest-key',
   });
 }
 
 export async function POST(req: Request) {
-  const expected = (process.env.NEWSROOM_INGEST_KEY || '').trim();
-  if (!expected || expected === 'change-me') {
-    return json({ error: 'ingest_disabled' }, 503);
+  if (!ingestConfigured()) {
+    return json({ error: 'ingest_unconfigured' }, 500);
   }
 
-  const provided = req.headers.get('x-ingest-key') || '';
-  if (!ingestKeyOk(provided, expected)) {
+  const provided = extractProvidedKey(req);
+  if (!ingestKeyOk(provided, ingestExpectedKey())) {
     return json({ error: 'unauthorized' }, 401);
   }
 
@@ -128,17 +143,24 @@ export async function POST(req: Request) {
     return json({ error: 'invalid_json' }, 400);
   }
 
+  if (body.fallback === true || asText(body.rewriteMethod).toLowerCase() === 'fallback') {
+    return json({ error: 'fallback_not_publishable' }, 422);
+  }
+
   const title = asText(body.title);
   const content = asText(body.content);
   if (title.length < 5) return json({ error: 'title_required' }, 400);
   if (content.length < 40) return json({ error: 'content_required' }, 400);
 
   const sourceUrl = asText(body.sourceUrl);
+  const sourceName = asText(body.sourceName) || sourceLabelFromUrl(sourceUrl);
   const contentHash = asText(body.contentHash);
   const excerpt = asText(body.excerpt) || content.slice(0, 160);
   const category = mapCategory(asText(body.sourceCategory));
   const mapped = mapStatus(asText(body.status));
   const imageUrl = asText(body.imageUrl);
+  const imageCredit = asText(body.imageCredit) || asText(body.imageAlt);
+  const imageLicense = asText(body.imageLicense);
   const now = new Date().toISOString();
   const tags = Array.isArray(body.tags)
     ? body.tags.filter((t): t is string => typeof t === 'string').slice(0, 12)
@@ -148,8 +170,11 @@ export async function POST(req: Request) {
   try {
     supabase = getAdmin();
   } catch {
-    return json({ error: 'ingest_disabled' }, 503);
+    return json({ error: 'ingest_unconfigured' }, 500);
   }
+
+  const duplicatePayload = (id: string, status: string) =>
+    json({ ok: true, id, status, duplicate: true });
 
   if (sourceUrl) {
     const { data: existing, error: lookupError } = await supabase
@@ -161,14 +186,7 @@ export async function POST(req: Request) {
     if (lookupError) {
       return json({ error: 'storage_failed', detail: lookupError.message }, 500);
     }
-    if (existing) {
-      return json({
-        ok: true,
-        id: existing.id,
-        status: existing.status,
-        duplicate: true,
-      });
-    }
+    if (existing) return duplicatePayload(existing.id, existing.status);
   }
 
   if (contentHash) {
@@ -181,14 +199,7 @@ export async function POST(req: Request) {
     if (hashError) {
       return json({ error: 'storage_failed', detail: hashError.message }, 500);
     }
-    if (hashed) {
-      return json({
-        ok: true,
-        id: hashed.id,
-        status: hashed.status,
-        duplicate: true,
-      });
-    }
+    if (hashed) return duplicatePayload(hashed.id, hashed.status);
   }
 
   const aiScore = typeof body.aiScore === 'number' ? body.aiScore : Number(body.aiScore);
@@ -210,15 +221,17 @@ export async function POST(req: Request) {
       human_verified: false,
       source_type: 'syndicated',
       source_language: 'bn',
-      source_name: '',
+      source_name: sourceName,
       source_url: sourceUrl || null,
       canonical_url: sourceUrl || null,
       content_hash: contentHash || '',
       thumbnail_url: imageUrl,
       featured_image: imageUrl,
       image_alt_bn: asText(body.imageAlt).slice(0, 250),
+      image_credit: imageCredit.slice(0, 250),
       media_type: imageUrl ? 'image' : 'none',
       ai_confidence: aiConfidence,
+      ai_model: asText(body.rewriteMethod) === 'ai' ? 'chat' : '',
       fact_sources: sourceUrl
         ? [
             {
@@ -228,6 +241,8 @@ export async function POST(req: Request) {
               checked_at: now,
               claim_scope: asText(body.aiSummary).slice(0, 500),
               tags,
+              image_license: imageLicense,
+              image_source: asText(body.imageSource),
             },
           ]
         : [],
@@ -237,9 +252,29 @@ export async function POST(req: Request) {
     .select('id, status')
     .single();
 
-  if (error || !data) {
-    return json({ error: 'storage_failed', detail: error?.message || 'insert failed' }, 500);
+  if (error) {
+    if (isUniqueViolation(error.message)) {
+      if (sourceUrl) {
+        const { data: existing } = await supabase
+          .from('articles')
+          .select('id, status')
+          .eq('source_url', sourceUrl)
+          .maybeSingle();
+        if (existing) return duplicatePayload(existing.id, existing.status);
+      }
+      if (contentHash) {
+        const { data: hashed } = await supabase
+          .from('articles')
+          .select('id, status')
+          .eq('content_hash', contentHash)
+          .maybeSingle();
+        if (hashed) return duplicatePayload(hashed.id, hashed.status);
+      }
+      return json({ ok: true, duplicate: true });
+    }
+    return json({ error: 'storage_failed', detail: error.message }, 500);
   }
 
+  if (!data) return json({ error: 'storage_failed', detail: 'insert failed' }, 500);
   return json({ ok: true, id: data.id, status: data.status });
 }

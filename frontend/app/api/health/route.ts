@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { ingestConfigured } from '../../../lib/ingest-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,6 +26,9 @@ export async function GET() {
       last_success_at: null,
       stale: true,
       stale_hours: STALE_HOURS,
+      published: 0,
+      ingest_configured: ingestConfigured(),
+      supabase_configured: false,
       error: 'supabase_unconfigured',
     }, 503);
   }
@@ -38,6 +42,12 @@ export async function GET() {
     let stage: string | null = null;
     let published = 0;
 
+    const { count: publishedCount } = await supabase
+      .from('articles')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'published');
+    published = publishedCount ?? 0;
+
     if (!lastSuccessAt) {
       const { data, error } = await supabase
         .from('news_pipeline_runs')
@@ -48,7 +58,6 @@ export async function GET() {
         .maybeSingle();
       lastSuccessAt = data?.completed_at || data?.created_at || null;
       stage = data?.stage ?? null;
-      published = data?.published ?? 0;
       if (!lastSuccessAt) {
         const { data: latest } = await supabase
           .from('articles')
@@ -61,7 +70,6 @@ export async function GET() {
         lastSuccessAt = latest?.published_at || null;
         if (lastSuccessAt) {
           stage = stage || 'articles';
-          published = published || 1;
         }
       }
       if (!lastSuccessAt && error && rpcError) {
@@ -71,6 +79,9 @@ export async function GET() {
           last_success_at: null,
           stale: true,
           stale_hours: STALE_HOURS,
+          published,
+          ingest_configured: ingestConfigured(),
+          supabase_configured: true,
           error: error.message,
         }, 503);
       }
@@ -87,6 +98,8 @@ export async function GET() {
       stale_hours: STALE_HOURS,
       stage,
       published,
+      ingest_configured: ingestConfigured(),
+      supabase_configured: true,
     }, stale ? 503 : 200);
   } catch (e) {
     return json({
@@ -95,6 +108,9 @@ export async function GET() {
       last_success_at: null,
       stale: true,
       stale_hours: STALE_HOURS,
+      published: 0,
+      ingest_configured: ingestConfigured(),
+      supabase_configured: true,
       error: e instanceof Error ? e.message : String(e),
     }, 503);
   }
