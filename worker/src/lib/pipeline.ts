@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { WorkerConfig } from "../config.js";
 
-export const MAX_PUBLISH_PER_CYCLE = 8;
+export const MAX_PUBLISH_PER_CYCLE = 20;
+export const MAX_PROCESS_PER_CYCLE = 80;
 export const HEALTH_STALE_HOURS = 6;
 export const RATE_LIMIT_PER_HOUR = 40;
 

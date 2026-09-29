@@ -74,14 +74,14 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
     return { itemId: draft.raw.id, action: "approve", reason: "ai_score >= 80, awaiting editor /approve", score };
   }
 
-  if (score >= 50) {
+  if (score >= 40) {
     if (cfg.autoPublish) {
-      return { itemId: draft.raw.id, action: "publish", reason: "auto-publish, ai_score 50-79", score };
+      return { itemId: draft.raw.id, action: "publish", reason: "auto-publish, ai_score 40-79", score };
     }
-    return { itemId: draft.raw.id, action: "wait", reason: "ai_score 50-79, editor review", score };
+    return { itemId: draft.raw.id, action: "wait", reason: "ai_score 40-79, editor review", score };
   }
 
-  return { itemId: draft.raw.id, action: "reject", reason: "ai_score < 50", score };
+  return { itemId: draft.raw.id, action: "reject", reason: "ai_score < 40", score };
 }
 
 export async function sendTelegramAlert(cfg: WorkerConfig, text: string): Promise<boolean> {

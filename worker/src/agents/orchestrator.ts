@@ -11,6 +11,7 @@ import type { DraftArticle, PipelineState } from "./types.js";
 import {
   contentHash,
   logPipelineRun,
+  MAX_PROCESS_PER_CYCLE,
   MAX_PUBLISH_PER_CYCLE,
   rateLimitOk,
   sourceAlreadyPublished,
@@ -97,8 +98,23 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       duration_ms: Date.now() - started,
     });
 
-    for (const raw of rawItems.slice(0, 20)) {
-      if (published >= MAX_PUBLISH_PER_CYCLE) {
+    for (const raw of rawItems) {
+      if (published >= MAX_PUBLISH_PER_CYCLE) break;
+      if (processed >= MAX_PROCESS_PER_CYCLE) break;
+
+      const rate = await rateLimitOk(cfg);
+      if (!rate.ok) {
+        await logPipelineRun(cfg, {
+          stage: "rate-limit",
+          status: "partial",
+          skipped: 1,
+          details: { publishedLastHour: rate.publishedLastHour },
+        });
+        break;
+      }
+
+      const hash = contentHash(raw.link, raw.title, raw.description || raw.title);
+      if (await sourceAlreadyPublished(cfg, raw.link, hash)) {
         skipped += 1;
         continue;
       }
@@ -110,24 +126,6 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         updatedAt: new Date().toISOString(),
         attempts: 1,
       };
-
-      const rate = await rateLimitOk(cfg);
-      if (!rate.ok) {
-        await logPipelineRun(cfg, {
-          stage: "rate-limit",
-          status: "partial",
-          skipped: 1,
-          details: { publishedLastHour: rate.publishedLastHour },
-        });
-        skipped += 1;
-        continue;
-      }
-
-      const hash = contentHash(raw.link, raw.title, raw.description || raw.title);
-      if (await sourceAlreadyPublished(cfg, raw.link, hash)) {
-        skipped += 1;
-        continue;
-      }
 
       const { titleBn, contentBn } = await rewrite(cfg, raw);
       state.stage = "rewritten";
