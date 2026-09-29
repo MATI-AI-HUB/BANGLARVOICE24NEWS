@@ -57,6 +57,45 @@ function requireNewsroomIngestKey(env: NodeJS.ProcessEnv): string {
   return raw;
 }
 
+function resolveChatAi(env: NodeJS.ProcessEnv): {
+  chatAiBaseUrl: string;
+  chatAiModel: string;
+  chatAiKey: string;
+} {
+  const explicitKey = (env.CHAT_AI_KEY ?? "").trim();
+  const groqKey = (env.GROQ_API_KEY ?? "").trim();
+  const openrouterKey = (env.OPENROUTER_API_KEY ?? "").trim();
+  const explicitBase = (env.CHAT_AI_BASE_URL ?? "").trim().replace(/\/$/, "");
+  const explicitModel = (env.CHAT_AI_MODEL ?? "").trim();
+
+  if (explicitKey) {
+    return {
+      chatAiKey: explicitKey,
+      chatAiBaseUrl: explicitBase || "https://api.openai.com/v1",
+      chatAiModel: explicitModel || "gpt-4o-mini",
+    };
+  }
+  if (groqKey) {
+    return {
+      chatAiKey: groqKey,
+      chatAiBaseUrl: explicitBase || "https://api.groq.com/openai/v1",
+      chatAiModel: explicitModel || "openai/gpt-oss-120b",
+    };
+  }
+  if (openrouterKey) {
+    return {
+      chatAiKey: openrouterKey,
+      chatAiBaseUrl: explicitBase || "https://openrouter.ai/api/v1",
+      chatAiModel: explicitModel || "openai/gpt-4o-mini",
+    };
+  }
+  return {
+    chatAiKey: "",
+    chatAiBaseUrl: explicitBase || "https://api.openai.com/v1",
+    chatAiModel: explicitModel || "gpt-4o-mini",
+  };
+}
+
 function requireBvBaseUrl(env: NodeJS.ProcessEnv): string {
   const raw = (env.BV_BASE_URL ?? "").trim().replace(/\/$/, "");
   const isProd = (env.NODE_ENV ?? "") === "production";
@@ -88,12 +127,13 @@ function requireBvBaseUrl(env: NodeJS.ProcessEnv): string {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
+  const chat = resolveChatAi(env);
   return {
     intervalMinutes: num(env.INTERVAL_MINUTES, 15),
     newsRssUrls: csv(env.NEWS_RSS_URLS),
-    chatAiBaseUrl: (env.CHAT_AI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, ""),
-    chatAiModel: env.CHAT_AI_MODEL ?? "gpt-4o-mini",
-    chatAiKey: env.CHAT_AI_KEY ?? "",
+    chatAiBaseUrl: chat.chatAiBaseUrl,
+    chatAiModel: chat.chatAiModel,
+    chatAiKey: chat.chatAiKey,
     bvBaseUrl: requireBvBaseUrl(env),
     supabaseUrl: (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "") || undefined,
     supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,

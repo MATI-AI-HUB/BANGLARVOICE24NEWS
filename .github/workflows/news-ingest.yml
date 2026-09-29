@@ -23,7 +23,7 @@ jobs:
       - name: Run one news cycle
         env:
           NODE_ENV: production
-          BV_BASE_URL: https://www.banglarvoice24news.com
+          BV_BASE_URL: https://automation-king-lcb2.vercel.app
           NEWSROOM_INGEST_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
           AUTO_PUBLISH: "true"
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -34,5 +34,7 @@ jobs:
           CHAT_AI_KEY: ${{ secrets.CHAT_AI_KEY }}
           CHAT_AI_BASE_URL: ${{ secrets.CHAT_AI_BASE_URL }}
           CHAT_AI_MODEL: ${{ secrets.CHAT_AI_MODEL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: npx tsx src/once.ts
