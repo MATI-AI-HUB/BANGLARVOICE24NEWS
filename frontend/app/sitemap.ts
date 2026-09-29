@@ -11,11 +11,12 @@ const BASE = (
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticUrls: MetadataRoute.Sitemap = [
-    {
-      url: `${BASE}/`,
-      changeFrequency: 'hourly',
-      priority: 1,
-    },
+    { url: `${BASE}/`, changeFrequency: 'hourly', priority: 1 },
+    { url: `${BASE}/search`, changeFrequency: 'daily', priority: 0.4 },
+    { url: `${BASE}/rss.xml`, changeFrequency: 'hourly', priority: 0.3 },
+    { url: `${BASE}/category/politics`, changeFrequency: 'hourly', priority: 0.7 },
+    { url: `${BASE}/category/economy`, changeFrequency: 'hourly', priority: 0.7 },
+    { url: `${BASE}/category/international`, changeFrequency: 'hourly', priority: 0.7 },
   ];
 
   let articles: FeedArticle[] = [];

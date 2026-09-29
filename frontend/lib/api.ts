@@ -113,6 +113,7 @@ type SupabaseArticle = {
   source_url: string | null;
   source_name: string | null;
   image_credit: string | null;
+  origin?: string | null;
 };
 
 function stripHtml(html: string): string {
@@ -148,6 +149,10 @@ function mapArticle(row: SupabaseArticle): FeedArticle {
     published_at_bn: bengaliDate(pubIso),
     time_ago_bn: timeAgoBn(pubIso),
     reading_time_bn: `${toBn(readMin)} মিনিট পড়া`,
+    source_name: row.source_name || '',
+    source_url: row.source_url || '',
+    image_credit: row.image_credit || '',
+    origin: row.origin === 'original' ? 'original' : 'aggregated',
   };
 }
 
@@ -166,13 +171,18 @@ type PublicFeedItem = {
   category_key?: string;
   category_label?: string;
   banner_image?: string;
+  source_name?: string;
+  source_url?: string;
+  image_credit?: string;
+  origin?: 'aggregated' | 'original';
+  external_url?: string;
 };
 
 type PublicFeedResponse = {
   items?: PublicFeedItem[];
 };
 
-function publicFeedItemToArticle(item: PublicFeedItem): FeedArticle {
+export function publicFeedItemToArticle(item: PublicFeedItem): FeedArticle {
   const fallbackSlug = item.url
     ? item.url.replace(/\/+$/, '').split('/').pop() || item.id
     : item.id;
@@ -193,6 +203,10 @@ function publicFeedItemToArticle(item: PublicFeedItem): FeedArticle {
     published_at_bn: bengaliDate(publishedAt),
     time_ago_bn: timeAgoBn(publishedAt),
     reading_time_bn: `${toBn(readingTime)} মিনিট পড়া`,
+    source_name: item.source_name || '',
+    source_url: item.source_url || item.external_url || '',
+    image_credit: item.image_credit || '',
+    origin: item.origin === 'original' ? 'original' : 'aggregated',
   };
 }
 
@@ -250,7 +264,7 @@ export const api = {
         body_bn: row.content_bn,
         body_en: row.content_en || undefined,
         featured_image: row.thumbnail_url || row.featured_image || '',
-        author_name: row.source_name || 'Banglar Voice',
+        author_name: row.source_name || '',
         source_url: row.source_url || '',
         source_name: row.source_name || '',
         image_credit: row.image_credit || '',

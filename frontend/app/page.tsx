@@ -15,9 +15,7 @@ import { NewsletterCta } from '../components/newsletter-cta';
 import { mockFeedItems, mockLiveEntries, mockVideoItems } from '../lib/mockData';
 import type { FeedArticle } from '../lib/mockData';
 
-export const dynamic = 'force-dynamic';
-
-export const revalidate = 60; // ISR — rebuild at most once per minute
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'সর্বশেষ সংবাদ',
@@ -34,6 +32,10 @@ const toBento = (a: FeedArticle, locale: Locale) => ({
   read_time: a.reading_time_min,
   bias_index: a.bias_index,
   published_at: a.published_at,
+  source_name: a.source_name,
+  source_url: a.source_url,
+  image_credit: a.image_credit,
+  origin: a.origin,
 });
 
 export default async function HomePage() {

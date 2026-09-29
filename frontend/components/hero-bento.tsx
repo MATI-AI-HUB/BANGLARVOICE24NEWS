@@ -10,10 +10,14 @@ export type Article = {
   summary?: string;
   category?: string;
   image_url?: string;
+  image_credit?: string;
   read_time?: number;
   bias_index?: number;
   published_at?: string;
   author?: string;
+  source_name?: string;
+  source_url?: string;
+  origin?: 'aggregated' | 'original';
 };
 
 
@@ -141,11 +145,16 @@ export function LeadCard({ article, href, locale }: { article: Article; href: st
             {article.summary}
           </p>
         )}
-        <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-neutral-500 dark:text-neutral-400">
-          <span>{article.author || t(locale, 'hero_title').split(' ')[0] /* fallback */ || 'Banglar Voice'}</span>
+        <div className="mt-auto flex flex-wrap items-center gap-3 pt-4 text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="rounded-full border border-border px-2 py-0.5 font-semibold text-ink dark:border-white/15 dark:text-paper">
+            {article.source_name || article.author || 'সূত্র'}
+          </span>
           {article.read_time ? <span>• {fmtNum(article.read_time, locale)} {t(locale, 'min_read')}</span> : null}
           <span>• <ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
+        {article.image_credit ? (
+          <p className="pt-2 text-[10px] text-neutral-400">ছবি: {article.image_credit}</p>
+        ) : null}
       </div>
     </a>
   );
@@ -169,11 +178,17 @@ export function ArticleCard({ article, href, locale }: { article: Article; href:
         <h3 className="font-serifbn text-lg font-bold leading-snug text-ink group-hover:text-primary dark:text-paper">
           {article.title}
         </h3>
-        <div className="mt-auto flex items-center gap-2 pt-3 text-[11px] text-neutral-500 dark:text-neutral-400">
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-3 text-[11px] text-neutral-500 dark:text-neutral-400">
+          <span className="rounded-full border border-border px-2 py-0.5 font-semibold text-ink dark:border-white/15 dark:text-paper">
+            {article.source_name || article.author || 'সূত্র'}
+          </span>
           {article.read_time ? <span>{fmtNum(article.read_time, locale)} {t(locale, 'min_short')}</span> : null}
           <span>•</span>
           <span><ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
+        {article.image_credit ? (
+          <p className="pt-2 text-[10px] text-neutral-400">ছবি: {article.image_credit}</p>
+        ) : null}
       </div>
     </a>
   );
@@ -195,7 +210,11 @@ export function TrendingItem({ rank, article, href, locale }: { rank?: number; a
         <h4 className="line-clamp-2 text-sm font-bold leading-snug text-ink group-hover:text-primary dark:text-paper">
           {article.title}
         </h4>
-        <span className="mt-1 block text-[11px] text-neutral-500"><ClientTimeAgo iso={article.published_at} locale={locale} /></span>
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-neutral-500">
+          <span className="font-semibold text-ink dark:text-paper">{article.source_name || article.author || 'সূত্র'}</span>
+          <span>•</span>
+          <ClientTimeAgo iso={article.published_at} locale={locale} />
+        </div>
       </div>
     </a>
   );

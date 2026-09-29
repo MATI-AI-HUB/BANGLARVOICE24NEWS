@@ -26,10 +26,13 @@ export type FeedArticle = {
   reading_time_min?: number;
   bias_index?: number;
   published_at?: string;
-  // Bengali display strings — populated by lib/api.ts (not present in mock data)
   published_at_bn?: string;
   time_ago_bn?: string;
   reading_time_bn?: string;
+  source_name?: string;
+  source_url?: string;
+  image_credit?: string;
+  origin?: 'aggregated' | 'original';
 };
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
@@ -44,6 +47,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 4,
     bias_index: 15,
     published_at: hoursAgo(2),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-2',
@@ -54,6 +58,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 3,
     bias_index: 20,
     published_at: hoursAgo(3),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-3',
@@ -64,6 +69,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 5,
     bias_index: 25,
     published_at: hoursAgo(4),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-4',
@@ -74,6 +80,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 6,
     bias_index: 40,
     published_at: hoursAgo(5),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-5',
@@ -84,6 +91,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 4,
     bias_index: 12,
     published_at: hoursAgo(6),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-6',
@@ -94,6 +102,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 3,
     bias_index: 8,
     published_at: hoursAgo(7),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-7',
@@ -104,6 +113,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 4,
     bias_index: 18,
     published_at: hoursAgo(8),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-8',
@@ -114,6 +124,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 5,
     bias_index: 22,
     published_at: hoursAgo(9),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-9',
@@ -124,6 +135,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 4,
     bias_index: 10,
     published_at: hoursAgo(11),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-10',
@@ -134,6 +146,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 6,
     bias_index: 45,
     published_at: hoursAgo(13),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-11',
@@ -144,6 +157,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 3,
     bias_index: 28,
     published_at: hoursAgo(15),
+    source_name: 'ডেমো সূত্র',
   },
   {
     id: 'demo-12',
@@ -154,6 +168,7 @@ export const mockFeedItems: FeedArticle[] = [
     reading_time_min: 5,
     bias_index: 16,
     published_at: hoursAgo(18),
+    source_name: 'ডেমো সূত্র',
   },
 ];
 

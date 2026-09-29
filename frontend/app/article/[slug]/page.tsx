@@ -192,7 +192,7 @@ export default async function ArticlePage({ params }: PageProps) {
     headline: displayTitle,
     description: displayDek || a.seo_description,
     datePublished: a.published_at || undefined,
-    author: { '@type': 'Person', name: a.author_name || 'বাংলার ভয়েস ডেস্ক' },
+    author: { '@type': 'Organization', name: a.source_name || a.author_name || 'সূত্র' },
     publisher: {
       '@type': 'Organization',
       name: 'বাংলার ভয়েস',
@@ -242,6 +242,22 @@ export default async function ArticlePage({ params }: PageProps) {
       {a.featured_image && (
         <img src={a.featured_image} alt={displayTitle} className="mt-6 aspect-video w-full rounded object-cover" />
       )}
+      {a.image_credit ? (
+        <p className="mt-2 text-xs text-neutral-500">ছবি: {a.image_credit}</p>
+      ) : null}
+      {a.source_url ? (
+        <p className="mt-4 text-sm">
+          <a
+            href={a.source_url}
+            rel="noopener noreferrer nofollow"
+            target="_blank"
+            className="font-semibold text-primary underline"
+          >
+            মূল সংবাদ
+          </a>
+          {a.source_name ? <span className="text-neutral-500"> — {a.source_name}</span> : null}
+        </p>
+      ) : null}
       <div
         className="prose mt-8 max-w-none whitespace-pre-wrap font-serifbn text-lg leading-[1.9]"
         dangerouslySetInnerHTML={{ __html: sanitizedBody }}

@@ -10,9 +10,9 @@ import { t, type Locale } from '@/lib/i18n';
 
 const NAV_KEYS = [
   { href: '/#latest', key: 'latest' as const },
-  { href: '/#cat-politics', key: 'politics' as const },
-  { href: '/#cat-economy', key: 'economy' as const },
-  { href: '/#trending', key: 'trending' as const },
+  { href: '/category/politics', key: 'politics' as const },
+  { href: '/category/economy', key: 'economy' as const },
+  { href: '/search', key: 'search_placeholder' as const },
   { href: '/download', key: 'app' as const },
 ];
 
