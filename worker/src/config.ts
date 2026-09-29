@@ -95,7 +95,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
     chatAiModel: env.CHAT_AI_MODEL ?? "gpt-4o-mini",
     chatAiKey: env.CHAT_AI_KEY ?? "",
     bvBaseUrl: requireBvBaseUrl(env),
-    supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseUrl: (env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "") || undefined,
     supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
     newsroomIngestKey: requireNewsroomIngestKey(env),
     autoPublish: (env.AUTO_PUBLISH ?? "false").toLowerCase() === "true",

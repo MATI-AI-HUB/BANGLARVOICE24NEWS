@@ -41,6 +41,8 @@ export function deterministicParaphrase(raw: RawItem): { titleBn: string; conten
   const contentBn = [
     "বাংলার ভয়েসের সংবাদ ডেস্ক থেকে:",
     ...reordered.map((s) => `• ${s}`),
+    raw.title,
+    "এই সংবাদটি উন্মুক্ত সূত্র থেকে সংগৃহীত এবং পুনর্লিখিত।",
     "বিস্তারিত জানতে আমাদের নিয়মিত সংবাদ অনুসরণ করুন।",
   ].join("\n");
 

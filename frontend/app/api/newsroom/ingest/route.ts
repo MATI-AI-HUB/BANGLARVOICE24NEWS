@@ -36,6 +36,7 @@ type IngestBody = {
   sourceUrl?: unknown;
   sourceCategory?: unknown;
   status?: unknown;
+  contentHash?: unknown;
 };
 
 function json(body: unknown, status = 200) {
@@ -133,6 +134,7 @@ export async function POST(req: Request) {
   if (content.length < 40) return json({ error: 'content_required' }, 400);
 
   const sourceUrl = asText(body.sourceUrl);
+  const contentHash = asText(body.contentHash);
   const excerpt = asText(body.excerpt) || content.slice(0, 160);
   const category = mapCategory(asText(body.sourceCategory));
   const mapped = mapStatus(asText(body.status));
@@ -169,6 +171,26 @@ export async function POST(req: Request) {
     }
   }
 
+  if (contentHash) {
+    const { data: hashed, error: hashError } = await supabase
+      .from('articles')
+      .select('id, status')
+      .eq('content_hash', contentHash)
+      .maybeSingle();
+
+    if (hashError) {
+      return json({ error: 'storage_failed', detail: hashError.message }, 500);
+    }
+    if (hashed) {
+      return json({
+        ok: true,
+        id: hashed.id,
+        status: hashed.status,
+        duplicate: true,
+      });
+    }
+  }
+
   const aiScore = typeof body.aiScore === 'number' ? body.aiScore : Number(body.aiScore);
   const aiConfidence = Number.isFinite(aiScore) ? Math.max(0, Math.min(1, aiScore / 100)) : null;
 
@@ -191,6 +213,7 @@ export async function POST(req: Request) {
       source_name: '',
       source_url: sourceUrl || null,
       canonical_url: sourceUrl || null,
+      content_hash: contentHash || '',
       thumbnail_url: imageUrl,
       featured_image: imageUrl,
       image_alt_bn: asText(body.imageAlt).slice(0, 250),

@@ -3,7 +3,10 @@ const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: path.join(__dirname),   // ← এটা যোগ হলো
+  outputFileTracingRoot: path.join(__dirname),
+  experimental: {
+    allowedHosts: ['.monkeycode-ai.live'],
+  },
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '**' }],
   },

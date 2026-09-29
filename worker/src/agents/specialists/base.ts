@@ -207,7 +207,10 @@ export abstract class BaseSpecialist {
     let decision: SpecialistVerdict["decision"];
     let decisionReason: string;
 
-    if (compositeScore < 60) {
+    if (compositeScore < 40) {
+      decision = "reject";
+      decisionReason = "composite " + compositeScore + " < 40";
+    } else if (compositeScore < 60 && hasChatKey(cfg)) {
       decision = "reject";
       decisionReason = "composite " + compositeScore + " < 60";
     } else if (sensitive && compositeScore < 90) {

@@ -9,6 +9,8 @@ import { loadConfig } from "./config.js";
 import { runPipeline } from "./agents/orchestrator.js";
 import { listAgents } from "./agents/registry.js";
 import { runEpaperCycle, CRON_EXPRESSION } from "./agents/epaper-cron.js";
+import { lastSuccessfulRunAt, isStale, HEALTH_STALE_HOURS } from "./lib/pipeline.js";
+import { sendTelegramAlert } from "./agents/supervisor.js";
 
 async function tick(): Promise<void> {
   const cfg = loadConfig();
@@ -17,10 +19,19 @@ async function tick(): Promise<void> {
     const result = await runPipeline(cfg);
     console.log(
       `[${new Date().toISOString()}] cycle done in ${((Date.now() - started) / 1000).toFixed(1)}s ` +
-        `collected=${result.collected} published=${result.published} rejected=${result.rejected}`,
+        `collected=${result.collected} published=${result.published} rejected=${result.rejected} ` +
+        `skipped=${result.skipped} pending=${result.pending}`,
     );
+    const lastOk = await lastSuccessfulRunAt(cfg);
+    if (isStale(lastOk)) {
+      await sendTelegramAlert(
+        cfg,
+        `Banglar Voice pipeline stale: last success ${lastOk ?? "never"} (threshold ${HEALTH_STALE_HOURS}h).`,
+      );
+    }
   } catch (e) {
     console.error(`[${new Date().toISOString()}] cycle failed:`, e);
+    await sendTelegramAlert(cfg, `Banglar Voice pipeline cycle failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

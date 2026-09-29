@@ -51,16 +51,18 @@ export function computeAiScore(draft: DraftArticle): number {
   if (!hasSource) return 0;
 
   const bodyLen = draft.contentBn.trim().length;
-  if (bodyLen < 500) return 30;
-  if (bodyLen < 1000) return 60;
+  if (bodyLen < 200) return 45;
+  if (bodyLen < 500) return 55;
+  if (bodyLen < 1000) return 65;
   return 70;
 }
 
 export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<SupervisorDecision> {
-  const score = computeAiScore(draft);
+  const baseline = computeAiScore(draft);
+  const score = Math.max(baseline, draft.aiScore || 0);
   draft.aiScore = score;
 
-  if (isDuplicate(draft.titleBn)) {
+  if (isDuplicate(draft.titleBn) || isDuplicate(draft.raw.link)) {
     draft.duplicateOf = "recent";
     return { itemId: draft.raw.id, action: "reject", reason: "48h duplicate", score };
   }
@@ -73,13 +75,28 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
   }
 
   if (score >= 50) {
-    if (cfg.autoPublish && (draft.imageUrl || "").trim()) {
-      return { itemId: draft.raw.id, action: "publish", reason: "auto-publish with image, ai_score 50-79", score };
+    if (cfg.autoPublish) {
+      return { itemId: draft.raw.id, action: "publish", reason: "auto-publish, ai_score 50-79", score };
     }
     return { itemId: draft.raw.id, action: "wait", reason: "ai_score 50-79, editor review", score };
   }
 
   return { itemId: draft.raw.id, action: "reject", reason: "ai_score < 50", score };
+}
+
+export async function sendTelegramAlert(cfg: WorkerConfig, text: string): Promise<boolean> {
+  if (!cfg.telegramBotToken || !cfg.telegramChannelId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${cfg.telegramBotToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: cfg.telegramChannelId, text }),
+    });
+    const data = (await res.json()) as { ok?: boolean };
+    return data?.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 // --- Telegram command control plane (optional) -----------------------------

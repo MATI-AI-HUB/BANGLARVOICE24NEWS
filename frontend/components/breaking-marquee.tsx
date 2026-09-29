@@ -49,7 +49,7 @@ export function BreakingMarquee({ locale = 'bn' as Locale }: { locale?: Locale }
         .from('breaking_ticker')
         .select('*')
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(10);
       if (data?.length) {
         const picked = data
