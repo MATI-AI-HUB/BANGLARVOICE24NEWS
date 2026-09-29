@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   worker:
     name: Worker (typecheck + test)
@@ -42,6 +46,19 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npx vitest run
+
+  secret-scan:
+    name: Secret pattern scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail on hardcoded JWT blobs
+        run: |
+          if git grep -n -E 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' -- ':!*.md' ':!docs/**' ':!.github/**'; then
+            echo 'Potential JWT secret material in source. Remove before merge.'
+            exit 1
+          fi
+          echo 'No JWT blob in tracked non-doc files.'
 
   backend:
     name: Backend (go build)
