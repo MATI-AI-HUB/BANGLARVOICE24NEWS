@@ -20,6 +20,7 @@ export interface RawItem {
   link: string;
   description: string;
   publishedAt: string;
+  imageUrl?: string;
 }
 
 /** A rewritten, copyright-safe Bangla article draft. */

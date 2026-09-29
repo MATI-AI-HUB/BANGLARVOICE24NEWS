@@ -22,11 +22,41 @@ function stableId(title: string, link: string): string {
   return Math.abs(h).toString(36);
 }
 
+function attrUrl(node: unknown): string {
+  if (!node) return "";
+  if (typeof node === "string") return /^https?:\/\//i.test(node) ? node : "";
+  if (Array.isArray(node)) return attrUrl(node[0]);
+  if (typeof node === "object") {
+    const rec = node as Record<string, unknown>;
+    for (const key of ["@_url", "url", "@_href", "href", "#text"]) {
+      const v = rec[key];
+      if (typeof v === "string" && /^https?:\/\//i.test(v)) return v;
+    }
+  }
+  return "";
+}
+
+function imageFromHtml(html: string): string {
+  const m = html.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
+  return m?.[1] ?? "";
+}
+
+function extractImage(entry: any): string {
+  const candidates = [
+    attrUrl(entry?.enclosure),
+    attrUrl(entry?.["media:content"]),
+    attrUrl(entry?.["media:thumbnail"]),
+    imageFromHtml(String(entry?.description ?? entry?.summary ?? "")),
+  ];
+  return candidates.find((u) => u.length > 0) ?? "";
+}
+
 function extractItems(xml: string, sourceUrl: string, category: string): RawItem[] {
   const doc = parser.parse(xml);
   const channel = doc?.rss?.channel ?? doc?.feed ?? {};
-  const entries: unknown[] = channel?.item ?? channel?.entry ?? [];
-  if (!Array.isArray(entries)) return [];
+  const rawEntries = channel?.item ?? channel?.entry ?? [];
+  const entries: unknown[] = Array.isArray(rawEntries) ? rawEntries : rawEntries ? [rawEntries] : [];
+  if (entries.length === 0) return [];
 
   return entries
     .map((e: any) => {
@@ -41,6 +71,7 @@ function extractItems(xml: string, sourceUrl: string, category: string): RawItem
         link,
         description: String(e?.description ?? e?.summary ?? "").trim(),
         publishedAt: String(e?.pubDate ?? e?.updated ?? new Date().toISOString()),
+        imageUrl: extractImage(e),
       } as RawItem;
     })
     .filter((x): x is RawItem => x !== null);

@@ -49,4 +49,20 @@ describe('collector', () => {
     expect(items.length).toBe(0);
     vi.unstubAllGlobals();
   });
+
+  it('extracts enclosure image URLs from RSS items', async () => {
+    const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+      <item>
+        <title>Hello world headline</title>
+        <link>https://example.com/a</link>
+        <description>body</description>
+        <enclosure url="https://cdn.example.com/pic.jpg" type="image/jpeg" />
+      </item>
+    </channel></rss>`;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, text: async () => xml }));
+    const items = await collect(cfg);
+    expect(items).toHaveLength(1);
+    expect(items[0].imageUrl).toBe('https://cdn.example.com/pic.jpg');
+    vi.unstubAllGlobals();
+  });
 });

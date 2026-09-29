@@ -138,6 +138,7 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
 
       const media = await fetchMedia(cfg, titleBn);
       state.stage = "media";
+      const imageUrl = media?.url || raw.imageUrl || "";
 
       const draft: DraftArticle = {
         raw,
@@ -145,7 +146,7 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         contentBn,
         excerptBn: contentBn.slice(0, 300),
         tags: [],
-        imageUrl: media?.url ?? "",
+        imageUrl,
         imageAlt: media?.attribution ?? "",
         aiScore: 50,
         aiSummary: "",

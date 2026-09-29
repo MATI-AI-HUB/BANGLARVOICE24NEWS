@@ -46,7 +46,25 @@ export async function GET() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error && rpcError) {
+      lastSuccessAt = data?.completed_at || data?.created_at || null;
+      stage = data?.stage ?? null;
+      published = data?.published ?? 0;
+      if (!lastSuccessAt) {
+        const { data: latest } = await supabase
+          .from('articles')
+          .select('published_at')
+          .eq('status', 'published')
+          .not('published_at', 'is', null)
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        lastSuccessAt = latest?.published_at || null;
+        if (lastSuccessAt) {
+          stage = stage || 'articles';
+          published = published || 1;
+        }
+      }
+      if (!lastSuccessAt && error && rpcError) {
         return json({
           status: 'error',
           timestamp: now,
@@ -56,9 +74,6 @@ export async function GET() {
           error: error.message,
         }, 503);
       }
-      lastSuccessAt = data?.completed_at || data?.created_at || null;
-      stage = data?.stage ?? null;
-      published = data?.published ?? 0;
     }
     const ageMs = lastSuccessAt ? Date.now() - new Date(lastSuccessAt).getTime() : Number.POSITIVE_INFINITY;
     const stale = !lastSuccessAt || ageMs > STALE_HOURS * 60 * 60 * 1000;
