@@ -1,0 +1,48 @@
+name: Authority check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-author:
+    name: Verify commit identity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject unauthorized authors/committers
+        env:
+          AUTHORIZED_EMAIL: matiailearninghub@gmail.com
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          ZERO="0000000000000000000000000000000000000000"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="$PR_BASE_SHA..$PR_HEAD_SHA"
+          elif [ "$BEFORE_SHA" = "$ZERO" ] || [ -z "$BEFORE_SHA" ]; then
+            range="$AFTER_SHA"
+          else
+            range="$BEFORE_SHA..$AFTER_SHA"
+          fi
+          echo "checking commit range: $range"
+          fail=0
+          for c in $(git rev-list "$range"); do
+            ae="$(git log -1 --format=%ae "$c")"
+            ce="$(git log -1 --format=%ce "$c")"
+            if [ "$ae" != "$AUTHORIZED_EMAIL" ] || [ "$ce" != "$AUTHORIZED_EMAIL" ]; then
+              echo "::error::commit $c author=<$ae> committer=<$ce> is not authorized"
+              fail=1
+            fi
+          done
+          exit "$fail"
