@@ -1,7 +1,7 @@
 import type { WorkerConfig } from "../config.js";
 import { collect } from "./collector.js";
 import { rewrite } from "./rewriter.js";
-import { fetchMedia } from "./media.js";
+import { fetchMedia, rssThumbnail } from "./media.js";
 import { broadcast, edit } from "./chain-agents.js";
 import { verifyDraft } from "./specialists/router.js";
 import { checkDiversityQuota } from "./specialists/diversity.js";
@@ -16,56 +16,15 @@ import {
   rateLimitOk,
   sourceAlreadyPublished,
 } from "../lib/pipeline.js";
+import { publishViaHttp, publishViaSupabase, type PublishResult } from "../lib/ingest.js";
 
-export interface PublishResult {
-  ok: boolean;
-  url?: string;
-  error?: string;
-  id?: string;
-  status?: string;
-  duplicate?: boolean;
-}
+export type { PublishResult };
 
 export async function publishArticle(cfg: WorkerConfig, draft: DraftArticle): Promise<PublishResult> {
-  if (!cfg.bvBaseUrl || !cfg.newsroomIngestKey) {
-    return { ok: false, error: "ingest_disabled" };
-  }
   try {
-    const hash = contentHash(draft.raw.link, draft.titleBn, draft.contentBn);
-    const res = await fetch(`${cfg.bvBaseUrl}/api/newsroom/ingest`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-ingest-key": cfg.newsroomIngestKey,
-      },
-      body: JSON.stringify({
-        title: draft.titleBn,
-        content: draft.contentBn,
-        excerpt: draft.excerptBn,
-        tags: draft.tags,
-        imageUrl: draft.imageUrl,
-        imageAlt: draft.imageAlt,
-        aiScore: draft.aiScore,
-        aiSummary: draft.aiSummary,
-        sourceUrl: draft.raw.link,
-        sourceCategory: draft.raw.sourceCategory,
-        status: draft.status,
-        contentHash: hash,
-      }),
-    });
-    if (!res.ok) return { ok: false, error: `ingest ${res.status}` };
-    const data = (await res.json()) as {
-      id?: string;
-      status?: string;
-      duplicate?: boolean;
-    };
-    return {
-      ok: true,
-      id: data?.id,
-      status: data?.status,
-      duplicate: data?.duplicate === true,
-      url: data?.id ? `${cfg.bvBaseUrl}/article/${data.id}` : undefined,
-    };
+    const direct = await publishViaSupabase(cfg, draft);
+    if (direct) return direct;
+    return await publishViaHttp(cfg, draft);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     return { ok: false, error: message };
@@ -127,32 +86,71 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         attempts: 1,
       };
 
-      const { titleBn, contentBn } = await rewrite(cfg, raw);
+      const rewritten = await rewrite(cfg, raw);
       state.stage = "rewritten";
       await logPipelineRun(cfg, {
         stage: "rewrite",
-        status: "success",
+        status: rewritten.fallback ? "partial" : "success",
         processed: 1,
-        details: { itemId: raw.id, source_url: raw.link },
+        details: {
+          itemId: raw.id,
+          source_url: raw.link,
+          method: rewritten.method,
+          fallback: rewritten.fallback,
+          reason: rewritten.reason ?? null,
+        },
       });
 
-      const media = await fetchMedia(cfg, titleBn);
+      if (rewritten.fallback) {
+        skipped += 1;
+        await logPipelineRun(cfg, {
+          stage: "rewrite",
+          status: "skipped",
+          skipped: 1,
+          details: {
+            itemId: raw.id,
+            source_url: raw.link,
+            reason: rewritten.reason ?? "fallback",
+          },
+        });
+        continue;
+      }
+
+      const media = await fetchMedia(cfg, rewritten.titleBn);
       state.stage = "media";
-      const imageUrl = media?.url || raw.imageUrl || "";
+      const rssMedia = rssThumbnail(raw.imageUrl);
+      const chosen = media ?? rssMedia;
+      const imageUrl = chosen?.url || "";
 
       const draft: DraftArticle = {
         raw,
-        titleBn,
-        contentBn,
-        excerptBn: contentBn.slice(0, 300),
+        titleBn: rewritten.titleBn,
+        contentBn: rewritten.contentBn,
+        excerptBn: rewritten.contentBn.slice(0, 300),
         tags: [],
         imageUrl,
-        imageAlt: media?.attribution ?? "",
+        imageAlt: chosen?.attribution ?? "",
+        imageLicense: chosen?.license ?? "",
+        imageSource: chosen?.source ?? "",
+        rewriteMethod: rewritten.method,
+        fallback: false,
+        skipReason: imageUrl ? null : "missing_image",
         aiScore: 50,
         aiSummary: "",
         status: "draft",
         duplicateOf: null,
       };
+
+      if (!imageUrl) {
+        skipped += 1;
+        await logPipelineRun(cfg, {
+          stage: "media",
+          status: "skipped",
+          skipped: 1,
+          details: { itemId: raw.id, source_url: raw.link, reason: "missing_image" },
+        });
+        continue;
+      }
 
       const diversity = await checkDiversityQuota(cfg, draft.raw.sourceCategory || "unknown");
       if (!diversity.allowed) {

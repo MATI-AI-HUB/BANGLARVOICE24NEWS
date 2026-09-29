@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentHash, isStale, HEALTH_STALE_HOURS } from "./pipeline.js";
+import { contentHash, isStale, HEALTH_STALE_HOURS, sourceDedupeKey } from "./pipeline.js";
 
 describe("pipeline helpers", () => {
   it("hashes source url + title + body stably", () => {
@@ -9,6 +9,11 @@ describe("pipeline helpers", () => {
     expect(a).toBe(b);
     expect(a).not.toBe(c);
     expect(a).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("normalizes source URLs as a stable ingest dedupe key", () => {
+    expect(sourceDedupeKey("https://EX.com/A ")).toBe("https://ex.com/a");
+    expect(sourceDedupeKey("https://ex.com/a")).toBe(sourceDedupeKey("HTTPS://EX.COM/A"));
   });
 
   it("treats missing timestamps as stale", () => {

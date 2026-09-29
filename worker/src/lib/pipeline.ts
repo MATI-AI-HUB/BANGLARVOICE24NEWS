@@ -26,6 +26,10 @@ export function contentHash(sourceUrl: string, title: string, body: string): str
   return createHash("sha256").update(canonical).digest("hex");
 }
 
+export function sourceDedupeKey(sourceUrl: string): string {
+  return sourceUrl.trim().toLowerCase();
+}
+
 export function supabaseAdmin(cfg: WorkerConfig): SupabaseClient | null {
   if (!cfg.supabaseUrl || !cfg.supabaseServiceKey) return null;
   return createClient(cfg.supabaseUrl, cfg.supabaseServiceKey, {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { fetchMedia } from "./media.js";
+import { fetchMedia, rssThumbnail } from "./media.js";
 import type { WorkerConfig } from "../config.js";
 
 const cfg: WorkerConfig = {
@@ -51,8 +51,20 @@ describe("fetchMedia", () => {
     const media = await fetchMedia(cfg, "Bangladesh cricket");
     expect(media?.url).toBe("https://upload.wikimedia.org/test.jpg");
     expect(fetchMock).toHaveBeenCalled();
-    const headers = fetchMock.mock.calls[0][1]?.headers ?? {};
-    expect(String(headers["User-Agent"] || "")).toMatch(/BanglarVoice-AI/);
+    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(headers.get("User-Agent") || "").toMatch(/BanglarVoice/);
+  });
+
+  it("does not retry a 403 and falls through so RSS thumbnail can be used", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+    const media = await fetchMedia(cfg, "Bangladesh");
+    expect(media).toBeNull();
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(headers.get("User-Agent") || "").toMatch(/BanglarVoice/);
+    expect(rssThumbnail(undefined)).toBeNull();
+    expect(rssThumbnail("https://cdn.example.com/from-rss.jpg")?.url).toBe("https://cdn.example.com/from-rss.jpg");
   });
 
   it("falls back to Openverse when Wikimedia is forbidden", async () => {

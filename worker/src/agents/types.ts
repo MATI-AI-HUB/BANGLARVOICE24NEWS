@@ -23,6 +23,14 @@ export interface RawItem {
   imageUrl?: string;
 }
 
+export interface RewriteResult {
+  titleBn: string;
+  contentBn: string;
+  method: "ai" | "fallback";
+  fallback: boolean;
+  reason?: string;
+}
+
 /** A rewritten, copyright-safe Bangla article draft. */
 export interface DraftArticle {
   raw: RawItem;
@@ -32,8 +40,13 @@ export interface DraftArticle {
   tags: string[];
   imageUrl: string;
   imageAlt: string;
-  aiScore: number; // 0-100 fact-check confidence
-  aiSummary: string; // 3-bullet Bangla summary
+  imageLicense: string;
+  imageSource: string;
+  rewriteMethod: "ai" | "fallback";
+  fallback: boolean;
+  skipReason: string | null;
+  aiScore: number;
+  aiSummary: string;
   status: "draft" | "pending_review" | "approved" | "published" | "rejected";
   duplicateOf: string | null;
   verification?: import('./specialists/types.js').SpecialistVerdict;

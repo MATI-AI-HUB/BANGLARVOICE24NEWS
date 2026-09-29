@@ -1,12 +1,6 @@
-// =============================================================================
-// rewriter.ts — the Rewriter: turns a raw item into a copyright-safe, original
-// Bangla article. Uses the OpenAI-compatible chat when a key is present;
-// otherwise falls back to a deterministic Bangla paraphrase engine (no key).
-// =============================================================================
-
 import type { WorkerConfig } from "../config.js";
 import { chat, hasChatKey } from "./chat.js";
-import type { RawItem } from "./types.js";
+import type { RawItem, RewriteResult } from "./types.js";
 
 const STOP_WORDS = new Set([
   "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "at",
@@ -21,52 +15,51 @@ function titleCase(s: string): string {
     .join(" ");
 }
 
-/**
- * Deterministic Bangla paraphrase engine — no AI key required. Produces an
- * original, copyright-safe rewrite by restructuring the source text:
- *   - strips the source headline and re-orders sentences
- *   - swaps common lead words for Bangla equivalents
- *   - prefixes a neutral Bangla framing line
- */
-export function deterministicParaphrase(raw: RawItem): { titleBn: string; contentBn: string } {
-  const src = raw.description || raw.title;
+export function extractiveSummary(raw: RawItem): { titleBn: string; contentBn: string } {
+  const src = (raw.description || raw.title).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const sentences = src
     .split(/(?<=[.!?।])\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-
-  // Reorder: move the last sentence to the front for a fresh lead.
-  const reordered = sentences.length > 1 ? [...sentences.slice(1), sentences[0]] : sentences;
-
-  const contentBn = [
-    "বাংলার ভয়েসের সংবাদ ডেস্ক থেকে:",
-    ...reordered.map((s) => `• ${s}`),
-    raw.title,
-    "এই সংবাদটি উন্মুক্ত সূত্র থেকে সংগৃহীত এবং পুনর্লিখিত।",
-    "বিস্তারিত জানতে আমাদের নিয়মিত সংবাদ অনুসরণ করুন।",
-  ].join("\n");
-
+  const excerpt = sentences.slice(0, 2).join(" ") || src.slice(0, 280);
   const titleBn = titleCase(raw.title.replace(/^[^:：]+[:：]\s*/, "").slice(0, 90));
-
+  const contentBn = excerpt.slice(0, 400);
   return { titleBn, contentBn };
 }
 
-export async function rewrite(cfg: WorkerConfig, raw: RawItem): Promise<{ titleBn: string; contentBn: string }> {
-  if (hasChatKey(cfg)) {
-    try {
-      const out = await chat(
-        cfg,
-        "You are a Bangla news rewriter. Rewrite the following news item into an original, copyright-safe Bangla article. Keep facts accurate. Reply with ONLY the rewritten Bangla text, no preamble.",
-        `Title: ${raw.title}\n\nBody: ${(raw.description || raw.title).slice(0, 2000)}`,
-        0.2,
-      );
-      const lines = out.split("\n").map((l) => l.trim()).filter(Boolean);
-      const titleBn = lines[0]?.slice(0, 90) || raw.title.slice(0, 90);
-      const contentBn = lines.slice(1).join("\n") || out;
-      return { titleBn, contentBn };
-    } catch {
-      // fall through to deterministic
-    }
+/** @deprecated Use extractiveSummary. Kept for tests; never published. */
+export function deterministicParaphrase(raw: RawItem): { titleBn: string; contentBn: string } {
+  return extractiveSummary(raw);
+}
+
+function fallbackResult(raw: RawItem, reason: string): RewriteResult {
+  const excerpt = extractiveSummary(raw);
+  return {
+    ...excerpt,
+    method: "fallback",
+    fallback: true,
+    reason,
+  };
+}
+
+export async function rewrite(cfg: WorkerConfig, raw: RawItem): Promise<RewriteResult> {
+  if (!hasChatKey(cfg)) {
+    return fallbackResult(raw, "no_chat_key");
   }
-  return deterministicParaphrase(raw);
+  try {
+    const out = await chat(
+      cfg,
+      "You are a Bangla news rewriter. Rewrite the following news item into an original, copyright-safe Bangla article. Keep facts accurate. Reply with ONLY the rewritten Bangla text, no preamble.",
+      `Title: ${raw.title}\n\nBody: ${(raw.description || raw.title).slice(0, 2000)}`,
+      0.2,
+    );
+    const lines = out.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return fallbackResult(raw, "ai_empty_response");
+    const titleBn = lines[0].slice(0, 90);
+    const contentBn = lines.slice(1).join("\n") || out;
+    return { titleBn, contentBn, method: "ai", fallback: false };
+  } catch (e) {
+    const reason = e instanceof Error ? `ai_rewrite_failed:${e.message.slice(0, 80)}` : "ai_rewrite_failed";
+    return fallbackResult(raw, reason);
+  }
 }

@@ -1,11 +1,7 @@
-// =============================================================================
-// collector.ts — the Collector agent. Fetches RSS/Atom feeds (custom
-// NEWS_RSS_URLS or the built-in 7-category Google News index), parses them,
-// and returns raw news items. Runs every INTERVAL_MINUTES.
-// =============================================================================
-
 import { XMLParser } from "fast-xml-parser";
 import { BUILTIN_SOURCES, type WorkerConfig } from "../config.js";
+import { fetchWithRetry } from "../lib/http.js";
+import { assertSafeHttpUrl } from "../lib/ssrf.js";
 import type { RawItem } from "./types.js";
 
 const parser = new XMLParser({
@@ -41,7 +37,7 @@ function imageFromHtml(html: string): string {
   return m?.[1] ?? "";
 }
 
-function extractImage(entry: any): string {
+function extractImage(entry: Record<string, unknown>): string {
   const candidates = [
     attrUrl(entry?.enclosure),
     attrUrl(entry?.["media:content"]),
@@ -51,17 +47,24 @@ function extractImage(entry: any): string {
   return candidates.find((u) => u.length > 0) ?? "";
 }
 
-function extractItems(xml: string, sourceUrl: string, category: string): RawItem[] {
-  const doc = parser.parse(xml);
+export function extractItems(xml: string, sourceUrl: string, category: string): RawItem[] {
+  const doc = parser.parse(xml) as {
+    rss?: { channel?: { item?: unknown } };
+    feed?: { entry?: unknown };
+  };
   const channel = doc?.rss?.channel ?? doc?.feed ?? {};
-  const rawEntries = channel?.item ?? channel?.entry ?? [];
+  const rawEntries = ("item" in channel ? channel.item : undefined)
+    ?? ("entry" in channel ? (channel as { entry?: unknown }).entry : undefined)
+    ?? [];
   const entries: unknown[] = Array.isArray(rawEntries) ? rawEntries : rawEntries ? [rawEntries] : [];
   if (entries.length === 0) return [];
 
   return entries
-    .map((e: any) => {
-      const title = String(e?.title ?? "").trim();
-      const link = String(e?.link ?? e?.guid ?? "").trim();
+    .map((e) => {
+      if (!e || typeof e !== "object") return null;
+      const rec = e as Record<string, unknown>;
+      const title = String(rec.title ?? "").trim();
+      const link = String(rec.link ?? rec.guid ?? "").trim();
       if (!title || !link) return null;
       return {
         id: stableId(title, link),
@@ -69,9 +72,9 @@ function extractItems(xml: string, sourceUrl: string, category: string): RawItem
         sourceCategory: category,
         title,
         link,
-        description: String(e?.description ?? e?.summary ?? "").trim(),
-        publishedAt: String(e?.pubDate ?? e?.updated ?? new Date().toISOString()),
-        imageUrl: extractImage(e),
+        description: String(rec.description ?? rec.summary ?? "").trim(),
+        publishedAt: String(rec.pubDate ?? rec.updated ?? new Date().toISOString()),
+        imageUrl: extractImage(rec),
       } as RawItem;
     })
     .filter((x): x is RawItem => x !== null);
@@ -86,10 +89,9 @@ export async function collect(cfg: WorkerConfig): Promise<RawItem[]> {
   const results: RawItem[] = [];
   for (const src of sources) {
     try {
-      const res = await fetch(src.url, {
-        headers: { "User-Agent": "BanglarVoice-AI/1.0" },
-      });
-      if (!res.ok) continue;
+      assertSafeHttpUrl(src.url);
+      const res = await fetchWithRetry(src.url, { headers: { Accept: "application/rss+xml, application/xml, text/xml" } });
+      if (!res?.ok) continue;
       const xml = await res.text();
       results.push(...extractItems(xml, src.url, src.category));
     } catch {

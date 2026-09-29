@@ -42,11 +42,48 @@ describe('collector', () => {
     vi.unstubAllGlobals();
   });
 
+  it('skips SSRF-prone feed URLs', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const items = await collect({ ...cfg, newsRssUrls: ['http://127.0.0.1/secret.xml'] });
+    expect(items).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('does not crash on malformed XML', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => '<not-rss>broken',
+    }));
+    const items = await collect(cfg);
+    expect(Array.isArray(items)).toBe(true);
+    expect(items.length).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
   it('does not crash when a feed fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
     const items = await collect(cfg);
     expect(Array.isArray(items)).toBe(true);
     expect(items.length).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
+  it('parses a single-item RSS channel where item is an object not an array', async () => {
+    const xml = `<?xml version="1.0"?><rss version="2.0"><channel>
+      <item>
+        <title>Solo headline from feed</title>
+        <link>https://example.com/solo</link>
+        <description>one body</description>
+      </item>
+    </channel></rss>`;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => xml }));
+    const items = await collect(cfg);
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toBe('Solo headline from feed');
+    expect(items[0].link).toBe('https://example.com/solo');
     vi.unstubAllGlobals();
   });
 
