@@ -249,12 +249,8 @@ export const api = {
       throw new Error('Article backend unavailable');
     }
     try {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .eq('id', slug)
-        .maybeSingle();
-      if (error) throw error;
+      const { fetchPublishedArticleById } = await import('./supabase/published-articles');
+      const data = await fetchPublishedArticleById(slug, supabase);
       if (!data) return {};
       const row = data as SupabaseArticle;
       const base = mapArticle(row);

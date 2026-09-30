@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { fetchPublishedArticlesFeed } from '../../lib/supabase/published-articles';
 
 export const revalidate = 300;
 
@@ -13,19 +13,25 @@ function xmlEscape(s: string): string {
 }
 
 export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   let items: { id: string; title_bn: string; excerpt_bn: string | null; published_at: string | null; source_name: string | null }[] = [];
-  if (url && key) {
-    const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data } = await supabase
-      .from('articles')
-      .select('id, title_bn, excerpt_bn, published_at, source_name')
-      .eq('status', 'published')
-      .not('published_at', 'is', null)
-      .order('published_at', { ascending: false })
-      .limit(30);
-    items = data || [];
+  try {
+    const rows = await fetchPublishedArticlesFeed();
+    items = [...rows]
+      .sort((a, b) => {
+        const at = new Date(a.published_at || 0).getTime();
+        const bt = new Date(b.published_at || 0).getTime();
+        return bt - at;
+      })
+      .slice(0, 30)
+      .map((a) => ({
+        id: a.id,
+        title_bn: a.title_bn,
+        excerpt_bn: a.excerpt_bn ?? null,
+        published_at: a.published_at ?? null,
+        source_name: a.source_name ?? null,
+      }));
+  } catch {
+    items = [];
   }
 
   const rssItems = items

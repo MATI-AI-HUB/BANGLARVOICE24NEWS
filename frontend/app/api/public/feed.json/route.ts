@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-import { createClient } from '@supabase/supabase-js';
+import { fetchPublishedArticlesFeed } from '../../../../lib/supabase/published-articles';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
 
@@ -32,26 +32,16 @@ function resolveCategory(raw: string | null | undefined): { key: string; label: 
   return { key: value, label: value };
 }
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Supabase env vars not configured');
-  return createClient(url, key);
-}
-
 export async function GET() {
   try {
-    const supabase = getSupabase();
-    const { data: articles, error } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('status', 'published')
-      .not('published_at', 'is', null)
-      .lte('published_at', new Date().toISOString())
-      .order('published_at', { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
+    const rows = await fetchPublishedArticlesFeed();
+    const articles = [...rows]
+      .sort((a, b) => {
+        const at = new Date(a.published_at || 0).getTime();
+        const bt = new Date(b.published_at || 0).getTime();
+        return bt - at;
+      })
+      .slice(0, 50);
 
     const feed = {
       version: 'https://jsonfeed.org/version/1.1',

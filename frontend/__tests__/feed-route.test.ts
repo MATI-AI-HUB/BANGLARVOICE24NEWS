@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const order = vi.fn();
-const lte = vi.fn();
-const not = vi.fn();
-const eq = vi.fn();
 const select = vi.fn();
 const from = vi.fn();
 
@@ -35,12 +31,7 @@ describe('GET /api/public/feed.json', () => {
       ],
       error: null,
     };
-    const limit = vi.fn().mockResolvedValue(payload);
-    order.mockReturnValue({ limit });
-    lte.mockReturnValue({ order });
-    not.mockReturnValue({ lte });
-    eq.mockReturnValue({ not });
-    select.mockReturnValue({ eq });
+    select.mockResolvedValue(payload);
     from.mockReturnValue({ select });
   });
 
@@ -53,6 +44,8 @@ describe('GET /api/public/feed.json', () => {
     const { GET } = await import('../app/api/public/feed.json/route');
     const res = await GET();
     expect(res.status).toBe(200);
+    expect(from).toHaveBeenCalledWith('public_articles_feed');
+    expect(select).toHaveBeenCalledWith('*');
     const body = await res.json();
     expect(body.items[0].source_name).toBe('বিবিসি বাংলা');
     expect(body.items[0].image_credit).toBe('Wikimedia');
