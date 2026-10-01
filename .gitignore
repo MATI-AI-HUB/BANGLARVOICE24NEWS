@@ -10,3 +10,4 @@ frontend/tsconfig.tsbuildinfo
 bun.lockb
 .vercel
 .env*
+frontend/lib/supabase/server.ts.backup
