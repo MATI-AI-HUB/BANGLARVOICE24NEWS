@@ -4,3 +4,10 @@
 .recovery-backup-*
 __pycache__/
 *.backup
+frontend/app/api/newsroom/cron-trigger/*.backup
+frontend/app/api/newsroom/cron-trigger/*.original-backup
+frontend/app/api/newsroom/cron-trigger/*.duplicate-backup
+
+# Next.js build output
+frontend/.next/
+.next/
