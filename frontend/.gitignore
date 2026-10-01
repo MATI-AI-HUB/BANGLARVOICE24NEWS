@@ -3,3 +3,4 @@
 .env*
 .recovery-backup-*
 __pycache__/
+*.backup

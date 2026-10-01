@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 
 export type RealtimeArticle = {
   id: string;
@@ -25,14 +26,16 @@ export function useRealtimeArticles(initial: RealtimeArticle[] = []) {
           table: 'articles',
           filter: 'status=eq.published',
         },
-        (payload) => {
-          const row = payload.new as RealtimeArticle;
+        (payload: RealtimePostgresInsertPayload<RealtimeArticle>) => {
+          const row = payload.new;
           setArticles((prev) => [row, ...prev].slice(0, 50));
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return articles;

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { CostDashboard } from '@/components/admin/cost-dashboard';
 
 export default async function AdminAnalyticsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Fetch recent 50 AI logs (ordered by newest first)
   const { data: logs } = await supabase
