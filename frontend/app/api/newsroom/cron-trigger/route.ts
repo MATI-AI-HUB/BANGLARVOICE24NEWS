@@ -466,6 +466,33 @@ async function runPool<T>(
   )
 }
 
+function classifyError(
+  stage: 'feed_fetch' | 'ai_rewrite',
+  error: unknown,
+): string {
+  const message = error instanceof Error ? error.message : ''
+  const httpMatch = /(?:ai|feed)_http_(\d{3})/.exec(message)
+
+  if (httpMatch) return `${stage}_http_${httpMatch[1]}`
+  if (message === 'deadline_exceeded') return `${stage}_deadline`
+  if (message === 'response_too_large') return `${stage}_response_too_large`
+  if (message === 'invalid_https_url') return `${stage}_invalid_url`
+  if (error instanceof SyntaxError) return `${stage}_invalid_json`
+
+  if (
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.name === 'TimeoutError')
+  ) {
+    return `${stage}_timeout`
+  }
+
+  if (message.toLowerCase().includes('fetch failed')) {
+    return `${stage}_network`
+  }
+
+  return stage
+}
+
 export async function POST(request: Request) {
   const configuredIngestKey = process.env.NEWSROOM_INGEST_KEY
 
@@ -525,9 +552,14 @@ export async function POST(request: Request) {
         for (const item of items) {
           candidates.push({ source, item })
         }
-      } catch {
+      } catch (error) {
         stats.failed += 1
-        errorCodes.add('feed_fetch')
+        const code = classifyError('feed_fetch', error)
+        errorCodes.add(code)
+        console.error('[newsroom] feed_fetch failure', {
+          source_id: source.id,
+          code,
+        })
       }
     })
   }
@@ -590,9 +622,14 @@ export async function POST(request: Request) {
 
         try {
           rewrite = await rewriteArticle(aiConfig!, item, deadline)
-        } catch {
+        } catch (error) {
           stats.failed += 1
-          errorCodes.add('ai_rewrite')
+          const code = classifyError('ai_rewrite', error)
+          errorCodes.add(code)
+          console.error('[newsroom] ai_rewrite failure', {
+            source_id: source.id,
+            code,
+          })
           return
         }
 
