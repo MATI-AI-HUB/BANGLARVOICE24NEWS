@@ -24,11 +24,16 @@ export type PublishedArticleRow = {
   origin?: string | null;
 };
 
+// Prefer the richest column set. If the live view predates a migration the
+// request 400s (PostgREST PGRST/42703) and we degrade to CORE (content-bearing)
+// columns instead of the old silent fallback that dropped article bodies.
 export const PUBLISHED_ARTICLE_COLUMNS =
-  'id, title_bn, content_bn, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, source_name, source_url, image_credit, image_alt_bn, image_is_representational, is_fallback, canonical_url, origin';
-
-export const PUBLIC_ARTICLE_DETAIL_COLUMNS =
   'id, title_bn, title_en, content_bn, content_en, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, created_at, source_name, source_url, image_credit, image_alt_bn, image_is_representational, is_fallback, canonical_url, origin';
+
+export const PUBLIC_ARTICLE_DETAIL_COLUMNS = PUBLISHED_ARTICLE_COLUMNS;
+
+const CORE_VIEW_COLUMNS =
+  'id, title_bn, title_en, content_bn, content_en, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, created_at, source_name, image_credit, image_alt_bn';
 
 const NARROW_FEED_COLUMNS =
   'id, title_bn, category, published_at, thumbnail_url, status';
@@ -54,61 +59,79 @@ function isMissingRelation(error: { message?: string; code?: string } | null): b
   );
 }
 
+type QueryError = { message?: string; code?: string } | null;
+
+async function selectFirstAvailable(
+  supabase: SupabaseClient,
+  table: string,
+  attempts: string[],
+): Promise<{ rows: PublishedArticleRow[]; error: QueryError }> {
+  let lastError: QueryError = null;
+
+  for (const cols of attempts) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(cols)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(50);
+
+    if (!error) {
+      if (cols !== attempts[0]) {
+        console.warn(
+          `[published-articles] ${table}: degraded to a narrower column set`,
+          lastError?.message,
+        );
+      }
+      return { rows: (data || []) as unknown as PublishedArticleRow[], error: null };
+    }
+
+    lastError = error;
+    if (isMissingRelation(error)) break;
+  }
+
+  return { rows: [], error: lastError };
+}
+
 export async function fetchPublishedArticlesFeed(
   supabase: SupabaseClient = createPublicSupabase(),
 ): Promise<PublishedArticleRow[]> {
-  const viewFull = await supabase
-    .from('public_articles_feed')
-    .select(PUBLISHED_ARTICLE_COLUMNS)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(50);
+  const { rows, error } = await selectFirstAvailable(supabase, 'public_articles_feed', [
+    PUBLISHED_ARTICLE_COLUMNS,
+    CORE_VIEW_COLUMNS,
+    NARROW_FEED_COLUMNS,
+  ]);
 
-  if (!viewFull.error) return (viewFull.data || []) as PublishedArticleRow[];
-
-  const viewNarrow = await supabase
-    .from('public_articles_feed')
-    .select(NARROW_FEED_COLUMNS)
-    .order('published_at', { ascending: false })
-    .limit(50);
-
-  if (viewNarrow.error && !isMissingRelation(viewNarrow.error) && !isMissingRelation(viewFull.error)) {
-    throw viewNarrow.error;
-  }
-  if (viewNarrow.error) throw viewFull.error || viewNarrow.error;
-  return (viewNarrow.data || []) as PublishedArticleRow[];
+  if (error) throw error;
+  return rows;
 }
 
 export async function fetchPublishedArticleById(
   id: string,
   supabase: SupabaseClient = createPublicSupabase(),
 ): Promise<PublishedArticleRow | null> {
-  const detail = await supabase
-    .from('public_article_detail')
-    .select(PUBLIC_ARTICLE_DETAIL_COLUMNS)
-    .eq('id', id)
-    .maybeSingle();
+  const attempts: Array<{ table: string; cols: string }> = [
+    { table: 'public_article_detail', cols: PUBLIC_ARTICLE_DETAIL_COLUMNS },
+    { table: 'public_article_detail', cols: CORE_VIEW_COLUMNS },
+    { table: 'public_articles_feed', cols: PUBLIC_ARTICLE_DETAIL_COLUMNS },
+    { table: 'public_articles_feed', cols: CORE_VIEW_COLUMNS },
+    { table: 'public_articles_feed', cols: NARROW_FEED_COLUMNS },
+  ];
 
-  if (!detail.error && detail.data) return detail.data as PublishedArticleRow;
-  if (!detail.error && detail.data === null) return null;
+  let lastError: QueryError = null;
 
-  const viewFull = await supabase
-    .from('public_articles_feed')
-    .select(PUBLISHED_ARTICLE_COLUMNS)
-    .eq('id', id)
-    .maybeSingle();
+  for (const attempt of attempts) {
+    const { data, error } = await supabase
+      .from(attempt.table)
+      .select(attempt.cols)
+      .eq('id', id)
+      .maybeSingle();
 
-  if (!viewFull.error) return (viewFull.data as PublishedArticleRow | null) ?? null;
-  if (viewFull.error && !isMissingRelation(viewFull.error) && !isMissingRelation(detail.error)) {
-    throw viewFull.error;
+    if (!error) return (data as PublishedArticleRow | null) ?? null;
+
+    lastError = error;
+    if (isMissingRelation(error)) break;
   }
 
-  const viewNarrow = await supabase
-    .from('public_articles_feed')
-    .select(NARROW_FEED_COLUMNS)
-    .eq('id', id)
-    .maybeSingle();
-
-  if (viewNarrow.error) throw viewNarrow.error;
-  return (viewNarrow.data as PublishedArticleRow | null) ?? null;
+  throw lastError;
 }
