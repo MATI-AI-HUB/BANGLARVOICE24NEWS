@@ -13,16 +13,38 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      BV_BASE_URL: https://www.banglarvoice24news.com
+      VERCEL_PROJECT_ID: prj_552hrMTjvldSlUHpcuqNqqNbhshb
     steps:
-      - name: Trigger Vercel newsroom pipeline
+      - name: Resolve newsroom ingest key from Vercel
         env:
-          NEWSROOM_INGEST_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
-          BV_BASE_URL: https://www.banglarvoice24news.com
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          FALLBACK_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${NEWSROOM_INGEST_KEY:-}" ]; then
-            echo "NEWSROOM_INGEST_KEY secret is not set"; exit 1
+          key=""
+          if [ -n "${VERCEL_TOKEN:-}" ]; then
+            envs=$(curl -sS -m 20 -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?decrypt=false" || true)
+            eid=$(printf '%s' "$envs" | python3 -c "import sys,json;d=json.load(sys.stdin);print(next((e['id'] for e in d.get('envs',[]) if e.get('key')=='NEWSROOM_INGEST_KEY'),''))" 2>/dev/null || true)
+            if [ -n "$eid" ]; then
+              key=$(curl -sS -m 20 -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$eid" \
+                | python3 -c "import sys,json;print(json.load(sys.stdin).get('value',''))" 2>/dev/null || true)
+            fi
           fi
+          if [ -z "$key" ]; then key="${FALLBACK_KEY:-}"; fi
+          if [ -z "$key" ]; then
+            echo "::error::Could not resolve NEWSROOM_INGEST_KEY from Vercel or GitHub secrets"
+            exit 1
+          fi
+          echo "::add-mask::$key"
+          echo "NEWSROOM_INGEST_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Trigger Vercel newsroom pipeline
+        run: |
+          set -euo pipefail
           code=$(curl -sS -m 90 -o response.json -w '%{http_code}' \
             -X POST "$BV_BASE_URL/api/newsroom/cron-trigger" \
             -H "Authorization: Bearer $NEWSROOM_INGEST_KEY" \
