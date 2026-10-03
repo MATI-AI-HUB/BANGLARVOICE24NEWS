@@ -1230,7 +1230,7 @@ async function runCronTrigger() {
               title: item.title.slice(0, 500),
               description: item.description.slice(0, 6000),
               status: 'failed',
-              last_error: 'article_insert',
+              last_error: insertError.message.slice(0,500),
               processed_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             },
