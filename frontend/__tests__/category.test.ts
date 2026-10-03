@@ -6,6 +6,8 @@ describe('categorySlug', () => {
     expect(categorySlug('রাজনীতি')).toBe('politics');
     expect(categorySlug('জাতীয়')).toBe('national');
     expect(categorySlug('national')).toBe('national');
+    expect(categorySlug('বিশ্ব')).toBe('international');
+    expect(categorySlug('আন্তর্জাতিক')).toBe('international');
   });
 
   it('rejects unknown slugs', () => {

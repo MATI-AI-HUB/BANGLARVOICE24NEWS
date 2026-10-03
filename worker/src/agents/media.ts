@@ -7,7 +7,7 @@ export interface MediaResult {
   height: number;
   attribution: string;
   license: string;
-  source: "wikimedia" | "openverse" | "pexels" | "rss";
+  source: "wikimedia" | "openverse" | "pexels" | "rss" | "brand";
 }
 
 const WIKIMEDIA_API =
@@ -130,7 +130,38 @@ export function rssThumbnail(url: string | undefined): MediaResult | null {
   };
 }
 
+export function brandedFallback(): MediaResult {
+  return {
+    url: "https://www.banglarvoice24news.com/banglar-voice-logo.png",
+    width: 1200,
+    height: 675,
+    attribution: "বাংলার ভয়েস",
+    license: "brand",
+    source: "brand",
+  };
+}
+
 export async function fetchMedia(cfg: WorkerConfig, query: string): Promise<MediaResult | null> {
   const q = searchQuery(query);
   return (await fromWikimedia(q)) ?? (await fromOpenverse(q)) ?? (await fromPexels(cfg, q));
+}
+
+export async function resolvePipelineMedia(
+  cfg: WorkerConfig,
+  query: string,
+  sourceImageUrl?: string,
+): Promise<MediaResult> {
+  const fromSource = rssThumbnail(sourceImageUrl);
+  if (fromSource) return fromSource;
+  const pexels = await fromPexels(cfg, searchQuery(query));
+  if (pexels) return pexels;
+  return brandedFallback();
+}
+
+export function isRepresentationalMedia(media: MediaResult): boolean {
+  return media.source === "pexels" || media.source === "brand";
+}
+
+export function isFallbackMedia(media: MediaResult): boolean {
+  return media.source === "brand";
 }

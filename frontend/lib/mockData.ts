@@ -32,6 +32,8 @@ export type FeedArticle = {
   source_name?: string;
   source_url?: string;
   image_credit?: string;
+  image_alt_bn?: string;
+  image_is_representational?: boolean;
   origin?: 'aggregated' | 'original';
 };
 

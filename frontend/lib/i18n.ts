@@ -21,7 +21,7 @@ export const dict = {
     national: 'জাতীয়',
     sports: 'খেলা',
     entertainment: 'বিনোদন',
-    international: 'আন্তর্জাতিক',
+    international: 'বিশ্ব',
     education: 'শিক্ষা',
     health: 'স্বাস্থ্য',
     religion: 'ধর্ম',
@@ -141,6 +141,7 @@ const CATEGORY_MAP: Record<string, keyof typeof dict.bn> = {
   'রাজনীতি': 'politics',
   'অর্থনীতি': 'economy',
   'আন্তর্জাতিক': 'international',
+  'বিশ্ব': 'international',
   'খেলা': 'sports',
   'বিনোদন': 'entertainment',
   'শিক্ষা': 'education',
@@ -155,6 +156,9 @@ const CATEGORY_MAP: Record<string, keyof typeof dict.bn> = {
 export function translateCategory(locale: Locale, bnCategory: string): string {
   const c = (bnCategory || '').trim();
   if (!c) return c;
-  const key = CATEGORY_MAP[c];
-  return key ? t(locale, key) : c;
+  if (c === 'বিশ্ব') return t(locale, 'international');
+  const mapped = CATEGORY_MAP[c];
+  if (mapped) return t(locale, mapped);
+  if (c in dict.bn) return t(locale, c as keyof typeof dict.bn);
+  return c;
 }

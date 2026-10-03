@@ -10,7 +10,8 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:publish-gate": "cmp -s src/lib/publish-gate.ts ../frontend/lib/publish-gate.ts"
   },
   "dependencies": {
     "@sentry/node": "^10.74.0",

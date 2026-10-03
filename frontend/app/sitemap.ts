@@ -1,13 +1,11 @@
 import { api } from '../lib/api';
 import type { FeedArticle } from '../lib/mockData';
 import type { MetadataRoute } from 'next';
+import { canonicalSiteUrl } from '../lib/site';
 
 export const revalidate = 3600;
 
-const BASE = (
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  'https://banglarvoice24news.com'
-).replace(/\/+$/, '');
+const BASE = canonicalSiteUrl();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticUrls: MetadataRoute.Sitemap = [

@@ -47,6 +47,8 @@ export interface DraftArticle {
   skipReason: string | null;
   aiScore: number;
   aiSummary: string;
+  riskLevel?: "low" | "medium" | "high";
+  reviewReason?: string | null;
   status: "draft" | "pending_review" | "approved" | "published" | "rejected";
   duplicateOf: string | null;
   verification?: import('./specialists/types.js').SpecialistVerdict;

@@ -129,7 +129,7 @@ function requireBvBaseUrl(env: NodeJS.ProcessEnv): string {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
   const chat = resolveChatAi(env);
   return {
-    intervalMinutes: num(env.INTERVAL_MINUTES, 15),
+    intervalMinutes: num(env.INTERVAL_MINUTES, 14),
     newsRssUrls: csv(env.NEWS_RSS_URLS),
     chatAiBaseUrl: chat.chatAiBaseUrl,
     chatAiModel: chat.chatAiModel,

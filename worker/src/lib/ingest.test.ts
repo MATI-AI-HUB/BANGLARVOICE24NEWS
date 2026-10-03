@@ -4,7 +4,7 @@ import type { WorkerConfig } from "../config.js";
 import type { DraftArticle } from "../agents/types.js";
 
 const cfg: WorkerConfig = {
-  intervalMinutes: 15,
+  intervalMinutes: 14,
   newsRssUrls: [],
   bvBaseUrl: "https://example.com",
   newsroomIngestKey: "k",
@@ -87,6 +87,21 @@ describe("publishViaSupabase", () => {
   it("refuses fallback drafts", async () => {
     const result = await publishViaSupabase(cfg, draft({ fallback: true, rewriteMethod: "fallback" }));
     expect(result).toEqual({ ok: false, error: "fallback_not_publishable" });
+  });
+});
+
+describe("publishViaHttp image fallback", () => {
+  it("sends branded image when draft.imageUrl is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, id: "art-2", status: "published" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await publishViaHttp(cfg, draft({ imageUrl: "", imageAlt: "" }));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.imageUrl).toBe("https://www.banglarvoice24news.com/banglar-voice-logo.png");
+    expect(body.imageCredit).toBe("বাংলার ভয়েস");
+    expect(body.status).toBe("published");
   });
 });
 

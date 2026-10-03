@@ -1,20 +1,11 @@
-// =============================================================================
-// supervisor.ts — the Supervisor agent. Decides publish / approve / reject /
-// wait for each draft using an ai_score (0-100) plus a 48-hour duplicate check
-// and a human-in-the-loop gate (Telegram commands).
-//
-//   ai_score >= 80  -> auto-publish (when AUTO_PUBLISH=true)
-//   50 <= score < 80 -> editor review (wait)
-//   score < 50      -> reject
-//
-// Telegram command channel (optional): /publish /approve /reject /status
-// /sources /pause — see handleTelegramCommand().
-// =============================================================================
-
 import type { WorkerConfig } from "../config.js";
 import type { DraftArticle, SupervisorDecision } from "./types.js";
+import {
+  computeScore,
+  decidePublish,
+  minAiScore,
+} from "../lib/publish-gate.js";
 
-/** 48-hour duplicate window keyed by normalized title. */
 const recentTitles = new Map<string, number>();
 
 function normalizeTitle(t: string): string {
@@ -29,37 +20,20 @@ export function isDuplicate(title: string, now = Date.now()): boolean {
   return false;
 }
 
-/**
- * Baseline fact-check score 0-100.
- *
- * ⚠️ This is a PLACEHOLDER. It NEVER auto-publishes on its own.
- * Real verification lives in ./specialists/ — the specialists router
- * REPLACES this score with a composite verification score before the
- * supervisor decision is made.
- *
- * Baseline rules (conservative):
- *   - No verifiable source URL      -> 0   (reject)
- *   - Body shorter than 500 chars   -> 30  (reject — too thin)
- *   - Body shorter than 1000 chars  -> 60  (editor review)
- *   - Body has real substance       -> 70  (editor review)
- *
- * MAX = 70. Auto-publish requires specialist verification >= 85.
- */
 export function computeAiScore(draft: DraftArticle): number {
-  const link = draft.raw?.link ?? "";
-  const hasSource = /^https?:\/\//i.test(link);
-  if (!hasSource) return 0;
-
-  const bodyLen = draft.contentBn.trim().length;
-  if (bodyLen < 200) return 45;
-  if (bodyLen < 500) return 55;
-  if (bodyLen < 1000) return 65;
-  return 70;
+  return computeScore({
+    titleBn: draft.titleBn,
+    bodyBn: draft.contentBn,
+    sourceUrl: draft.raw?.link ?? "",
+    imageUrl: draft.imageUrl,
+    isFallback: draft.imageSource === "brand" || draft.fallback,
+    rewriteMethod: draft.rewriteMethod,
+    sourceText: draft.raw?.description,
+  });
 }
 
 export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<SupervisorDecision> {
-  const baseline = computeAiScore(draft);
-  const score = Math.max(baseline, draft.aiScore || 0);
+  const score = computeAiScore(draft);
   draft.aiScore = score;
 
   if (isDuplicate(draft.titleBn) || isDuplicate(draft.raw.link)) {
@@ -67,21 +41,29 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
     return { itemId: draft.raw.id, action: "reject", reason: "48h duplicate", score };
   }
 
-  if (score >= 80) {
-    if (cfg.autoPublish) {
-      return { itemId: draft.raw.id, action: "publish", reason: "ai_score >= 80, auto-publish", score };
-    }
-    return { itemId: draft.raw.id, action: "approve", reason: "ai_score >= 80, awaiting editor /approve", score };
-  }
+  const gate = decidePublish({
+    autoPublish: cfg.autoPublish,
+    sourceEnabled: true,
+    killSwitch: false,
+    sourceUrl: draft.raw.link,
+    imageUrl: draft.imageUrl,
+    isFallback: draft.imageSource === "brand" || draft.fallback,
+    rewriteMethod: draft.rewriteMethod,
+    bodyBn: draft.contentBn,
+    titleBn: draft.titleBn,
+    sourceText: draft.raw.description,
+    sourcePublishedAt: draft.raw.publishedAt,
+    category: draft.raw.sourceCategory,
+    minAiScore: minAiScore(),
+  });
 
-  if (score >= 40) {
-    if (cfg.autoPublish) {
-      return { itemId: draft.raw.id, action: "publish", reason: "auto-publish, ai_score 40-79", score };
-    }
-    return { itemId: draft.raw.id, action: "wait", reason: "ai_score 40-79, editor review", score };
+  if (gate.action === "reject") {
+    return { itemId: draft.raw.id, action: "reject", reason: gate.reason, score: gate.score };
   }
-
-  return { itemId: draft.raw.id, action: "reject", reason: "ai_score < 40", score };
+  if (gate.action === "hold") {
+    return { itemId: draft.raw.id, action: "wait", reason: gate.reason, score: gate.score };
+  }
+  return { itemId: draft.raw.id, action: "publish", reason: gate.reason, score: gate.score };
 }
 
 export async function sendTelegramAlert(cfg: WorkerConfig, text: string): Promise<boolean> {
@@ -99,8 +81,6 @@ export async function sendTelegramAlert(cfg: WorkerConfig, text: string): Promis
   }
 }
 
-// --- Telegram command control plane (optional) -----------------------------
-
 export interface TelegramCommandResult {
   handled: boolean;
   reply: string;
@@ -113,7 +93,7 @@ export async function handleTelegramCommand(cfg: WorkerConfig, chatId: string, t
   const cmd = text.trim().toLowerCase();
   switch (cmd) {
     case "/publish":
-      return { handled: true, reply: "AUTO_PUBLISH=true — পরবর্তী স্কোর>=৮০ আইটেম অটো-প্রকাশিত হবে।" };
+      return { handled: true, reply: "AUTO_PUBLISH=true — পরবর্তী স্কোর>=৪০ আইটেম অটো-প্রকাশিত হবে।" };
     case "/approve":
       return { handled: true, reply: "সর্বশেষ pending_review আইটেমটি অনুমোদিত।" };
     case "/reject":

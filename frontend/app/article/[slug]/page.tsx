@@ -11,10 +11,11 @@ import { TrustSignals } from '../../../components/trust-signals';
 import { Breadcrumb } from '../../../components/breadcrumb';
 import { RelatedArticles } from '../../../components/related-articles';
 import { ShareButtons } from '../../../components/share-buttons';
+import { canonicalSiteUrl } from '../../../lib/site';
 
 export const revalidate = 60;
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
+const BASE = canonicalSiteUrl();
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -41,6 +42,8 @@ type ArticleData = {
   source_url?: string;
   source_published_at?: string;
   image_credit?: string;
+  image_alt_bn?: string;
+  image_is_representational?: boolean;
   category_key?: string;
   verification_status?: string;
   verification_score?: number;
@@ -82,8 +85,7 @@ function sanitizeHtml(html: string): string {
 
 type LoadResult =
   | { status: 'ok'; article: ArticleData }
-  | { status: 'missing' }
-  | { status: 'unavailable' };
+  | { status: 'missing' };
 
 function mockArticle(slug: string): ArticleData | null {
   if (process.env.NODE_ENV === 'production') return null;
@@ -109,11 +111,13 @@ function mockArticle(slug: string): ArticleData | null {
 async function loadArticle(slug: string, _locale: Locale = 'bn'): Promise<LoadResult> {
   try {
     const a = (await api.article(slug)) as Partial<ArticleData> | null;
-    if (a && a.slug) return { status: 'ok', article: a as ArticleData };
+    if (a && a.slug && (a.title_bn || a.body_bn)) {
+      return { status: 'ok', article: a as ArticleData };
+    }
   } catch {
     const demo = mockArticle(slug);
     if (demo) return { status: 'ok', article: demo };
-    return { status: 'unavailable' };
+    return { status: 'missing' };
   }
 
   const demo = mockArticle(slug);
@@ -126,30 +130,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cookieStore = await cookies();
   const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
   const loaded = await loadArticle(slug, locale);
-  if (loaded.status === 'unavailable') {
-    return { title: 'সংবাদ লোড হয়নি', robots: { index: false, follow: false } };
-  }
-  if (loaded.status !== 'ok') return { title: 'পাতা নেই' };
+  if (loaded.status !== 'ok') return { title: 'পাতা নেই', robots: { index: false, follow: false } };
   const a = loaded.article;
   const displayTitle = locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn;
   const displayDek = locale === 'en' ? (a.dek_en || a.dek_bn) : a.dek_bn;
 
   const image = a.featured_image
-    ? { url: a.featured_image, alt: displayTitle }
+    ? { url: a.featured_image, alt: a.image_alt_bn || displayTitle }
     : undefined;
 
   return {
     title: displayTitle,
     description: displayDek || a.seo_description,
-    alternates: { canonical: `/article/${slug}` },
+    alternates: { canonical: `${BASE}/article/${slug}` },
     openGraph: {
       title: displayTitle,
       description: displayDek,
       type: 'article',
+      url: `${BASE}/article/${slug}`,
       locale: locale === 'en' ? 'en_US' : 'bn_BD',
       publishedTime: a.published_at,
       authors: a.author_name ? [a.author_name] : undefined,
-      images: image ? [image] : undefined,
+      images: image ? [image] : [{ url: `${BASE}/banglar-voice-logo.png`, alt: 'বাংলার ভয়েস' }],
     },
   };
 }
@@ -160,23 +162,7 @@ export default async function ArticlePage({ params }: PageProps) {
   const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
 
   const loaded = await loadArticle(slug, locale);
-  if (loaded.status === 'unavailable') {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <h1 className="font-serifbn text-2xl font-bold">সংবাদ এই মুহূর্তে লোড করা যায়নি</h1>
-        <p className="mt-3 text-neutral-600 dark:text-neutral-300">
-          ব্যাকএন্ড সংযোগ ব্যর্থ হয়েছে। এই পাতাটি নেই বলে ধরা হয়নি। পরে আবার চেষ্টা করুন।
-        </p>
-        <a
-          href={`/article/${encodeURIComponent(slug)}`}
-          className="mt-6 inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white"
-        >
-          আবার চেষ্টা করুন
-        </a>
-      </main>
-    );
-  }
-  if (loaded.status !== 'ok' || !loaded.article.slug) notFound();
+  if (loaded.status !== 'ok' || !loaded.article?.slug || !loaded.article.title_bn) notFound();
   const a = loaded.article;
 
   const displayTitle = locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn;
@@ -240,8 +226,11 @@ export default async function ArticlePage({ params }: PageProps) {
         </span>
       </div>
       {a.featured_image && (
-        <img src={a.featured_image} alt={displayTitle} className="mt-6 aspect-video w-full rounded object-cover" />
+        <img src={a.featured_image} alt={a.image_alt_bn || displayTitle} className="mt-6 aspect-video w-full rounded object-cover" />
       )}
+      {a.image_is_representational ? (
+        <p className="mt-2 text-xs font-semibold text-neutral-500">প্রতীকী ছবি</p>
+      ) : null}
       {a.image_credit ? (
         <p className="mt-2 text-xs text-neutral-500">ছবি: {a.image_credit}</p>
       ) : null}

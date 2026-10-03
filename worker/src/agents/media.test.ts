@@ -3,7 +3,7 @@ import { fetchMedia, rssThumbnail } from "./media.js";
 import type { WorkerConfig } from "../config.js";
 
 const cfg: WorkerConfig = {
-  intervalMinutes: 15,
+  intervalMinutes: 14,
   newsRssUrls: [],
   bvBaseUrl: "https://example.com",
   newsroomIngestKey: "k",

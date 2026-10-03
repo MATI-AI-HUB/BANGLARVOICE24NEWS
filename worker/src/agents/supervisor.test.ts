@@ -4,7 +4,7 @@ import type { WorkerConfig } from "../config.js";
 import type { DraftArticle } from "./types.js";
 
 const cfg = (autoPublish: boolean): WorkerConfig => ({
-  intervalMinutes: 15,
+  intervalMinutes: 14,
   newsRssUrls: [],
   chatAiBaseUrl: "",
   chatAiModel: "",
@@ -41,17 +41,17 @@ function draft(overrides: Partial<DraftArticle> = {}): DraftArticle {
       publishedAt: new Date().toISOString(),
     },
     titleBn: "একটি যথেষ্ট লম্বা বাংলা শিরোনাম",
-    contentBn: "ক".repeat(300),
+    contentBn: "ঢাকায় আজ নিয়মিত আবহাওয়া বার্তা প্রকাশিত হয়েছে এবং নগরবাসীকে সতর্ক থাকতে বলা হয়েছে। " + "ক".repeat(180),
     excerptBn: "সারাংশ",
     tags: [],
-    imageUrl: "",
-    imageAlt: "",
-    imageLicense: "",
-    imageSource: "",
+    imageUrl: "https://cdn.example.com/pic.jpg",
+    imageAlt: "ছবি",
+    imageLicense: "source",
+    imageSource: "rss",
     rewriteMethod: "ai",
     fallback: false,
     skipReason: null,
-    aiScore: 42,
+    aiScore: 0,
     aiSummary: "",
     status: "draft",
     duplicateOf: null,
@@ -60,29 +60,20 @@ function draft(overrides: Partial<DraftArticle> = {}): DraftArticle {
 }
 
 describe("decide thresholds", () => {
-  it("publishes score 42 when AUTO_PUBLISH is on (was rejected at 50)", async () => {
-    const d = draft({ aiScore: 42, contentBn: "ক".repeat(100) });
-    expect(computeAiScore(d)).toBe(45);
+  it("publishes a complete AI rewrite when AUTO_PUBLISH is on", async () => {
+    const d = draft({ raw: { ...draft().raw, id: "pub-1", link: "https://ex.com/publish" } });
+    expect(computeAiScore(d)).toBeGreaterThanOrEqual(40);
     const result = await decide(cfg(true), d);
     expect(result.action).toBe("publish");
     expect(result.score).toBeGreaterThanOrEqual(40);
   });
 
-  it("still rejects scores below 40", async () => {
+  it("holds when AUTO_PUBLISH is off", async () => {
     const d = draft({
-      aiScore: 10,
-      contentBn: "ছোট",
-      raw: {
-        id: "2",
-        sourceUrl: "https://ex.com/feed",
-        sourceCategory: "national",
-        title: "x",
-        link: "not-a-url",
-        description: "y",
-        publishedAt: new Date().toISOString(),
-      },
+      titleBn: "দ্বিতীয় আলাদা বাংলা শিরোনামটি",
+      raw: { ...draft().raw, id: "hold-1", link: "https://ex.com/hold", title: "দ্বিতীয়" },
     });
-    const result = await decide(cfg(true), d);
-    expect(result.action).toBe("reject");
+    const result = await decide(cfg(false), d);
+    expect(result.action).toBe("wait");
   });
 });

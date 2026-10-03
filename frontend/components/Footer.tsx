@@ -102,8 +102,8 @@ export function Footer({ locale = 'bn' as Locale }: { locale?: Locale } = {}) {
           </p>
           <p>
             {isEn
-              ? 'Tech stack: Vercel + Supabase · Operated under the laws of Bangladesh.'
-              : 'টেক স্ট্যাক: Vercel + Supabase · বাংলাদেশের আইন অনুসারে পরিচালিত।'}
+              ? 'Operated under the laws of Bangladesh.'
+              : 'বাংলাদেশের আইন অনুসারে পরিচালিত।'}
           </p>
         </div>
       </div>

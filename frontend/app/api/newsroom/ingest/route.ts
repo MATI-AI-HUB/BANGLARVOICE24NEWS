@@ -7,6 +7,7 @@ import {
   ingestKeyOk,
   sourceLabelFromUrl,
 } from '../../../../lib/ingest-auth';
+import { computeRiskLevel } from '../../../../lib/publish-gate';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,6 +41,7 @@ type IngestBody = {
   imageCredit?: unknown;
   imageLicense?: unknown;
   imageSource?: unknown;
+  imageRepresentational?: unknown;
   rewriteMethod?: unknown;
   fallback?: unknown;
   aiScore?: unknown;
@@ -135,7 +137,8 @@ export async function POST(req: Request) {
     return json({ error: 'invalid_json' }, 400);
   }
 
-  if (body.fallback === true || asText(body.rewriteMethod).toLowerCase() === 'fallback') {
+  const rewriteFallback = asText(body.rewriteMethod).toLowerCase() === 'fallback' || body.fallback === true;
+  if (rewriteFallback && asText(body.status).toLowerCase() === 'published') {
     return json({ error: 'fallback_not_publishable' }, 422);
   }
 
@@ -149,10 +152,17 @@ export async function POST(req: Request) {
   const contentHash = asText(body.contentHash);
   const excerpt = asText(body.excerpt) || content.slice(0, 160);
   const category = mapCategory(asText(body.sourceCategory));
-  const mapped = mapStatus(asText(body.status));
-  const imageUrl = asText(body.imageUrl);
-  const imageCredit = asText(body.imageCredit) || asText(body.imageAlt);
+  const mapped = rewriteFallback ? mapStatus('pending') : mapStatus(asText(body.status) || 'published');
+  const imageUrl =
+    asText(body.imageUrl) || 'https://www.banglarvoice24news.com/banglar-voice-logo.png';
+  const imageCredit = asText(body.imageCredit) || asText(body.imageAlt) || 'বাংলার ভয়েস';
   const imageLicense = asText(body.imageLicense);
+  const imageSource = asText(body.imageSource);
+  const representational =
+    body.imageRepresentational === true ||
+    imageSource === 'pexels' ||
+    imageSource === 'brand' ||
+    rewriteFallback;
   const now = new Date().toISOString();
   const tags = Array.isArray(body.tags)
     ? body.tags.filter((t): t is string => typeof t === 'string').slice(0, 12)
@@ -219,8 +229,13 @@ export async function POST(req: Request) {
       content_hash: contentHash || '',
       thumbnail_url: imageUrl,
       featured_image: imageUrl,
-      image_alt_bn: asText(body.imageAlt).slice(0, 250),
+      image_alt_bn: asText(body.imageAlt).slice(0, 250) || imageCredit.slice(0, 250),
       image_credit: imageCredit.slice(0, 250),
+      image_license: imageLicense.slice(0, 120),
+      image_is_representational: representational,
+      is_fallback: imageSource === 'brand' || rewriteFallback,
+      origin: 'aggregated',
+      risk_level: computeRiskLevel(title, content, category).level,
       media_type: imageUrl ? 'image' : 'none',
       ai_confidence: aiConfidence,
       ai_model: asText(body.rewriteMethod) === 'ai' ? 'chat' : '',

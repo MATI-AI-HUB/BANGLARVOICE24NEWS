@@ -17,6 +17,7 @@ export type Article = {
   author?: string;
   source_name?: string;
   source_url?: string;
+  image_is_representational?: boolean;
   origin?: 'aggregated' | 'original';
 };
 
@@ -152,6 +153,9 @@ export function LeadCard({ article, href, locale }: { article: Article; href: st
           {article.read_time ? <span>• {fmtNum(article.read_time, locale)} {t(locale, 'min_read')}</span> : null}
           <span>• <ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
+        {article.image_is_representational ? (
+          <p className="pt-2 text-[10px] font-semibold text-neutral-500">প্রতীকী ছবি</p>
+        ) : null}
         {article.image_credit ? (
           <p className="pt-2 text-[10px] text-neutral-400">ছবি: {article.image_credit}</p>
         ) : null}
@@ -186,6 +190,9 @@ export function ArticleCard({ article, href, locale }: { article: Article; href:
           <span>•</span>
           <span><ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
+        {article.image_is_representational ? (
+          <p className="pt-2 text-[10px] font-semibold text-neutral-500">প্রতীকী ছবি</p>
+        ) : null}
         {article.image_credit ? (
           <p className="pt-2 text-[10px] text-neutral-400">ছবি: {article.image_credit}</p>
         ) : null}

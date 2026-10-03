@@ -1,0 +1,42 @@
+name: authority
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  authority:
+    name: Owner identity, no co-author, no env files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check commits
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          OWNER: matiailearninghub@gmail.com
+        run: |
+          RANGE="$BASE..$HEAD_SHA"
+          BAD=$(git log "$RANGE" --format='%ae%n%ce' | sort -u | grep -v '^$' | grep -vx "$OWNER" || true)
+          if [ -n "$BAD" ]; then echo "Unauthorized identity:"; echo "$BAD"; exit 1; fi
+          if git log "$RANGE" --format=%B | grep -iE 'co-authored-by|generated (with|by)'; then
+            echo "Forbidden trailer found"; exit 1
+          fi
+          if git diff --name-only "$BASE...$HEAD_SHA" | grep -E '(^|/)\.env' | grep -v '\.example$'; then
+            echo ".env file in diff"; exit 1
+          fi
+
+  publish-gate:
+    name: Publish gate sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Frontend and worker gate files identical
+        run: |
+          cmp frontend/lib/publish-gate.ts worker/src/lib/publish-gate.ts

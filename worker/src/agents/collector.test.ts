@@ -3,7 +3,7 @@ import { collect } from './collector.js';
 import type { WorkerConfig } from '../config.js';
 
 const cfg: WorkerConfig = {
-  intervalMinutes: 15,
+  intervalMinutes: 14,
   newsRssUrls: ['https://example.com/feed.xml'],
   bvBaseUrl: 'http://localhost:8090',
   newsroomIngestKey: 'test-key',

@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 import { fetchPublishedArticlesFeed } from '../../../../lib/supabase/published-articles';
+import { canonicalSiteUrl } from '../../../../lib/site';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
+const SITE = canonicalSiteUrl();
 
 export const revalidate = 60;
 
@@ -16,7 +17,7 @@ const KEY_TO_LABEL: Record<string, string> = {
   tech: 'প্রযুক্তি',
   health: 'স্বাস্থ্য',
   education: 'শিক্ষা',
-  international: 'আন্তর্জাতিক',
+  international: 'বিশ্ব',
   city: 'নগর',
 };
 
@@ -69,6 +70,7 @@ export async function GET() {
           source_name: sourceName,
           source_url: a.source_url || a.canonical_url || '',
           image_credit: a.image_credit || '',
+          image_is_representational: Boolean(a.image_is_representational || a.is_fallback),
           origin: a.origin === 'original' ? 'original' : 'aggregated',
           external_url: a.source_url || a.canonical_url || '',
         };

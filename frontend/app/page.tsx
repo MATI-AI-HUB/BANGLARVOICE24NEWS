@@ -35,6 +35,7 @@ const toBento = (a: FeedArticle, locale: Locale) => ({
   source_name: a.source_name,
   source_url: a.source_url,
   image_credit: a.image_credit,
+  image_is_representational: a.image_is_representational,
   origin: a.origin,
 });
 
@@ -92,7 +93,7 @@ export default async function HomePage() {
         </span>
         <span aria-hidden="true" className="h-4 w-px bg-crimson/60" />
         <span className="inline-flex items-baseline gap-1.5">
-          <span className="font-serifbn text-lg font-black leading-none text-crimson">
+          <span className="font-sansbn text-lg font-black leading-none text-crimson">
             24
           </span>
           <span className="text-xs font-black uppercase tracking-[0.22em] text-ink/70 dark:text-paper/70">
@@ -100,7 +101,7 @@ export default async function HomePage() {
           </span>
         </span>
       </div>
-        <h1 className="font-serifbn text-2xl font-extrabold leading-tight md:text-3xl">
+        <h1 className="font-serifbn text-2xl font-extrabold leading-snug md:text-3xl">
           {t(locale, "hero_title")}
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
@@ -173,13 +174,17 @@ export default async function HomePage() {
       {/* Dark video & podcast hub */}
       <VideoHub videos={videos} />
 
-      {/* AI news anchor — virtual presenter with Bengali voice-over */}
-      <AINewsAnchor
-        script={{
-          title: 'আজকের প্রধান সংবাদ — AI অ্যাংকরের সাথে',
-          body: 'স্বাগতম। আজকের প্রধান সংবাদে — পদ্মা সেতু দিয়ে প্রথম দিনে রেকর্ড সংখ্যক যানবাহন পারাপার হয়েছে, টোল আদায় হয়েছে দুই কোটি টাকা। অর্থনীতিতে নতুন আশার আলো দেখছেন বিশ্লেষকরা। পাশাপাশি, জাতীয় সংসদে বাজেট অধিবেশন শুরু হয়েছে, যেখানে আগামী বছরের বাজেট নিয়ে আলোচনা চলছে। ক্রীড়া জগতে, বাংলাদেশের ক্রিকেট দল সিরিজ জয়ের পথে। বিস্তারিত থাকছে আমাদের পরবর্তী সংবাদে।',
-        }}
-      />
+      {items.length > 0 ? (
+        <AINewsAnchor
+          script={{
+            title: 'আজকের প্রধান সংবাদ — AI অ্যাংকরের সাথে',
+            body: items
+              .slice(0, 5)
+              .map((a) => `${a.title_bn}। ${a.dek_bn || ''}`.trim())
+              .join(' '),
+          }}
+        />
+      ) : null}
 
       {/* Membership / newsletter hook */}
       <NewsletterCta />

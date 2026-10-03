@@ -12,7 +12,8 @@ export const notoSerifBengali = localFont({
   ],
   variable: '--font-serif-bn',
   display: 'swap',
-  fallback: ['Noto Serif Bengali', 'serif'],
+  adjustFontFallback: false,
+  fallback: ['Noto Serif Bengali', 'Noto Sans Bengali', 'serif'],
 });
 
 // Bengali sans — used for UI, navigation, and body text.

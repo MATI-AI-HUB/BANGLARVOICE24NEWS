@@ -23,13 +23,13 @@ body {
 }
 
 /* Seamless breaking-news ticker (see BreakingMarquee).
-   The text is repeated 3x, so translating -33.3333% loops seamlessly. */
+   The text is duplicated once; translating -50% loops without a visible gap. */
 @keyframes marquee {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-33.3333%);
+    transform: translateX(-50%);
   }
 }
 
@@ -63,7 +63,10 @@ body {
 }
 
 .font-serifbn {
-  font-family: var(--font-serif-bn), 'Noto Serif Bengali', serif;
+  font-family: var(--font-serif-bn), 'Noto Serif Bengali', 'Noto Sans Bengali', serif;
+  line-height: 1.5;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'locl' 1;
+  text-rendering: optimizeLegibility;
 }
 
 .line-clamp-2 {

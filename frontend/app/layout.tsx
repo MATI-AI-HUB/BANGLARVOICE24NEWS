@@ -8,16 +8,18 @@ import { Footer } from '@/components/Footer';
 import { CookieBanner } from '@/components/CookieBanner';
 import { PlausibleAnalytics } from '@/components/plausible';
 import { LearningHub } from '@/components/learning-hub';
+import { canonicalSiteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: { default: 'বাংলার ভয়েস', template: '%s — বাংলার ভয়েস' },
   description: 'স্বাধীন সংবাদ প্রকাশে নির্ভীক — Banglar Voice autonomous Bangla news platform',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com'),
+  metadataBase: new URL(canonicalSiteUrl()),
   alternates: { canonical: '/' },
   openGraph: {
     siteName: 'বাংলার ভয়েস',
     title: 'বাংলার ভয়েস — স্বাধীন সংবাদ প্রচারে নির্ভীক',
     description: 'বাংলাদেশ ও বিশ্ব — নিরপেক্ষ, দায়িত্বশীল ও নির্ভরযোগ্য সাংবাদিকতা',
+    url: canonicalSiteUrl(),
     locale: 'bn_BD',
     type: 'website',
   },
@@ -35,8 +37,8 @@ const organizationLd = {
   '@type': 'NewsMediaOrganization',
   name: 'বাংলার ভয়েস',
   alternateName: 'Banglar Voice',
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com',
-  logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com'}/banglar-voice-logo.png`,
+  url: canonicalSiteUrl(),
+  logo: `${canonicalSiteUrl()}/banglar-voice-logo.png`,
   sameAs: [],
 };
 

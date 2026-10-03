@@ -291,9 +291,7 @@ export function AINewsAnchor({ script }: { script: AnchorScript }) {
           </div>
 
           <p className="mt-4 text-[11px] text-neutral-500">
-            {ELEVENLABS_KEY && ELEVENLABS_VOICE
-              ? 'ElevenLabs AI ভয়েস'
-              : 'বাংলা টেক্সট-টু-স্পিচ (Web Speech API) — ElevenLabs key যোগ করলে AI ভয়েস চালু হবে'}
+            বাংলা টেক্সট-টু-স্পিচ
           </p>
         </div>
       </div>

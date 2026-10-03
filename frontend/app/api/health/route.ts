@@ -52,7 +52,7 @@ export async function GET() {
       const { data, error } = await supabase
         .from('news_pipeline_runs')
         .select('completed_at, created_at, status, stage, published, error_message')
-        .eq('status', 'success')
+        .in('status', ['success', 'partial'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

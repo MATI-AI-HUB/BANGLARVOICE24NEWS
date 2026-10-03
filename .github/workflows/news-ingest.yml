@@ -2,7 +2,7 @@ name: News ingest
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/14 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -12,7 +12,7 @@ concurrency:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 14
     defaults:
       run:
         working-directory: worker
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci --legacy-peer-deps

@@ -1,6 +1,7 @@
 import type { WorkerConfig } from "../config.js";
 import type { DraftArticle } from "../agents/types.js";
 import { contentHash, supabaseAdmin } from "./pipeline.js";
+import { computeRiskLevel } from "./publish-gate.js";
 
 export interface PublishResult {
   ok: boolean;
@@ -86,15 +87,24 @@ export function sourceLabelFromUrl(url: string): string {
 export async function publishViaSupabase(cfg: WorkerConfig, draft: DraftArticle): Promise<PublishResult | null> {
   const client = supabaseAdmin(cfg);
   if (!client) return null;
-  if (draft.fallback || draft.rewriteMethod === "fallback") {
+  const rewriteIsFallback = draft.fallback || draft.rewriteMethod === "fallback";
+  if (rewriteIsFallback && draft.status === "published") {
     return { ok: false, error: "fallback_not_publishable" };
   }
 
   const hash = contentHash(draft.raw.link, draft.titleBn, draft.contentBn);
   const sourceUrl = draft.raw.link.trim();
-  const mapped = mapStatus(draft.status);
+  const mapped = rewriteIsFallback ? mapStatus("pending") : mapStatus(draft.status);
   const category = mapCategory(draft.raw.sourceCategory);
+  const representational =
+    draft.imageSource === "pexels" ||
+    draft.imageSource === "brand" ||
+    Boolean((draft as { imageRepresentational?: boolean }).imageRepresentational);
   const now = new Date().toISOString();
+  const imageUrl =
+    (draft.imageUrl || "").trim() ||
+    "https://www.banglarvoice24news.com/banglar-voice-logo.png";
+  const imageCredit = (draft.imageAlt || "").trim() || "বাংলার ভয়েস";
 
   if (sourceUrl) {
     const { data: existing } = await client
@@ -148,11 +158,19 @@ export async function publishViaSupabase(cfg: WorkerConfig, draft: DraftArticle)
       source_url: sourceUrl || null,
       canonical_url: sourceUrl || null,
       content_hash: hash,
-      thumbnail_url: draft.imageUrl,
-      featured_image: draft.imageUrl,
-      image_alt_bn: draft.imageAlt.slice(0, 250),
-      image_credit: draft.imageAlt.slice(0, 250),
-      media_type: draft.imageUrl ? "image" : "none",
+      thumbnail_url: imageUrl,
+      featured_image: imageUrl,
+      image_alt_bn: imageCredit.slice(0, 250),
+      image_credit: imageCredit.slice(0, 250),
+      image_license: (draft.imageLicense || "").slice(0, 120),
+      image_is_representational: representational,
+      is_fallback: draft.imageSource === "brand" || rewriteIsFallback,
+      origin: "aggregated",
+      risk_level:
+        draft.riskLevel ||
+        computeRiskLevel(draft.titleBn, draft.contentBn, draft.raw.sourceCategory).level,
+      review_reason: draft.reviewReason || null,
+      media_type: imageUrl ? "image" : "none",
       ai_confidence: Math.max(0, Math.min(1, draft.aiScore / 100)),
       ai_model: draft.rewriteMethod === "ai" ? "chat" : "",
       fact_sources: sourceUrl
@@ -167,6 +185,7 @@ export async function publishViaSupabase(cfg: WorkerConfig, draft: DraftArticle)
             },
           ]
         : [],
+      source_published_at: draft.raw.publishedAt || null,
       published_at: mapped.published_at,
       updated_at: now,
     })
@@ -206,6 +225,9 @@ export async function publishViaHttp(cfg: WorkerConfig, draft: DraftArticle): Pr
   if (!cfg.bvBaseUrl || !cfg.newsroomIngestKey) {
     return { ok: false, error: "ingest_disabled" };
   }
+  if ((draft.fallback || draft.rewriteMethod === "fallback") && draft.status === "published") {
+    return { ok: false, error: "fallback_not_publishable" };
+  }
   const hash = contentHash(draft.raw.link, draft.titleBn, draft.contentBn);
   const res = await fetch(`${cfg.bvBaseUrl}/api/newsroom/ingest`, {
     method: "POST",
@@ -219,11 +241,17 @@ export async function publishViaHttp(cfg: WorkerConfig, draft: DraftArticle): Pr
       content: draft.contentBn,
       excerpt: draft.excerptBn,
       tags: draft.tags,
-      imageUrl: draft.imageUrl,
+      imageUrl:
+        (draft.imageUrl || "").trim() ||
+        "https://www.banglarvoice24news.com/banglar-voice-logo.png",
       imageAlt: draft.imageAlt,
-      imageCredit: draft.imageAlt,
+      imageCredit: (draft.imageAlt || "").trim() || "বাংলার ভয়েস",
       imageLicense: draft.imageLicense,
       imageSource: draft.imageSource,
+      imageRepresentational:
+        draft.imageSource === "pexels" ||
+        draft.imageSource === "brand" ||
+        Boolean((draft as { imageRepresentational?: boolean }).imageRepresentational),
       rewriteMethod: draft.rewriteMethod,
       fallback: draft.fallback,
       aiScore: draft.aiScore,

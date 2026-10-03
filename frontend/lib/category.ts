@@ -2,6 +2,7 @@ const SLUG_BY_LABEL: Record<string, string> = {
   রাজনীতি: 'politics',
   অর্থনীতি: 'economy',
   আন্তর্জাতিক: 'international',
+  বিশ্ব: 'international',
   খেলা: 'sports',
   খেলাধুলা: 'sports',
   বিনোদন: 'entertainment',

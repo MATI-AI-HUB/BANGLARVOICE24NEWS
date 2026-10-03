@@ -1,8 +1,9 @@
 import { fetchPublishedArticlesFeed } from '../../lib/supabase/published-articles';
+import { canonicalSiteUrl } from '../../lib/site';
 
 export const revalidate = 300;
 
-const SITE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com').replace(/\/+$/, '');
+const SITE = canonicalSiteUrl();
 
 function xmlEscape(s: string): string {
   return s
@@ -25,7 +26,7 @@ export async function GET() {
       .slice(0, 30)
       .map((a) => ({
         id: a.id,
-        title_bn: a.title_bn,
+        title_bn: a.title_bn || '',
         excerpt_bn: a.excerpt_bn ?? null,
         published_at: a.published_at ?? null,
         source_name: a.source_name ?? null,

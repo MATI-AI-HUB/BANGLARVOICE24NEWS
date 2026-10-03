@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
+import { canonicalSiteUrl } from '../lib/site';
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
+const BASE = canonicalSiteUrl();
 
 export default function robots(): MetadataRoute.Robots {
   return {

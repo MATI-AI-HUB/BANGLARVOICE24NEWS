@@ -8,7 +8,22 @@ const nextConfig = {
     allowedHosts: ['.monkeycode-ai.live'],
   },
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'www.banglarvoice24news.com' },
+      { protocol: 'https', hostname: 'banglarvoice24news.com' },
+      { protocol: 'https', hostname: 'images.pexels.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org' },
+      { protocol: 'https', hostname: 'commons.wikimedia.org' },
+      { protocol: 'https', hostname: 'images.openverse.org' },
+      { protocol: 'https', hostname: 'api.openverse.org' },
+      { protocol: 'https', hostname: '**.bbc.co.uk' },
+      { protocol: 'https', hostname: '**.bbc.com' },
+      { protocol: 'https', hostname: '**.prothomalo.com' },
+      { protocol: 'https', hostname: '**.bdnews24.com' },
+      { protocol: 'https', hostname: '**.supabase.co' },
+      { protocol: 'https', hostname: '**' },
+    ],
   },
   async rewrites() {
     const legacy =

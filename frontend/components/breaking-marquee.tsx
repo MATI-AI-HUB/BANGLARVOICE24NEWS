@@ -14,8 +14,8 @@ import { t, type Locale } from '@/lib/i18n';
  *    black BREAKING badge (z-20, shrink-0) can never be overlapped.
  *  - Only the INNER text div is animated (Tailwind arbitrary animation
  *    `marquee 30s linear infinite`); the track container itself never moves.
- *  - The text is repeated 3 times; the `marquee` keyframes translate -33.333%
- *    for a seamless infinite loop. Hover pauses via `.group:hover .marquee-track`
+ *  - Short ticker rows are padded, then duplicated; `marquee` keyframes
+ *    translate -50% for a seamless infinite loop. Hover pauses via `.group:hover .marquee-track`
  *    (see globals.css). Motion is disabled under prefers-reduced-motion.
  *
  * Live ticker source: the `breaking_ticker` table (is_active = true). The
@@ -79,6 +79,9 @@ export function BreakingMarquee({ locale = 'bn' as Locale }: { locale?: Locale }
     };
   }, [locale]);
 
+  const loopTexts =
+    texts.length >= 3 ? texts : [...texts, ...texts, ...texts].slice(0, 6);
+
   return (
     <div className="group relative flex h-9 overflow-hidden bg-[#CC0000]">
       {/* Fixed BREAKING badge — never overlapped (z-20, shrink-0) */}
@@ -103,14 +106,14 @@ export function BreakingMarquee({ locale = 'bn' as Locale }: { locale?: Locale }
         {/* Only this inner text div animates; the track never moves */}
         <div className="absolute inset-0 flex items-center">
           <div className="marquee-track flex items-center whitespace-nowrap will-change-transform animate-[marquee_30s_linear_infinite]">
-            {[0, 1, 2].map((copy) => (
+            {[0, 1].map((copy) => (
               <span
                 key={copy}
                 className="flex items-center whitespace-nowrap text-sm font-medium text-white"
                 aria-hidden
               >
-                {texts.map((text) => (
-                  <span key={text} className="flex items-center">
+                {loopTexts.map((text, i) => (
+                  <span key={`${copy}-${i}`} className="flex items-center">
                     {text}
                     <span className="mx-8 h-1 w-1 shrink-0 rounded-full bg-white/60" />
                   </span>

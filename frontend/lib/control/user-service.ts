@@ -3,6 +3,7 @@
  */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
+import { canonicalSiteUrl } from '../site';
 
 export type UserRow = {
   id: string;
@@ -93,7 +94,7 @@ export async function updateUserVerified(userId: string, verified: boolean): Pro
 
 export async function sendPasswordReset(email: string): Promise<void> {
   const sb = adminClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://banglarvoice24news.com';
+  const siteUrl = canonicalSiteUrl();
   const { error } = await sb.auth.admin.generateLink({
     type: 'recovery',
     email,

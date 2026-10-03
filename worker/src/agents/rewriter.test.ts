@@ -15,7 +15,7 @@ const raw: RawItem = {
 
 function cfg(key: string): WorkerConfig {
   return {
-    intervalMinutes: 15,
+    intervalMinutes: 14,
     newsRssUrls: [],
     bvBaseUrl: "https://example.com",
     newsroomIngestKey: "k",

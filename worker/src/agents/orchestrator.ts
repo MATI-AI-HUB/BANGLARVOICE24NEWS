@@ -1,15 +1,18 @@
 import type { WorkerConfig } from "../config.js";
-import { collect } from "./collector.js";
+import { collectDetailed } from "./collector.js";
 import { rewrite } from "./rewriter.js";
-import { fetchMedia, rssThumbnail } from "./media.js";
+import { isRepresentationalMedia, resolvePipelineMedia } from "./media.js";
 import { broadcast, edit } from "./chain-agents.js";
 import { verifyDraft } from "./specialists/router.js";
 import { checkDiversityQuota } from "./specialists/diversity.js";
 import { findCorroboratingSources } from "./specialists/multisource.js";
-import { decide } from "./supervisor.js";
+import { computeAiScore, decide } from "./supervisor.js";
 import type { DraftArticle, PipelineState } from "./types.js";
 import {
+  acquirePipelineLock,
   contentHash,
+  finishPipelineLock,
+  isWithinLookback,
   logPipelineRun,
   MAX_PROCESS_PER_CYCLE,
   MAX_PUBLISH_PER_CYCLE,
@@ -17,6 +20,7 @@ import {
   sourceAlreadyPublished,
 } from "../lib/pipeline.js";
 import { publishViaHttp, publishViaSupabase, type PublishResult } from "../lib/ingest.js";
+import { computeRiskLevel } from "../lib/publish-gate.js";
 
 export type { PublishResult };
 
@@ -45,21 +49,41 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
   let pending = 0;
   let processed = 0;
   let failed = 0;
-  let rawItems: Awaited<ReturnType<typeof collect>> = [];
+  let queued = 0;
+  const errorTypes = new Set<string>();
+  let rawItems: Awaited<ReturnType<typeof collectDetailed>>["items"] = [];
+  let sourceOutcomes: Awaited<ReturnType<typeof collectDetailed>>["sources"] = {};
+  let disabledSources: string[] = [];
+  const lock = await acquirePipelineLock(cfg, "worker");
+  if (!lock.ok) {
+    return { collected: 0, published: 0, rejected: 0, skipped: 0, pending: 0 };
+  }
+
+  let runStatus: "success" | "partial" | "failed" = "failed";
+  let runError: unknown = null;
 
   try {
     await logPipelineRun(cfg, { stage: "collect", status: "started", details: { phase: "start" } });
-    rawItems = await collect(cfg);
+    const collected = await collectDetailed(cfg);
+    rawItems = collected.items;
+    sourceOutcomes = collected.sources;
+    disabledSources = collected.disabled;
     await logPipelineRun(cfg, {
       stage: "collect",
       status: "success",
       fetched: rawItems.length,
       duration_ms: Date.now() - started,
+      details: { sources: sourceOutcomes, disabled: disabledSources },
     });
 
     for (const raw of rawItems) {
       if (published >= MAX_PUBLISH_PER_CYCLE) break;
       if (processed >= MAX_PROCESS_PER_CYCLE) break;
+
+      if (!isWithinLookback(raw.publishedAt)) {
+        skipped += 1;
+        continue;
+      }
 
       const rate = await rateLimitOk(cfg);
       if (!rate.ok) {
@@ -102,25 +126,49 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       });
 
       if (rewritten.fallback) {
-        skipped += 1;
+        pending += 1;
+        queued += 1;
+        errorTypes.add(rewritten.reason ?? "ai_rewrite");
+        const media = await resolvePipelineMedia(cfg, raw.title, raw.imageUrl);
+        const held: DraftArticle = {
+          raw,
+          titleBn: rewritten.titleBn,
+          contentBn: rewritten.contentBn,
+          excerptBn: rewritten.contentBn.slice(0, 300),
+          tags: [],
+          imageUrl: media.url,
+          imageAlt: media.attribution,
+          imageLicense: media.license,
+          imageSource: media.source,
+          rewriteMethod: "fallback",
+          fallback: true,
+          skipReason: rewritten.reason ?? "ai_rewrite",
+          aiScore: 0,
+          aiSummary: rewritten.reason ?? "ai_rewrite",
+          riskLevel: computeRiskLevel(rewritten.titleBn, rewritten.contentBn, raw.sourceCategory).level,
+          reviewReason: rewritten.reason ?? "ai_rewrite",
+          status: "pending_review",
+          duplicateOf: null,
+        };
+        const heldResult = await publishArticle(cfg, { ...held, status: "pending_review" });
         await logPipelineRun(cfg, {
           stage: "rewrite",
-          status: "skipped",
-          skipped: 1,
+          status: "partial",
+          pending_review: 1,
           details: {
             itemId: raw.id,
             source_url: raw.link,
             reason: rewritten.reason ?? "fallback",
+            held: heldResult.ok,
+            error_type: rewritten.reason ?? "ai_rewrite",
           },
         });
         continue;
       }
 
-      const media = await fetchMedia(cfg, rewritten.titleBn);
       state.stage = "media";
-      const rssMedia = rssThumbnail(raw.imageUrl);
-      const chosen = media ?? rssMedia;
-      const imageUrl = chosen?.url || "";
+      const chosen = await resolvePipelineMedia(cfg, rewritten.titleBn, raw.imageUrl);
+      const imageUrl = chosen.url;
 
       const draft: DraftArticle = {
         raw,
@@ -129,25 +177,31 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         excerptBn: rewritten.contentBn.slice(0, 300),
         tags: [],
         imageUrl,
-        imageAlt: chosen?.attribution ?? "",
-        imageLicense: chosen?.license ?? "",
-        imageSource: chosen?.source ?? "",
+        imageAlt: chosen.attribution,
+        imageLicense: chosen.license,
+        imageSource: chosen.source,
         rewriteMethod: rewritten.method,
         fallback: false,
-        skipReason: imageUrl ? null : "missing_image",
-        aiScore: 50,
+        skipReason: null,
+        aiScore: 0,
         aiSummary: "",
         status: "draft",
         duplicateOf: null,
       };
+      (draft as { imageRepresentational?: boolean }).imageRepresentational = isRepresentationalMedia(chosen);
 
       if (!imageUrl) {
-        skipped += 1;
+        pending += 1;
+        queued += 1;
+        errorTypes.add("missing_image");
+        draft.status = "pending_review";
+        draft.skipReason = "missing_image";
+        await publishArticle(cfg, draft);
         await logPipelineRun(cfg, {
           stage: "media",
-          status: "skipped",
-          skipped: 1,
-          details: { itemId: raw.id, source_url: raw.link, reason: "missing_image" },
+          status: "partial",
+          pending_review: 1,
+          details: { itemId: raw.id, source_url: raw.link, reason: "missing_image", error_type: "missing_image" },
         });
         continue;
       }
@@ -170,7 +224,6 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       try {
         const verdict = await verifyDraft(cfg, draft);
         draft.verification = verdict;
-        draft.aiScore = verdict.compositeScore;
         if (verdict.decision === "reject" && verdict.compositeScore < 40) {
           draft.status = "rejected";
           rejected += 1;
@@ -182,6 +235,9 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         pending += 1;
         continue;
       }
+      draft.aiScore = computeAiScore(draft);
+      const risk = computeRiskLevel(draft.titleBn, draft.contentBn, draft.raw.sourceCategory);
+      draft.riskLevel = risk.level;
 
       (draft as { factSources?: unknown }).factSources = [
         { name: draft.raw.sourceCategory || "primary", url: draft.raw.link, type: "primary" },
@@ -205,11 +261,18 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       }
       if (decision.action === "wait") {
         draft.status = "pending_review";
+        draft.reviewReason = decision.reason;
         pending += 1;
+        queued += 1;
+        await publishArticle(cfg, draft);
         continue;
       }
 
-      draft.status = decision.action === "publish" ? "published" : "pending_review";
+      const canPublish = decision.action === "publish";
+      draft.status = canPublish ? "published" : "pending_review";
+      draft.reviewReason = canPublish ? null : decision.reason;
+      draft.riskLevel = draft.riskLevel || computeRiskLevel(draft.titleBn, draft.contentBn, draft.raw.sourceCategory).level;
+      if (!canPublish) queued += 1;
       const result = await publishArticle(cfg, draft);
       if (result.ok) {
         if (result.duplicate) {
@@ -245,33 +308,38 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       }
     }
 
-    await logPipelineRun(cfg, {
-      stage: "cycle",
-      status: failed > 0 ? "partial" : "success",
-      fetched: rawItems.length,
-      processed,
-      published,
-      pending_review: pending,
-      skipped,
-      failed,
-      duration_ms: Date.now() - started,
-    });
+    runStatus = failed > 0 ? "partial" : "success";
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    await logPipelineRun(cfg, {
-      stage: "cycle",
-      status: "failed",
+    runError = e;
+    runStatus = "failed";
+  } finally {
+    const errorMessage =
+      runStatus === "failed"
+        ? (runError instanceof Error ? runError.message : String(runError)).slice(0, 2000)
+        : errorTypes.size > 0
+          ? [...errorTypes].join(",")
+          : undefined;
+    await finishPipelineLock(cfg, lock.runId, {
+      status: runStatus,
       fetched: rawItems.length,
+      queued,
       processed,
       published,
       pending_review: pending,
       skipped,
-      failed: failed + 1,
+      failed: runStatus === "failed" ? failed + 1 : failed,
       duration_ms: Date.now() - started,
-      error_message: message.slice(0, 2000),
+      details: {
+        error_types: [...errorTypes],
+        sources: sourceOutcomes,
+        disabled: disabledSources,
+        locked_by: "worker",
+      },
+      error_message: errorMessage,
     });
-    throw e;
   }
+
+  if (runError) throw runError;
 
   return { collected: rawItems.length, published, rejected, skipped, pending };
 }
