@@ -1,12 +1,9 @@
-/** @type {import('next').NextConfig} */
+/** @type {import("next").NextConfig} */
 const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(__dirname),
-  experimental: {
-    allowedHosts: ['.monkeycode-ai.live'],
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'www.banglarvoice24news.com' },
@@ -28,11 +25,11 @@ const nextConfig = {
   async rewrites() {
     const legacy =
       process.env.ENABLE_LEGACY_POCKETBASE === 'true' &&
-      process.env.NODE_ENV !== 'production'
+      process.env.NODE_ENV === 'production'
     const api = process.env.NEXT_PUBLIC_API_URL || ''
     if (!legacy || !api) return []
     return [
-      { source: '/api/backend/:path*', destination: `${api}/api/:path*` },
+      { source: '/api/backend/:path*', destination: `${api}/:path*` },
     ]
   },
   async headers() {
@@ -50,13 +47,12 @@ const nextConfig = {
     if (dev) {
       config.watchOptions = {
         ...config.watchOptions,
-        ignored: ['/**', '!**/Banglarvoice-apps/**', '!**/frontend/**'],
+        ignored: ['/**', '!**/Banglarvoice-apps/**', '!**/'],
       }
-      config.cache = false   // ← Termux এর webpack cache warning বন্ধ করবে
+      config.cache = false
     }
     return config
   },
-  allowedDevOrigins: ['192.168.0.106', '10.83.106.238'],
 }
 
 module.exports = nextConfig
