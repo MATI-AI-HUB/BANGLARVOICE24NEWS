@@ -49,16 +49,6 @@ export function createPublicSupabase(): SupabaseClient {
   });
 }
 
-function isMissingRelation(error: { message?: string; code?: string } | null): boolean {
-  const message = (error?.message || '').toLowerCase();
-  const code = error?.code || '';
-  return (
-    code === '42P01' ||
-    message.includes('does not exist') ||
-    message.includes('schema cache')
-  );
-}
-
 type QueryError = { message?: string; code?: string } | null;
 
 async function selectFirstAvailable(
@@ -87,7 +77,6 @@ async function selectFirstAvailable(
     }
 
     lastError = error;
-    if (isMissingRelation(error)) break;
   }
 
   return { rows: [], error: lastError };
@@ -130,7 +119,6 @@ export async function fetchPublishedArticleById(
     if (!error) return (data as PublishedArticleRow | null) ?? null;
 
     lastError = error;
-    if (isMissingRelation(error)) break;
   }
 
   throw lastError;
