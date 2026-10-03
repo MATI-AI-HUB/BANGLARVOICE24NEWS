@@ -12,33 +12,21 @@ concurrency:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
-    defaults:
-      run:
-        working-directory: worker
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: worker/package-lock.json
-      - run: npm ci --legacy-peer-deps
-      - name: Run one news cycle
+      - name: Trigger Vercel newsroom pipeline
         env:
-          NODE_ENV: production
-          BV_BASE_URL: https://automation-king-lcb2.vercel.app
           NEWSROOM_INGEST_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
-          AUTO_PUBLISH: "true"
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
-          CHAT_AI_KEY: ${{ secrets.CHAT_AI_KEY }}
-          CHAT_AI_BASE_URL: ${{ secrets.CHAT_AI_BASE_URL }}
-          CHAT_AI_MODEL: ${{ secrets.CHAT_AI_MODEL }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: npx tsx src/once.ts
+          BV_BASE_URL: https://www.banglarvoice24news.com
+        run: |
+          set -euo pipefail
+          if [ -z "${NEWSROOM_INGEST_KEY:-}" ]; then
+            echo "NEWSROOM_INGEST_KEY secret is not set"; exit 1
+          fi
+          code=$(curl -sS -m 90 -o response.json -w '%{http_code}' \
+            -X POST "$BV_BASE_URL/api/newsroom/cron-trigger" \
+            -H "Authorization: Bearer $NEWSROOM_INGEST_KEY" \
+            -H "Content-Type: application/json")
+          echo "HTTP $code"
+          cat response.json; echo
+          if [ "$code" -ge 400 ]; then exit 1; fi

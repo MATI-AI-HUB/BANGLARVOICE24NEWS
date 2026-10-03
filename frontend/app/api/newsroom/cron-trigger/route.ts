@@ -565,7 +565,9 @@ async function resolveArticleImage(
   }
 }
 
-function getAIConfig(): AIConfig | null {
+function getAIConfigs(): AIConfig[] {
+  const configs: AIConfig[] = []
+
   const chatKey = process.env.CHAT_AI_KEY
   const chatBaseUrl = process.env.CHAT_AI_BASE_URL
   const chatModel = process.env.CHAT_AI_MODEL
@@ -581,35 +583,35 @@ function getAIConfig(): AIConfig | null {
       throw new Error('chat_ai_base_url_must_use_https')
     }
 
-    return {
+    configs.push({
       apiKey: chatKey,
       baseUrl: chatBaseUrl.replace(/\/+$/, ''),
       model: chatModel,
       provider: 'custom',
-    }
+    })
   }
 
   if (process.env.GROQ_API_KEY) {
-    return {
+    configs.push({
       apiKey: process.env.GROQ_API_KEY,
       baseUrl: 'https://api.groq.com/openai/v1',
       model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
       provider: 'groq',
-    }
+    })
   }
 
   if (process.env.OPENROUTER_API_KEY) {
-    return {
+    configs.push({
       apiKey: process.env.OPENROUTER_API_KEY,
       baseUrl: 'https://openrouter.ai/api/v1',
       model:
         process.env.OPENROUTER_MODEL ||
         'meta-llama/llama-3.1-8b-instruct',
       provider: 'openrouter',
-    }
+    })
   }
 
-  return null
+  return configs
 }
 
 function parseRewrite(content: string): RewriteResult {
@@ -690,6 +692,30 @@ async function rewriteArticle(
   }
 
   return parseRewrite(content)
+}
+
+async function rewriteArticleWithFallback(
+  configs: AIConfig[],
+  item: FeedItem,
+  deadline: number,
+): Promise<{ result: RewriteResult; provider: AIConfig['provider']; model: string }> {
+  let lastError: unknown = new Error('ai_no_provider')
+
+  for (const config of configs) {
+    try {
+      const result = await rewriteArticle(config, item, deadline)
+      return { result, provider: config.provider, model: config.model }
+    } catch (error) {
+      lastError = error
+      console.warn('[newsroom] ai_rewrite provider failed, trying next', {
+        provider: config.provider,
+        model: config.model,
+        code: classifyError('ai_rewrite', error),
+      })
+    }
+  }
+
+  throw lastError
 }
 
 async function runPool<T>(
@@ -812,6 +838,7 @@ async function runCronTrigger() {
   }
   const errorCodes = new Set<string>()
   const skipReasons = new Set<string>()
+  const aiProvidersUsed = new Set<string>()
   const candidates: Candidate[] = []
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -833,7 +860,7 @@ async function runCronTrigger() {
   const sourceOutcomes: Record<string, SourceFetchOutcome> = {}
   const disabledSources: string[] = []
   let finalStatus: 'success' | 'partial' | 'failed' = 'failed'
-  let aiConfig: AIConfig | null = null
+  let aiConfigs: AIConfig[] = []
 
   try {
     const previousRuns = await recentSourceRuns(supabase)
@@ -902,12 +929,12 @@ async function runCronTrigger() {
 
   if (candidates.length > 0) {
     try {
-      aiConfig = getAIConfig()
+      aiConfigs = getAIConfigs()
     } catch {
       errorCodes.add('ai_config')
     }
 
-    if (!aiConfig) {
+    if (aiConfigs.length === 0) {
       errorCodes.add('ai_config')
       errorCodes.add('ai_rewrite_missing_env')
       console.error('[newsroom] ai_rewrite failure', {
@@ -997,22 +1024,25 @@ async function runCronTrigger() {
         }
 
         let rewrite: RewriteResult
+        let usedModel = aiConfigs[0]?.model || 'unset'
 
         try {
-          rewrite = await rewriteArticle(aiConfig!, item, deadline)
+          const outcome = await rewriteArticleWithFallback(aiConfigs, item, deadline)
+          rewrite = outcome.result
+          usedModel = outcome.model
+          aiProvidersUsed.add(outcome.provider)
         } catch (error) {
           stats.failed += 1
           stats.pending += 1
           stats.queued += 1
           const code = classifyError('ai_rewrite', error)
           errorCodes.add(code)
-          const model = aiConfig!.model
+          const model = aiConfigs[0]?.model || 'unset'
           console.error('[newsroom] ai_rewrite failure', {
             source_id: source.id,
             code,
             model,
-            provider: aiConfig!.provider,
-            has_key: Boolean(aiConfig!.apiKey),
+            providers: aiConfigs.map((config) => config.provider),
           })
           const image = await resolveArticleImage(item, item.title, deadline)
           await supabase.from('articles').insert({
@@ -1172,7 +1202,7 @@ async function runCronTrigger() {
             risk_level: gate.riskLevel,
             review_reason: publishNow ? null : gate.reason,
             ai_confidence: Math.max(0, Math.min(1, score / 100)),
-            ai_model: aiConfig!.model,
+            ai_model: usedModel,
             published_at: publishNow ? publishedAt : null,
             source_published_at: item.publishedAt,
           })
@@ -1254,7 +1284,7 @@ async function runCronTrigger() {
       articles_failed: stats.failed,
       articles_queued: stats.queued,
       articles_pending: stats.pending,
-      ai_provider: aiConfig?.provider ?? null,
+      ai_provider: aiProvidersUsed.size > 0 ? [...aiProvidersUsed].join(',') : null,
       error_codes: [...errorCodes],
       skip_reasons: [...skipReasons],
       error_types: [...errorCodes],
