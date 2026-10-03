@@ -11,3 +11,11 @@ bun.lockb
 .vercel
 .env*
 frontend/lib/supabase/server.ts.backup
+mobile_monorepo/apps/reader_app/android/app/keystore/*.jks
+keystore.b64
+mobile_monorepo/apps/reader_app/android/app/keystore/*.jks
+keystore.b64
+node_modules/
+.vercel/
+.env.local
+worker/node_modules/
