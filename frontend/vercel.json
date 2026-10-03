@@ -1,9 +1,3 @@
 {
-  "ignoreCommand": "bash scripts/vercel-ignore.sh",
-  "crons": [
-    {
-      "path": "/api/newsroom/cron-trigger",
-      "schedule": "*/14 * * * *"
-    }
-  ]
+  "ignoreCommand": "bash scripts/vercel-ignore.sh"
 }
