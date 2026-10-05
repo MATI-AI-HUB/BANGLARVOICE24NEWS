@@ -41,13 +41,17 @@ function draft(overrides: Partial<DraftArticle> = {}): DraftArticle {
       publishedAt: new Date().toISOString(),
     },
     titleBn: "একটি যথেষ্ট লম্বা বাংলা শিরোনাম",
-    contentBn: "ঢাকায় আজ নিয়মিত আবহাওয়া বার্তা প্রকাশিত হয়েছে এবং নগরবাসীকে সতর্ক থাকতে বলা হয়েছে। " + "ক".repeat(180),
+    contentBn:
+      "ঢাকায় আজ নিয়মিত আবহাওয়া বার্তা প্রকাশিত হয়েছে এবং নগরবাসীকে সতর্ক থাকতে বলা হয়েছে। " +
+      "মেঘলা আকাশ ও স্বাভাবিক যানচলাচলের খবর পাওয়া গেছে তবে অতিরিক্ত ভ্রমণ এড়াতে পরামর্শ দেওয়া হয়েছে। " +
+      "কৃষিকাজে হালকা বৃষ্টি সহায়ক হতে পারে বলে বিশেষজ্ঞরা মত দিয়েছেন এবং প্রশাসন জরুরি সেবা প্রস্তুত রেখেছে। " +
+      "ক".repeat(250),
     excerptBn: "সারাংশ",
     tags: [],
-    imageUrl: "https://cdn.example.com/pic.jpg",
+    imageUrl: "https://images.pexels.com/photos/1.jpeg",
     imageAlt: "ছবি",
-    imageLicense: "source",
-    imageSource: "rss",
+    imageLicense: "Pexels License",
+    imageSource: "pexels",
     rewriteMethod: "ai",
     fallback: false,
     skipReason: null,
@@ -61,7 +65,18 @@ function draft(overrides: Partial<DraftArticle> = {}): DraftArticle {
 
 describe("decide thresholds", () => {
   it("publishes a complete AI rewrite when AUTO_PUBLISH is on", async () => {
-    const d = draft({ raw: { ...draft().raw, id: "pub-1", link: "https://ex.com/publish" } });
+    const d = draft({
+      raw: {
+        ...draft().raw,
+        id: "pub-1",
+        link: "https://ex.com/publish",
+        description:
+          "আবহাওয়া অধিদপ্তর ঢাকায় আজ নিয়মিত বার্তা দিয়েছে। মেঘলা আকাশ, স্বাভাবিক যানচলাচল ও কৃষিকাজে সহায়কের কথা বলা হয়েছে।",
+      },
+    });
+    (d as { sourceText?: string; licenceAllowsReuse?: boolean }).sourceText =
+      d.raw.description + " অতিরিক্ত প্রসঙ্গ হিসেবে নাগরিকদের ছাতা রাখতে বলা হয়েছে।";
+    (d as { licenceAllowsReuse?: boolean }).licenceAllowsReuse = true;
     expect(computeAiScore(d)).toBeGreaterThanOrEqual(40);
     const result = await decide(cfg(true), d);
     expect(result.action).toBe("publish");

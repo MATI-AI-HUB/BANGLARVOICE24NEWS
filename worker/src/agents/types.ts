@@ -21,6 +21,8 @@ export interface RawItem {
   description: string;
   publishedAt: string;
   imageUrl?: string;
+  licenceNote?: string;
+  sourceText?: string;
 }
 
 export interface RewriteResult {

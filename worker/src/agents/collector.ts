@@ -24,6 +24,7 @@ export type CollectedSource = {
   enabled: boolean;
   killSwitch: boolean;
   intervalMinutes: number;
+  licenceNote?: string;
 };
 
 export type CollectResult = {
@@ -122,7 +123,7 @@ function extractImage(entry: Record<string, unknown>): string {
   return candidates.find((u) => u.length > 0) ?? "";
 }
 
-export function extractItems(xml: string, sourceUrl: string, category: string): RawItem[] {
+export function extractItems(xml: string, sourceUrl: string, category: string, licenceNote = ""): RawItem[] {
   const doc = parser.parse(xml) as {
     rss?: { channel?: { item?: unknown } };
     feed?: { entry?: unknown };
@@ -150,6 +151,7 @@ export function extractItems(xml: string, sourceUrl: string, category: string): 
         description: String(rec.description ?? rec.summary ?? "").trim(),
         publishedAt: String(rec.pubDate ?? rec.updated ?? new Date().toISOString()),
         imageUrl: extractImage(rec),
+        licenceNote,
       } as RawItem;
     })
     .filter((x): x is RawItem => x !== null);
@@ -162,7 +164,7 @@ async function loadDbSources(cfg: WorkerConfig): Promise<CollectedSource[] | nul
   });
   const { data, error } = await client
     .from("news_sources")
-    .select("id, name, feed_url, enabled, kill_switch, interval_minutes")
+    .select("id, name, feed_url, enabled, kill_switch, interval_minutes, licence_note")
     .eq("enabled", true)
     .eq("kill_switch", false);
   if (error || !data) return null;
@@ -174,6 +176,7 @@ async function loadDbSources(cfg: WorkerConfig): Promise<CollectedSource[] | nul
     enabled: true,
     killSwitch: false,
     intervalMinutes: Number(row.interval_minutes) || PIPELINE_INTERVAL_MINUTES,
+    licenceNote: String(row.licence_note ?? ""),
   }));
 }
 
@@ -229,7 +232,7 @@ export async function collectDetailed(cfg: WorkerConfig): Promise<CollectResult>
       }
       outcomes[key] = { status: "ok", http_status: res.status, at: nowIso };
       const xml = await res.text();
-      results.push(...extractItems(xml, src.url, src.category));
+      results.push(...extractItems(xml, src.url, src.category, src.licenceNote));
     } catch (e) {
       outcomes[key] = { status: "error", at: nowIso };
       console.error("[collector] feed skipped", {

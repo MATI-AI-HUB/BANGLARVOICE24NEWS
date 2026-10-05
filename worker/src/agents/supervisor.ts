@@ -41,6 +41,12 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
     return { itemId: draft.raw.id, action: "reject", reason: "48h duplicate", score };
   }
 
+  const extra = draft as {
+    sourceText?: string;
+    aiSensitive?: boolean;
+    aiSensitivityFailed?: boolean;
+    licenceAllowsReuse?: boolean;
+  };
   const gate = decidePublish({
     autoPublish: cfg.autoPublish,
     sourceEnabled: true,
@@ -51,10 +57,14 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
     rewriteMethod: draft.rewriteMethod,
     bodyBn: draft.contentBn,
     titleBn: draft.titleBn,
-    sourceText: draft.raw.description,
+    sourceText: extra.sourceText || draft.raw.description,
     sourcePublishedAt: draft.raw.publishedAt,
     category: draft.raw.sourceCategory,
     minAiScore: minAiScore(),
+    aiSensitive: extra.aiSensitive === true,
+    aiSensitivityFailed: extra.aiSensitivityFailed === true,
+    imageSource: draft.imageSource,
+    licenceAllowsReuse: extra.licenceAllowsReuse === true || draft.imageSource === "pexels",
   });
 
   if (gate.action === "reject") {

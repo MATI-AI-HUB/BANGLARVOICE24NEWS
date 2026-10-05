@@ -12,11 +12,19 @@ import {
 } from "./publish-gate.js";
 
 const BN_BODY =
-  "বাংলাদেশের রাজনৈতিক ও অর্থনৈতিক পরিস্থিতি নিয়ে আজ একটি গুরুত্বপূর্ণ প্রতিবেদন প্রকাশিত হয়েছে। " +
-  "সরকারি সূত্র অনুযায়ী আগামী সপ্তাহে নতুন নীতিমালা ঘোষণা করা হবে বলে জানা গেছে। " +
-  "বিশ্লেষকরা বলছেন এই পদক্ষেপ দেশের অর্থনীতিতে ইতিবাচক প্রভাব ফেলবে এবং সাধারণ মানুষের জীবনযাত্রায় পরিবর্তন আসবে।";
+  "ঢাকার আবহাওয়া দপ্তর জানিয়েছে আজ শহরে হালকা বৃষ্টির সম্ভাবনা আছে এবং নগরবাসীকে সতর্ক থাকতে বলা হয়েছে। " +
+  "সকাল থেকে আকাশ মেঘলা ছিল তবে যানবাহন চলাচল স্বাভাবিক রয়েছে বলে জানা গেছে। " +
+  "বিশেষজ্ঞরা বলছেন এ ধরনের আবহাওয়া কৃষিকাজে সহায়ক হতে পারে যদি বৃষ্টি মাত্রাতিরিক্ত না হয়। " +
+  "স্থানীয় প্রশাসন জরুরি সেবা প্রস্তুত রেখেছে এবং নাগরিকদের খোলা স্থানে সতর্কতার পরামর্শ দিয়েছে। " +
+  "এই প্রতিবেদন শুধুমাত্র উৎসে প্রকাশিত তথ্যের ভিত্তিতে লেখা হয়েছে এবং কোনো অতিরিক্ত দাবি যোগ করা হয়নি। " +
+  "নগরবাসী ছাতা সঙ্গে রাখতে পারেন এবং অপ্রয়োজনীয় ভ্রমণ এড়িয়ে চলতে পারেন বলে পরামর্শ দিয়েছেন কর্মকর্তারা। " +
+  "সন্ধ্যা নাগাদ পরিস্থিতি পুনরায় মূল্যায়ন করা হবে বলে জানিয়েছে আবহাওয়া দপ্তর।";
 
-const BN_TITLE = "গুরুত্বপূর্ণ রাজনৈতিক প্রতিবেদন প্রকাশ";
+const BN_SOURCE =
+  "আবহাওয়া অধিদপ্তর ঢাকায় আজ হালকা বৃষ্টির পূর্বাভাস দিয়েছে। মেঘলা আকাশ ও স্বাভাবিক যানচলাচলের কথা বলা হয়েছে। " +
+  "কৃষিকাজে সহায়কের সম্ভাবনা এবং জরুরি সেবা প্রস্তুত রাখার তথ্য উৎসে আছে। উন্মুক্ত স্থানে সতর্ক থাকতে বলা হয়েছে।";
+
+const BN_TITLE = "ঢাকায় হালকা বৃষ্টির পূর্বাভাস";
 
 function baseInput(overrides: Partial<PublishGateInput> = {}): PublishGateInput {
   const now = Date.now();
@@ -25,12 +33,14 @@ function baseInput(overrides: Partial<PublishGateInput> = {}): PublishGateInput 
     sourceEnabled: true,
     killSwitch: false,
     sourceUrl: "https://example.com/news/1",
-    imageUrl: "https://images.example.com/photo.jpg",
+    imageUrl: "https://images.pexels.com/photos/1.jpeg",
     isFallback: false,
     rewriteMethod: "ai",
     bodyBn: BN_BODY,
     titleBn: BN_TITLE,
-    sourceText: undefined,
+    sourceText: BN_SOURCE,
+    imageSource: "pexels",
+    licenceAllowsReuse: false,
     sourcePublishedAt: new Date(now - 60 * 60 * 1000).toISOString(),
     category: "national",
     now,
@@ -88,26 +98,28 @@ describe("publish gate", () => {
     expect(result.reason).toBe("body_too_short");
   });
 
-  it("publishes medium risk when score >= MIN_AI_SCORE + 10", () => {
+  it("holds medium-risk keyword articles even with a high score", () => {
     const input = baseInput({
       titleBn: "গ্রেপ্তার প্রতিবেদন প্রকাশ",
-      sourceText: BN_BODY,
-      minAiScore: 80,
+      minAiScore: 10,
     });
-    expect(computeScore(input)).toBe(90);
-    expect(decidePublish(input).action).toBe("publish");
+    const result = decidePublish(input);
+    expect(result.action).toBe("hold");
+    expect(result.riskLevel).toBe("medium");
+    expect(result.reason).toMatch(/^risk_medium:/);
+    expect(computeScore(input)).toBeGreaterThanOrEqual(40);
   });
 
-  it("holds medium risk when score < MIN_AI_SCORE + 10", () => {
-    const result = decidePublish(
-      baseInput({
-        titleBn: "গ্রেপ্তার প্রতিবেদন প্রকাশ",
-        sourceText: BN_BODY,
-        minAiScore: 85,
-      }),
-    );
+  it("holds when the AI sensitivity check fails closed", () => {
+    const result = decidePublish(baseInput({ aiSensitivityFailed: true }));
     expect(result.action).toBe("hold");
-    expect(result.reason).toBe("risk_medium_score");
+    expect(result.reason).toBe("ai_sensitivity_failed");
+  });
+
+  it("holds when the AI marks the item sensitive", () => {
+    const result = decidePublish(baseInput({ aiSensitive: true }));
+    expect(result.action).toBe("hold");
+    expect(result.reason).toBe("ai_sensitive");
   });
 
   it("disables after three consecutive final-403 runs including the current one", () => {

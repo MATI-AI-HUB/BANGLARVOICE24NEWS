@@ -20,7 +20,7 @@ import {
   sourceAlreadyPublished,
 } from "../lib/pipeline.js";
 import { publishViaHttp, publishViaSupabase, type PublishResult } from "../lib/ingest.js";
-import { computeRiskLevel } from "../lib/publish-gate.js";
+import { computeRiskLevel, licenceNoteAllowsReuse } from "../lib/publish-gate.js";
 
 export type { PublishResult };
 
@@ -111,6 +111,7 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       };
 
       const rewritten = await rewrite(cfg, raw);
+      const licenceOk = licenceNoteAllowsReuse(raw.licenceNote);
       state.stage = "rewritten";
       await logPipelineRun(cfg, {
         stage: "rewrite",
@@ -129,7 +130,9 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         pending += 1;
         queued += 1;
         errorTypes.add(rewritten.reason ?? "ai_rewrite");
-        const media = await resolvePipelineMedia(cfg, raw.title, raw.imageUrl);
+        const media = await resolvePipelineMedia(cfg, raw.title, raw.imageUrl, {
+          licenceAllowsReuse: licenceOk,
+        });
         const held: DraftArticle = {
           raw,
           titleBn: rewritten.titleBn,
@@ -167,11 +170,14 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       }
 
       state.stage = "media";
-      const chosen = await resolvePipelineMedia(cfg, rewritten.titleBn, raw.imageUrl);
+      const chosen = await resolvePipelineMedia(cfg, rewritten.titleBn, raw.imageUrl, {
+        licenceAllowsReuse: licenceOk,
+        keywords: rewritten.imageKeywords,
+      });
       const imageUrl = chosen.url;
 
       const draft: DraftArticle = {
-        raw,
+        raw: { ...raw, sourceText: rewritten.sourceText },
         titleBn: rewritten.titleBn,
         contentBn: rewritten.contentBn,
         excerptBn: rewritten.contentBn.slice(0, 300),
@@ -189,6 +195,11 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
         duplicateOf: null,
       };
       (draft as { imageRepresentational?: boolean }).imageRepresentational = isRepresentationalMedia(chosen);
+      (draft as { sourceText?: string }).sourceText = rewritten.sourceText;
+      (draft as { aiSensitive?: boolean }).aiSensitive = rewritten.sensitive === true;
+      (draft as { aiSensitivityFailed?: boolean }).aiSensitivityFailed = rewritten.sensitivityFailed === true;
+      (draft as { licenceAllowsReuse?: boolean }).licenceAllowsReuse = licenceOk;
+      (draft as { licenceNote?: string }).licenceNote = raw.licenceNote;
 
       if (!imageUrl) {
         pending += 1;
@@ -330,6 +341,10 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       failed: runStatus === "failed" ? failed + 1 : failed,
       duration_ms: Date.now() - started,
       details: {
+        fetched: rawItems.length,
+        queued,
+        processed,
+        published,
         error_types: [...errorTypes],
         sources: sourceOutcomes,
         disabled: disabledSources,

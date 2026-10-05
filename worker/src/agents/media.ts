@@ -150,10 +150,14 @@ export async function resolvePipelineMedia(
   cfg: WorkerConfig,
   query: string,
   sourceImageUrl?: string,
+  options: { licenceAllowsReuse?: boolean; keywords?: string } = {},
 ): Promise<MediaResult> {
-  const fromSource = rssThumbnail(sourceImageUrl);
-  if (fromSource) return fromSource;
-  const pexels = await fromPexels(cfg, searchQuery(query));
+  if (options.licenceAllowsReuse) {
+    const fromSource = rssThumbnail(sourceImageUrl);
+    if (fromSource) return fromSource;
+  }
+  const pexelsQuery = options.keywords?.trim() || query;
+  const pexels = await fromPexels(cfg, searchQuery(pexelsQuery));
   if (pexels) return pexels;
   return brandedFallback();
 }

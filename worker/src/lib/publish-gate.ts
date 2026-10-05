@@ -6,10 +6,13 @@ export const PIPELINE_CRON = '*/14 * * * *'
 export const ITEM_MAX_AGE_MS = 48 * 60 * 60 * 1000
 export const FEED_403_DISABLE_THRESHOLD = 3
 export const STALE_LOCK_MS = 10 * 60 * 1000
-export const MIN_BODY_CHARS = 200
+export const MIN_BODY_CHARS = 600
 export const DEFAULT_MIN_AI_SCORE = 40
 export const COPY_SIMILARITY_MAX = 0.85
 export const SOURCE_DUE_GRACE_MINUTES = 2
+export const MAX_NGRAM_OVERLAP = 0.2
+export const NGRAM_SIZE = 4
+export const MAX_IDENTICAL_RUN = 8
 
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type PublishAction = 'publish' | 'hold' | 'reject'
@@ -36,6 +39,10 @@ export type PublishGateInput = {
   category?: string
   now?: number
   minAiScore?: number
+  aiSensitive?: boolean
+  aiSensitivityFailed?: boolean
+  imageSource?: string
+  licenceAllowsReuse?: boolean
 }
 
 export type PublishGateResult = {
@@ -203,6 +210,117 @@ export function copySimilarity(a: string, b: string): number {
   return inter / (left.size + right.size - inter)
 }
 
+function wordTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/\s+/u)
+    .map((t) => t.replace(/[^\p{L}\p{N}]+/gu, ''))
+    .filter((t) => t.length > 0)
+}
+
+export function ngramOverlap(output: string, source: string, n = NGRAM_SIZE): number {
+  const outTokens = wordTokens(output)
+  const srcTokens = wordTokens(source)
+  if (outTokens.length < n || srcTokens.length < n) return 0
+  const srcSet = new Set<string>()
+  for (let i = 0; i <= srcTokens.length - n; i += 1) {
+    srcSet.add(srcTokens.slice(i, i + n).join(' '))
+  }
+  let hits = 0
+  let total = 0
+  for (let i = 0; i <= outTokens.length - n; i += 1) {
+    total += 1
+    if (srcSet.has(outTokens.slice(i, i + n).join(' '))) hits += 1
+  }
+  return total === 0 ? 0 : hits / total
+}
+
+export function longestIdenticalRun(output: string, source: string): number {
+  const outTokens = wordTokens(output)
+  const srcTokens = wordTokens(source)
+  if (outTokens.length === 0 || srcTokens.length === 0) return 0
+  const srcJoined = ` ${srcTokens.join(' ')} `
+  let longest = 0
+  let i = 0
+  while (i < outTokens.length) {
+    let run = 0
+    while (i + run < outTokens.length) {
+      const slice = outTokens.slice(i, i + run + 1).join(' ')
+      if (!srcJoined.includes(` ${slice} `)) break
+      run += 1
+    }
+    if (run > longest) longest = run
+    i += run > 0 ? run : 1
+  }
+  return longest
+}
+
+export function numbersAndYears(text: string): string[] {
+  const found = text.match(/[\d\u09e6-\u09ef]{4}|[\d\u09e6-\u09ef]+/g) ?? []
+  return [...new Set(found)]
+}
+
+export function missingSourceNumbers(output: string, source: string): string[] {
+  const src = source
+  return numbersAndYears(output).filter((n) => !src.includes(n))
+}
+
+export function originalityHoldReason(output: string, source: string | undefined): string | null {
+  if (!source || source.trim().length === 0) return 'source_text_missing'
+  if (ngramOverlap(output, source) > MAX_NGRAM_OVERLAP) return 'ngram_overlap'
+  if (longestIdenticalRun(output, source) >= MAX_IDENTICAL_RUN) return 'identical_run'
+  if (missingSourceNumbers(output, source).length > 0) return 'number_not_in_source'
+  return null
+}
+
+export function parseSensitivityJson(raw: string): { sensitive: boolean; reasons: string[] } | null {
+  try {
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start < 0 || end <= start) return null
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as {
+      sensitive?: unknown
+      reasons?: unknown
+    }
+    if (typeof parsed.sensitive !== 'boolean') return null
+    const reasons = Array.isArray(parsed.reasons)
+      ? parsed.reasons.filter((r): r is string => typeof r === 'string')
+      : []
+    return { sensitive: parsed.sensitive, reasons }
+  } catch {
+    return null
+  }
+}
+
+export function licenceNoteAllowsReuse(note?: string | null): boolean {
+  const t = (note || '').toLowerCase()
+  if (!t.trim()) return false
+  if (/\b(forbidden|prohibited|all rights reserved|no reuse|do not reuse)\b/.test(t)) return false
+  return /\b(reuse|allowed|permitted|cc-?by|cc0|public domain|syndication|royalty-?free)\b/.test(t)
+}
+
+export function imagePublishable(input: {
+  imageUrl: string
+  isFallback: boolean
+  imageSource?: string
+  licenceAllowsReuse?: boolean
+}): { ok: boolean; reason: string } {
+  if (input.isFallback || input.imageSource === 'brand') {
+    return { ok: false, reason: 'image_fallback' }
+  }
+  if (!isValidHttpsImageUrl(input.imageUrl)) {
+    return { ok: false, reason: 'missing_image' }
+  }
+  const source = (input.imageSource || '').toLowerCase()
+  if (source === 'pexels' || input.imageUrl.toLowerCase().includes('pexels')) {
+    return { ok: true, reason: 'ok' }
+  }
+  if ((source === 'rss' || source === 'source') && input.licenceAllowsReuse) {
+    return { ok: true, reason: 'ok' }
+  }
+  return { ok: false, reason: 'image_licence' }
+}
+
 export function computeScore(input: {
   titleBn: string
   bodyBn: string
@@ -264,20 +382,37 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   if (input.bodyBn.trim().length < MIN_BODY_CHARS) {
     return { action: 'hold', reason: 'body_too_short', riskLevel, score }
   }
-  if (!isValidHttpsImageUrl(input.imageUrl) || input.isFallback) {
-    return { action: 'hold', reason: input.isFallback ? 'image_fallback' : 'missing_image', riskLevel, score }
+  const image = imagePublishable({
+    imageUrl: input.imageUrl,
+    isFallback: input.isFallback,
+    imageSource: input.imageSource,
+    licenceAllowsReuse: input.licenceAllowsReuse,
+  })
+  if (!image.ok) {
+    return { action: 'hold', reason: image.reason, riskLevel, score }
   }
-  if (riskLevel === 'high') {
-    return { action: 'hold', reason: `risk_high:${risk.matched ?? 'keyword'}`, riskLevel, score }
+  if (input.aiSensitivityFailed) {
+    return { action: 'hold', reason: 'ai_sensitivity_failed', riskLevel, score }
+  }
+  if (input.aiSensitive) {
+    return { action: 'hold', reason: 'ai_sensitive', riskLevel: riskLevel === 'low' ? 'medium' : riskLevel, score }
+  }
+  if (riskLevel !== 'low') {
+    return {
+      action: 'hold',
+      reason: riskLevel === 'high' ? `risk_high:${risk.matched ?? 'keyword'}` : `risk_medium:${risk.matched ?? 'keyword'}`,
+      riskLevel,
+      score,
+    }
+  }
+  const originality = originalityHoldReason(input.bodyBn, input.sourceText)
+  if (originality) {
+    return { action: 'hold', reason: originality, riskLevel, score }
   }
   if (!input.autoPublish) {
     return { action: 'hold', reason: 'auto_publish_disabled', riskLevel, score }
   }
-  if (riskLevel === 'medium') {
-    if (score < threshold + 10) {
-      return { action: 'hold', reason: 'risk_medium_score', riskLevel, score }
-    }
-  } else if (score < threshold) {
+  if (score < threshold) {
     return { action: 'hold', reason: 'score_below_min', riskLevel, score }
   }
   return { action: 'publish', reason: 'ok', riskLevel, score }

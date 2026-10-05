@@ -7,7 +7,13 @@ import {
   ingestKeyOk,
   sourceLabelFromUrl,
 } from '../../../../lib/ingest-auth';
-import { computeRiskLevel } from '../../../../lib/publish-gate';
+import {
+  computeRiskLevel,
+  decidePublish,
+  isAutoPublish,
+  licenceNoteAllowsReuse,
+  minAiScore,
+} from '../../../../lib/publish-gate';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -51,6 +57,10 @@ type IngestBody = {
   sourceCategory?: unknown;
   status?: unknown;
   contentHash?: unknown;
+  sourceText?: unknown;
+  licenceNote?: unknown;
+  aiSensitive?: unknown;
+  aiSensitivityFailed?: unknown;
 };
 
 function json(body: unknown, status = 200) {
@@ -152,7 +162,8 @@ export async function POST(req: Request) {
   const contentHash = asText(body.contentHash);
   const excerpt = asText(body.excerpt) || content.slice(0, 160);
   const category = mapCategory(asText(body.sourceCategory));
-  const mapped = rewriteFallback ? mapStatus('pending') : mapStatus(asText(body.status) || 'published');
+  const requestedStatus = asText(body.status) || 'pending';
+  let mapped = rewriteFallback ? mapStatus('pending') : mapStatus(requestedStatus);
   const imageUrl =
     asText(body.imageUrl) || 'https://www.banglarvoice24news.com/banglar-voice-logo.png';
   const imageCredit = asText(body.imageCredit) || asText(body.imageAlt) || 'বাংলার ভয়েস';
@@ -206,6 +217,30 @@ export async function POST(req: Request) {
 
   const aiScore = typeof body.aiScore === 'number' ? body.aiScore : Number(body.aiScore);
   const aiConfidence = Number.isFinite(aiScore) ? Math.max(0, Math.min(1, aiScore / 100)) : null;
+  const sourceText = asText(body.sourceText);
+  const rewriteMethod = rewriteFallback ? 'fallback' : (asText(body.rewriteMethod) || 'ai');
+  const gate = decidePublish({
+    autoPublish: isAutoPublish(),
+    sourceEnabled: true,
+    killSwitch: false,
+    sourceUrl: sourceUrl || 'https://invalid.local',
+    imageUrl,
+    isFallback: imageSource === 'brand' || rewriteFallback,
+    rewriteMethod,
+    bodyBn: content,
+    titleBn: title,
+    sourceText,
+    category,
+    minAiScore: minAiScore(),
+    aiSensitive: body.aiSensitive === true,
+    aiSensitivityFailed: body.aiSensitivityFailed === true,
+    imageSource,
+    licenceAllowsReuse: licenceNoteAllowsReuse(asText(body.licenceNote)),
+  });
+  if (mapped.status === 'published' && gate.action !== 'publish') {
+    mapped = mapStatus('pending');
+  }
+  const reviewReason = mapped.status === 'published' ? null : gate.reason;
 
   const { data, error } = await supabase
     .from('articles')
@@ -235,7 +270,8 @@ export async function POST(req: Request) {
       image_is_representational: representational,
       is_fallback: imageSource === 'brand' || rewriteFallback,
       origin: 'aggregated',
-      risk_level: computeRiskLevel(title, content, category).level,
+      risk_level: gate.riskLevel || computeRiskLevel(title, content, category).level,
+      review_reason: reviewReason,
       media_type: imageUrl ? 'image' : 'none',
       ai_confidence: aiConfidence,
       ai_model: asText(body.rewriteMethod) === 'ai' ? 'chat' : '',

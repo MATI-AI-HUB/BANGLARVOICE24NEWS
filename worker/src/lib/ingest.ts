@@ -261,6 +261,10 @@ export async function publishViaHttp(cfg: WorkerConfig, draft: DraftArticle): Pr
       sourceCategory: draft.raw.sourceCategory,
       status: draft.status,
       contentHash: hash,
+      sourceText: (draft as { sourceText?: string }).sourceText || draft.raw.description,
+      licenceNote: (draft as { licenceNote?: string }).licenceNote || "",
+      aiSensitive: (draft as { aiSensitive?: boolean }).aiSensitive === true,
+      aiSensitivityFailed: (draft as { aiSensitivityFailed?: boolean }).aiSensitivityFailed === true,
     }),
   });
   if (!res.ok) return { ok: false, error: `ingest ${res.status}` };
