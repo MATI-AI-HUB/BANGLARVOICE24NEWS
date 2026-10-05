@@ -1,103 +1,108 @@
-name: Build APKs
-
-# Sequential build of the 5 Banglar Voice Flutter apps on every push/tag.
-# Why sequential (not a 4/5-job matrix): on GitHub's free runners, heavy
-# Flutter+Gradle builds running in PARALLEL starve each other's CPU and hang
-# in "flutter build apk" with no log output for hours. Running apps one after
-# another reuses the same runner's Gradle/Flutter cache, so later builds are
-# much faster and never contend.
-#
-# studio_app (Breaking Live Studio control room) is built in its OWN job so a
-# problem there can never break the 4 main apps' build, and vice versa.
-#
-# Keystore is loaded from GitHub Secrets (ANDROID_KEYSTORE_BASE64) at runtime.
-# It is NEVER committed to the repository.
+name: Build and Release APKs
 
 on:
   push:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: true
+      KEYSTORE_PASSWORD:
+        required: true
+      KEY_PASSWORD:
+        required: true
+      KEY_ALIAS:
+        required: true
 
-# একই ref-এ একাধিক push হলে পুরোনো রান auto-cancel হয়ে নতুন রান চলে।
+permissions:
+  contents: write
+
 concurrency:
   group: apk-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
+    name: Build and verify 5 release APKs
     timeout-minutes: 120
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Decode keystore from GitHub Secrets
+      - name: Validate and install release keystore in every app
+        shell: bash
         run: |
           set -euo pipefail
-          # Create keystore directory in the first app (shared across builds)
-          mkdir -p mobile_monorepo/apps/reader_app/android/app/keystore
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode \
-            > mobile_monorepo/apps/reader_app/android/app/keystore/banglar-voice-release.jks
-          echo "✅ Keystore decoded ($(wc -c < mobile_monorepo/apps/reader_app/android/app/keystore/banglar-voice-release.jks) bytes)"
-
-      - name: Create key.properties from GitHub Secrets
-        run: |
-          set -euo pipefail
-          apps=(reader_app admin_app reporter_app tv_app)
-          for app in "${apps[@]}"; do
-            cat > "mobile_monorepo/apps/$app/android/key.properties" << EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
+          : "${ANDROID_KEYSTORE_BASE64:?Missing ANDROID_KEYSTORE_BASE64 repository secret}"
+          : "${KEYSTORE_PASSWORD:?Missing KEYSTORE_PASSWORD repository secret}"
+          : "${KEY_PASSWORD:?Missing KEY_PASSWORD repository secret}"
+          : "${KEY_ALIAS:?Missing KEY_ALIAS repository secret}"
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          encoded = ''.join(os.environ['ANDROID_KEYSTORE_BASE64'].split())
+          try:
+              decoded = base64.b64decode(encoded, validate=True)
+          except Exception as exc:
+              raise SystemExit(f'ANDROID_KEYSTORE_BASE64 is not valid base64: {exc}')
+          if len(decoded) < 1024:
+              raise SystemExit('Decoded keystore is unexpectedly small; refusing to build')
+          for app in ['reader_app', 'admin_app', 'reporter_app', 'tv_app', 'studio_app']:
+              target = Path('mobile_monorepo/apps') / app / 'android/app/keystore/banglar-voice-release.jks'
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(decoded)
+          PY
+          keytool -list -keystore mobile_monorepo/apps/reader_app/android/app/keystore/banglar-voice-release.jks \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          for app in reader_app admin_app reporter_app tv_app studio_app; do
+            cat > "mobile_monorepo/apps/$app/android/key.properties" <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
           storeFile=keystore/banglar-voice-release.jks
           EOF
-            echo "✅ key.properties created for $app"
           done
 
-      - name: Build all 4 APKs (sequential, one runner)
+      - name: Build all 5 signed release APKs sequentially
+        shell: bash
         run: |
           set -euo pipefail
-          apps=(reader_app admin_app reporter_app tv_app)
-          targets=(lib/main.dart lib/main_admin.dart lib/main_reporter.dart lib/main_tv.dart)
-          names=(reader admin reporter tv)
-
           mkdir -p apks
-
-          for i in 0 1 2 3; do
-            app="${apps[$i]}"
-            target="${targets[$i]}"
-            out="${names[$i]}"
-
-            echo "============================================================"
-            echo ">>> BUILDING $app  (target: $target)"
-            echo "============================================================"
-
-            cd "mobile_monorepo/apps/$app"
+          apps=(reader_app admin_app reporter_app tv_app studio_app)
+          targets=(lib/main.dart lib/main_admin.dart lib/main_reporter.dart lib/main_tv.dart lib/main_studio.dart)
+          names=(reader admin reporter tv studio)
+          for i in 0 1 2 3 4; do
+            app="${apps[$i]}"; target="${targets[$i]}"; name="${names[$i]}"
+            pushd "mobile_monorepo/apps/$app" >/dev/null
             flutter pub get
-
             flutter build apk --release --target "$target"
-
-            cp build/app/outputs/flutter-apk/app-release.apk \
-               "../../../apks/banglar-voice-$out-v1.0.0.apk"
-
-            cd ../../..
-            ls -la apks/
+            cp build/app/outputs/flutter-apk/app-release.apk "../../../apks/banglar-voice-$name.apk"
+            popd >/dev/null
           done
 
-      - name: Verify 4 APKs present
+      - name: Verify APK signatures and output count
+        shell: bash
         run: |
-          cd apks
-          ls -la
-          test -f banglar-voice-reader-v1.0.0.apk   || { echo "MISSING reader APK"; exit 1; }
-          test -f banglar-voice-admin-v1.0.0.apk    || { echo "MISSING admin APK"; exit 1; }
-          test -f banglar-voice-reporter-v1.0.0.apk || { echo "MISSING reporter APK"; exit 1; }
-          test -f banglar-voice-tv-v1.0.0.apk       || { echo "MISSING tv APK"; exit 1; }
-          echo "✅ ALL 4 APKs OK"
+          set -euo pipefail
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          test -x "$apksigner"
+          for apk in apks/*.apk; do
+            test -s "$apk"
+            "$apksigner" verify --verbose "$apk"
+            sha256sum "$apk"
+          done
+          test "$(find apks -maxdepth 1 -name '*.apk' | wc -l)" -eq 5
 
       - uses: actions/upload-artifact@v4
         with:
@@ -105,69 +110,37 @@ jobs:
           path: apks/*.apk
           retention-days: 30
 
-      - name: Cleanup secrets from disk
+      - name: Cleanup signing material
         if: always()
         run: |
-          find mobile_monorepo -name "banglar-voice-release.jks" -delete 2>/dev/null || true
-          find mobile_monorepo -name "key.properties" -delete 2>/dev/null || true
-          echo "🧹 Keystore and key.properties removed from runner"
+          find mobile_monorepo -name 'banglar-voice-release.jks' -delete 2>/dev/null || true
+          find mobile_monorepo -name 'key.properties' -delete 2>/dev/null || true
 
-  # ─────────────────────────────────────────────────────────────
-  # studio_app built separately so it can never break / be broken
-  # by the 4-app job.
-  # ─────────────────────────────────────────────────────────────
-  build-studio:
-    timeout-minutes: 120
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
+      - uses: actions/download-artifact@v4
         with:
-          channel: stable
-          cache: true
-
-      - name: Decode keystore from GitHub Secrets
-        run: |
-          set -euo pipefail
-          mkdir -p mobile_monorepo/apps/studio_app/android/app/keystore
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode \
-            > mobile_monorepo/apps/studio_app/android/app/keystore/banglar-voice-release.jks
-          echo "✅ Keystore decoded for studio_app"
-
-      - name: Create key.properties for studio_app
-        run: |
-          set -euo pipefail
-          cat > mobile_monorepo/apps/studio_app/android/key.properties << EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=keystore/banglar-voice-release.jks
-          EOF
-          echo "✅ key.properties created for studio_app"
-
-      - name: Build studio APK (Breaking Live Studio)
-        run: |
-          set -euo pipefail
-          cd mobile_monorepo/apps/studio_app
-          flutter pub get
-
-          flutter build apk --release --target lib/main_studio.dart
-
-          mkdir -p ../../../apks
-          cp build/app/outputs/flutter-apk/app-release.apk \
-             ../../../apks/banglar-voice-studio-v1.0.0.apk
-          echo "✅ Studio APK built"
-
-      - uses: actions/upload-artifact@v4
+          name: banglar-voice-apks
+          path: apks
+      - name: Create release with direct APK downloads
+        uses: softprops/action-gh-release@v2
         with:
-          name: banglar-voice-studio-apk
-          path: apks/banglar-voice-studio-v1.0.0.apk
-          retention-days: 30
-
-      - name: Cleanup secrets from disk
-        if: always()
-        run: |
-          find mobile_monorepo -name "banglar-voice-release.jks" -delete 2>/dev/null || true
-          find mobile_monorepo -name "key.properties" -delete 2>/dev/null || true
-          echo "🧹 Keystore and key.properties removed from runner"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          name: Banglar Voice ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## Banglar Voice Android applications
+            Direct downloads are attached below:
+            - banglar-voice-reader.apk
+            - banglar-voice-admin.apk
+            - banglar-voice-reporter.apk
+            - banglar-voice-tv.apk
+            - banglar-voice-studio.apk
+          files: apks/*.apk

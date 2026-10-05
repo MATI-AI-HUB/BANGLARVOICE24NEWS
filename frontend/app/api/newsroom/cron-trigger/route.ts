@@ -245,6 +245,124 @@ function ensureSourceLine(body: string, sourceName: string, link: string) {
   return `${body.trim()}\n\nসূত্র: ${sourceName} ${link}`
 }
 
+async function publishBufferedEditorialFallback(
+  supabase: SupabaseClient,
+  runId: string,
+  deadline: number,
+): Promise<'published' | 'none' | 'failed'> {
+  const { data: buffered, error: queueError } = await supabase
+    .from('news_ingest_queue')
+    .select('id, source_name, source_url, source_published_at, title, description, image_url')
+    .is('article_id', null)
+    .in('status', ['pending_review', 'failed'])
+    .in('last_error', ['source_fetch_failed', 'ai_rewrite_timeout', 'ai_rewrite_invalid_json', 'ai_rewrite_model_not_found'])
+    .order('source_published_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (queueError) {
+    console.error('[newsroom] buffered fallback lookup failed', { message: queueError.message })
+    return 'failed'
+  }
+  if (!buffered?.source_url || !buffered.title) return 'none'
+
+  const link = buffered.source_url
+  const { data: existing } = await supabase
+    .from('articles')
+    .select('id')
+    .eq('source_url', link)
+    .limit(1)
+    .maybeSingle()
+  if (existing) {
+    await supabase
+      .from('news_ingest_queue')
+      .update({ status: 'skipped', last_error: 'duplicate_source', processed_at: new Date().toISOString() })
+      .eq('id', buffered.id)
+    return 'none'
+  }
+
+  const sourceName = buffered.source_name || 'প্রকাশিত সংবাদসূত্র'
+  const description = (buffered.description || '').trim()
+  if (description.length < 80 || Date.now() >= deadline - 1_000) return 'none'
+
+  const title = `বিশ্লেষণ / Feature: ${buffered.title.slice(0, 180)}`
+  const content = [
+    `এই লেখাটি ${sourceName}-এ প্রকাশিত একটি সাম্প্রতিক প্রতিবেদনের সংক্ষিপ্ত পটভূমি ও প্রেক্ষাপট। এটি নতুন কোনো দাবি বা যাচাইহীন তথ্য যোগ করে না; মূল প্রতিবেদনে প্রকাশিত তথ্যের ভিত্তিতেই পাঠকের জন্য বিষয়টি সহজভাবে তুলে ধরা হয়েছে।`,
+    `মূল প্রতিবেদনের সারাংশ: ${description}`,
+    `পাঠকের জন্য প্রেক্ষাপট: ঘটনাটি বুঝতে মূল উৎসের পূর্ণ প্রতিবেদন, সংশ্লিষ্ট কর্তৃপক্ষের বক্তব্য এবং পরবর্তী হালনাগাদ একসঙ্গে বিবেচনা করা প্রয়োজন। এই সংক্ষিপ্ত ফিচারটি কেবল তথ্যের প্রাথমিক দিকনির্দেশনা; নতুন তথ্য পাওয়া গেলে প্রতিবেদনটি হালনাগাদ করা হবে।`,
+    `সূত্র: ${sourceName} ${link}`,
+  ].join('\n\n')
+  const image = await resolveArticleImage(
+    {
+      title: buffered.title,
+      link,
+      description,
+      publishedAt: buffered.source_published_at,
+      imageUrl: buffered.image_url || '',
+    },
+    buffered.title,
+    deadline,
+    { licenceAllowsReuse: false },
+  )
+  const contentHash = createHash('sha256')
+    .update(`editorial-fallback|${link}|${title}|${content}`, 'utf8')
+    .digest('hex')
+  const { data: inserted, error: insertError } = await supabase
+    .from('articles')
+    .insert({
+      title_bn: title,
+      content_bn: content,
+      excerpt_bn: description.slice(0, 220),
+      status: 'published',
+      editorial_status: 'auto_published',
+      verification_status: 'pending',
+      human_verified: false,
+      source_type: 'editorial',
+      source_name: sourceName,
+      source_url: link,
+      canonical_url: link,
+      content_hash: contentHash,
+      origin: 'editorial_fallback',
+      workflow_status: 'published',
+      category: 'national',
+      category_key: 'national',
+      thumbnail_url: image.url,
+      featured_image: image.url,
+      image_alt_bn: image.alt.slice(0, 250),
+      image_credit: image.credit.slice(0, 250),
+      image_license: image.license,
+      image_is_representational: image.representational,
+      is_fallback: image.isFallback,
+      media_type: image.url ? 'image' : 'none',
+      risk_level: 'low',
+      review_reason: 'editorial_fallback',
+      ai_confidence: 0.65,
+      ai_model: 'deterministic-editorial-fallback',
+      published_at: new Date().toISOString(),
+      source_published_at: buffered.source_published_at,
+      context_blocks: [{ type: 'fallback', run_id: runId, label: 'বিশ্লেষণ / Feature' }],
+    })
+    .select('id')
+    .single()
+
+  if (insertError || !inserted) {
+    console.error('[newsroom] buffered fallback insert failed', { message: insertError?.message })
+    return 'failed'
+  }
+  await supabase
+    .from('news_ingest_queue')
+    .update({
+      status: 'published',
+      article_id: inserted.id,
+      last_error: null,
+      processed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', buffered.id)
+  return 'published'
+}
+
 function extractTag(block: string, tag: string) {
   const tagName = escapeRegex(tag)
   const expression = new RegExp(
@@ -1465,6 +1583,20 @@ async function runCronTrigger() {
           { onConflict: 'source_url' },
         )
       })
+    }
+  }
+
+  if (stats.ingested === 0) {
+    const fallback = await publishBufferedEditorialFallback(supabase, lock.runId, deadline)
+    if (fallback === 'published') {
+      stats.ingested += 1
+      stats.processed += 1
+      skipReasons.add('editorial_fallback')
+    } else if (fallback === 'failed') {
+      stats.failed += 1
+      errorCodes.add('editorial_fallback_failed')
+    } else {
+      skipReasons.add('no_publishable_item')
     }
   }
 
