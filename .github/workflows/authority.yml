@@ -23,7 +23,7 @@ jobs:
           OWNER: matiailearninghub@gmail.com
         run: |
           RANGE="$BASE..$HEAD_SHA"
-          BAD=$(git log "$RANGE" --format='%ae%n%ce' | sort -u | grep -v '^$' | grep -vx "$OWNER" || true)
+          BAD=$(git log "$RANGE" --format='%ae%n%ce' | sort -u | grep -v '^$' | grep -v -E "^$|^noreply@github.com$" | grep -vx "$OWNER" || true)
           if [ -n "$BAD" ]; then echo "Unauthorized identity:"; echo "$BAD"; exit 1; fi
           if git log "$RANGE" --format=%B | grep -iE 'co-authored-by|generated (with|by)'; then
             echo "Forbidden trailer found"; exit 1
