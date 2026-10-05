@@ -471,39 +471,15 @@ async function recentSourceRuns(supabase: SupabaseClient) {
 
 async function acquireCronLock(supabase: SupabaseClient) {
   const staleBefore = new Date(Date.now() - STALE_LOCK_MS).toISOString()
-  const { data: running } = await supabase
-    .from('news_pipeline_runs')
-    .select('id, created_at, completed_at')
-    .eq('status', 'running')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (running && running.created_at && running.created_at > staleBefore && !running.completed_at) {
-    return { ok: false as const, runId: running.id as string, reason: 'lock_held' }
+  const { data, error } = await supabase.rpc('acquire_news_pipeline_lock', {
+    p_stale_before: staleBefore,
+  })
+  if (error) {
+    console.error('[newsroom] lock acquisition failed', { message: error.message })
+    return { ok: false as const, reason: 'lock_acquisition_failed' }
   }
-  if (running?.id) {
-    await supabase
-      .from('news_pipeline_runs')
-      .update({
-        status: 'failed',
-        error_message: 'stale_lock',
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', running.id)
-      .eq('status', 'running')
-  }
-  const { data, error } = await supabase
-    .from('news_pipeline_runs')
-    .insert({
-      stage: 'cron',
-      status: 'running',
-      details: { locked_by: 'cron', sources: {} },
-    })
-    .select('id')
-    .single()
-  if (error || !data) return { ok: false as const, reason: error?.message || 'lock_insert_failed' }
-  return { ok: true as const, runId: data.id as string }
+  if (!data) return { ok: false as const, reason: 'lock_held' }
+  return { ok: true as const, runId: data as string }
 }
 
 async function fetchFeedOnce(feedUrl: string, deadline: number) {
