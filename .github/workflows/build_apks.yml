@@ -49,15 +49,20 @@ jobs:
           : "${KEY_PASSWORD:?Missing KEY_PASSWORD repository secret}"
           : "${KEY_ALIAS:?Missing KEY_ALIAS repository secret}"
           python3 - <<'PY'
-          import base64, os
+          import base64, binascii, os
           from pathlib import Path
           encoded = ''.join(os.environ['ANDROID_KEYSTORE_BASE64'].split())
           try:
               decoded = base64.b64decode(encoded, validate=True)
-          except Exception as exc:
-              raise SystemExit(f'ANDROID_KEYSTORE_BASE64 is not valid base64: {exc}')
+          except (binascii.Error, ValueError) as exc:
+              raise SystemExit('ANDROID_KEYSTORE_BASE64 is malformed; replace it with base64 -w 0 <release.keystore>') from exc
           if len(decoded) < 1024:
               raise SystemExit('Decoded keystore is unexpectedly small; refusing to build')
+          if decoded[:4] != b'\xfe\xed\xfe\xed':
+              # JKS files begin with FE ED FE ED; PKCS12 is also accepted by
+              # keytool below, so only reject an empty/truncated payload here.
+              if len(decoded) < 2048:
+                  raise SystemExit('Decoded keystore appears truncated; refusing to build')
           for app in ['reader_app', 'admin_app', 'reporter_app', 'tv_app', 'studio_app']:
               target = Path('mobile_monorepo/apps') / app / 'android/app/keystore/banglar-voice-release.jks'
               target.parent.mkdir(parents=True, exist_ok=True)
@@ -115,6 +120,20 @@ jobs:
         run: |
           find mobile_monorepo -name 'banglar-voice-release.jks' -delete 2>/dev/null || true
           find mobile_monorepo -name 'key.properties' -delete 2>/dev/null || true
+
+      - name: Notify build failure webhook
+        if: failure()
+        env:
+          BV_ALERT_WEBHOOK: ${{ secrets.NEWS_INGEST_ALERT_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BV_ALERT_WEBHOOK:-}" ]; then
+            echo 'NEWS_INGEST_ALERT_WEBHOOK is not configured; skipping notification.'
+            exit 0
+          fi
+          curl -fsS -m 15 -X POST "$BV_ALERT_WEBHOOK" \
+            -H 'content-type: application/json' \
+            --data '{"event":"apk_build_failed","repository":"MATI-AI-HUB/automation-king-","run":"'"$GITHUB_RUN_ID"'"}'
 
   release:
     name: Publish GitHub Release

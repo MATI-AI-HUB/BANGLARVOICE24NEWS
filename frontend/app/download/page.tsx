@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const revalidate = 3600; // 1h ISR
 
-const GITHUB_REPO = 'banglarvoice33-byte/BANGLARVOICE-APPS';
+const GITHUB_REPO = 'MATI-AI-HUB/automation-king-';
 const FALLBACK_VERSION = 'v1.0.0';
 
 export const metadata: Metadata = {
