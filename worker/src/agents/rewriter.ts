@@ -139,7 +139,6 @@ async function fetchTimed(url: string, timeoutMs: number, headers: Record<string
     return await fetch(url, {
       signal: ac.signal,
       redirect: "follow",
-      cache: "no-store",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; BanglarVoiceNewsBot/1.0; +https://banglarvoice24news.com/contact)",
