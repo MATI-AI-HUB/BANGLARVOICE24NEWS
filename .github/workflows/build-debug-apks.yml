@@ -1,0 +1,61 @@
+name: Build Debug APKs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build 5 debug APKs for testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build debug APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p debug-apks
+          apps=(reader_app admin_app reporter_app tv_app studio_app)
+          targets=(lib/main.dart lib/main_admin.dart lib/main_reporter.dart lib/main_tv.dart lib/main_studio.dart)
+          names=(reader admin reporter tv studio)
+          for i in 0 1 2 3 4; do
+            app="${apps[$i]}"
+            target="${targets[$i]}"
+            name="${names[$i]}"
+            pushd "mobile_monorepo/apps/$app" >/dev/null
+            flutter pub get
+            # Flutter debug APKs use the Android debug signing key and are
+            # intended only for testing; they are not production releases.
+            flutter build apk --debug --target "$target"
+            cp build/app/outputs/flutter-apk/app-debug.apk "../../../debug-apks/app-$name-debug.apk"
+            popd >/dev/null
+          done
+
+      - name: Verify debug artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find debug-apks -maxdepth 1 -name '*.apk' | wc -l)" -eq 5
+          for apk in debug-apks/*.apk; do
+            test -s "$apk"
+            sha256sum "$apk"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: banglar-voice-debug-apks
+          path: debug-apks/*.apk
+          retention-days: 14
