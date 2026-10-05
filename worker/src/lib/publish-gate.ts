@@ -267,8 +267,8 @@ export function missingSourceNumbers(output: string, source: string): string[] {
 
 export function originalityHoldReason(output: string, source: string | undefined): string | null {
   if (!source || source.trim().length === 0) return 'source_text_missing'
-  if (ngramOverlap(output, source) > MAX_NGRAM_OVERLAP) return 'ngram_overlap'
   if (longestIdenticalRun(output, source) >= MAX_IDENTICAL_RUN) return 'identical_run'
+  if (ngramOverlap(output, source) > MAX_NGRAM_OVERLAP) return 'ngram_overlap'
   if (missingSourceNumbers(output, source).length > 0) return 'number_not_in_source'
   return null
 }
