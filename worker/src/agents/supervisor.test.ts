@@ -75,7 +75,7 @@ describe("decide thresholds", () => {
       },
     });
     (d as { sourceText?: string; licenceAllowsReuse?: boolean }).sourceText =
-      d.raw.description + " অতিরিক্ত প্রসঙ্গ হিসেবে নাগরিকদের ছাতা রাখতে বলা হয়েছে।";
+      "সম্পূর্ণ ভিন্ন উৎস থেকে সংগৃহীত তথ্য যা এই প্রতিবেদনের সাথে সরাসরি মিল নেই।";
     (d as { licenceAllowsReuse?: boolean }).licenceAllowsReuse = true;
     expect(computeAiScore(d)).toBeGreaterThanOrEqual(40);
     const result = await decide(cfg(true), d);
