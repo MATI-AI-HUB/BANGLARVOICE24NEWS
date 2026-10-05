@@ -1,0 +1,17 @@
+{
+  "routes": [
+    { "path": "/", "title": "Home" },
+    { "path": "/article/:slug", "title": "Article" },
+    { "path": "/category/:slug", "title": "Category" },
+    { "path": "/search", "title": "Search" },
+    { "path": "/login", "title": "Login" },
+    { "path": "/reset-password", "title": "Reset password" },
+    { "path": "/pricing", "title": "Pricing" },
+    { "path": "/checkout", "title": "Checkout" },
+    { "path": "/download", "title": "Download" },
+    { "path": "/epaper", "title": "E-paper" },
+    { "path": "/admin", "title": "Admin" },
+    { "path": "/admin/:path*", "title": "Admin" },
+    { "path": "/legal/:path*", "title": "Legal" }
+  ]
+}

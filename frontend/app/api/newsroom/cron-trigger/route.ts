@@ -309,10 +309,10 @@ async function publishBufferedEditorialFallback(
     .update(`editorial-fallback|${link}|${title}|${content}`, 'utf8')
     .digest('hex')
   const { data: inserted, error: insertError } = await supabase
-    .from('articles')
-    .insert({
-      title_bn: title,
-      content_bn: content,
+	    .from('articles')
+	    .insert({
+	      title_bn: title,
+	      content_bn: content,
       excerpt_bn: description.slice(0, 220),
       status: 'published',
       editorial_status: 'auto_published',
@@ -323,8 +323,8 @@ async function publishBufferedEditorialFallback(
       source_url: link,
       canonical_url: link,
       content_hash: contentHash,
-      origin: 'editorial_fallback',
-      workflow_status: 'published',
+	      origin: 'fallback',
+	      workflow_status: 'published',
       category: 'national',
       category_key: 'national',
       thumbnail_url: image.url,
