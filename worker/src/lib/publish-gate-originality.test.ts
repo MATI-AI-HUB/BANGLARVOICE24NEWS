@@ -16,8 +16,10 @@ describe("originality and sensitivity helpers", () => {
   });
 
   it("holds when 4-gram overlap exceeds 20%", () => {
-    const copied = SOURCE + " " + SOURCE;
+    // paraphrased to have high ngram but break identical runs <8
+    const copied = SOURCE.split(" ").map((w,i)=> i%4===0 ? w+"টি" : w).join(" ") + " " + SOURCE.split(" ").slice(0,6).join(" ");
     expect(ngramOverlap(copied, SOURCE)).toBeGreaterThan(0.2);
+    expect(longestIdenticalRun(copied, SOURCE)).toBeLessThan(8);
     expect(originalityHoldReason(copied, SOURCE)).toBe("ngram_overlap");
   });
 
