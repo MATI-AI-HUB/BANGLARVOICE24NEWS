@@ -66,17 +66,17 @@ function draft(overrides: Partial<DraftArticle> = {}): DraftArticle {
 describe("decide thresholds", () => {
   it("publishes a complete AI rewrite when AUTO_PUBLISH is on", async () => {
     const d = draft({
+      contentBn: "এটি একটি পর্যাপ্ত দীর্ঘ বাংলা নিবন্ধ যা প্রকাশের জন্য যথেষ্ট। বিশেষজ্ঞরা জানিয়েছেন আগামীকাল থেকে আবহাওয়ার উন্নতি হবে এবং যানচলাচল স্বাভাবিক থাকবে। ".repeat(15),
+      titleBn: "পরীক্ষামূলক আবহাওয়া প্রতিবেদন",
       raw: {
         ...draft().raw,
         id: "pub-1",
         link: "https://ex.com/publish",
-        description:
-          "আবহাওয়া অধিদপ্তর ঢাকায় আজ নিয়মিত বার্তা দিয়েছে। মেঘলা আকাশ, স্বাভাবিক যানচলাচল ও কৃষিকাজে সহায়কের কথা বলা হয়েছে।",
+        description: "সম্পূর্ণ নতুন প্রতিবেদনে বিশেষজ্ঞরা জানিয়েছেন আগামীকাল থেকে আবহাওয়ার উন্নতি হবে।",
       },
     });
-    (d as { sourceText?: string; licenceAllowsReuse?: boolean }).sourceText =
-      "সম্পূর্ণ ভিন্ন উৎস থেকে সংগৃহীত তথ্য যা এই প্রতিবেদনের সাথে সরাসরি মিল নেই।";
-    (d as { licenceAllowsReuse?: boolean }).licenceAllowsReuse = true;
+    (d as any).sourceText = "এটি সম্পূর্ণ ভিন্ন উৎসের লেখা যা মূল বর্ণনার সাথে মিল নেই। কোনো সাদৃশ্য নেই।";
+    (d as any).licenceAllowsReuse = true;
     expect(computeAiScore(d)).toBeGreaterThanOrEqual(40);
     const result = await decide(cfg(true), d);
     expect(result.action).toBe("publish");
