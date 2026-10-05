@@ -22,11 +22,16 @@ keyAlias=banglarvoice
 storeFile=app/keystore/banglar-voice-release.jks
 
 # ৪. (ঐচ্ছিক) GitHub Actions-এ সাইন করতে চাইলে secrets-এ দিন:
-#   KEYSTORE_BASE64  -> base64 -w0 banglar-voice-release.jks
-#   KEYSTORE_PASSWORD, KEY_PASSWORD
+#   ANDROID_KEYSTORE_BASE64 -> base64 -w0 banglar-voice-release.jks
+#   KEYSTORE_PASSWORD, KEY_PASSWORD, KEY_ALIAS
+#   The repository workflows also accept the legacy BANGLARVOICE_* names,
+#   but the canonical names above should be used for one consistent setup.
 ```
 
 ## মনে রাখবেন
 - **keystore হারালে বা পাসওয়ার্ড ভুলে গেলে আপডেট সাইন করা অসম্ভব** — Google Play-তে একই keystore দিয়ে আপডেট দিতে হয়। ব্যাকআপ রাখুন, কখনো commit করবেন না।
 - `key.properties` / `*.jks` কখনোই Git-এ commit করবেন না (`.gitignore`-এ রাখুন)।
+- GitHub Actions-এ `Verify Release Signing Configuration` workflow চালিয়ে
+  keystore, alias এবং password combination যাচাই করুন; এটি কোনো secret value
+  log করে না।
 - এই জিপে থাকা `.jks` ফাইলগুলো মুছে ফেলা হয়েছে — পুরনো keystore কোনো দাপ্তরিক সোর্সে সংরক্ষিত থাকলে সেটি ব্যবহার করা যাবে, নাহলে উপরের ধাপ অনুসরণ করুন।

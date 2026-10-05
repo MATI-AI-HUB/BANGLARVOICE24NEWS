@@ -16,14 +16,20 @@ jobs:
         with: { flutter-version: '3.x', cache: true }
       - name: Restore signing from secrets
         env:
-          KS_B64: ${{ secrets.BANGLARVOICE_KEYSTORE_B64 }}
-          STORE_PASS: ${{ secrets.BANGLARVOICE_STORE_PASSWORD }}
-          KEY_PASS: ${{ secrets.BANGLARVOICE_KEY_PASSWORD }}
-          ALIAS: ${{ secrets.BANGLARVOICE_KEY_ALIAS }}
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.BANGLARVOICE_KEYSTORE_B64 }}
+          STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD || secrets.BANGLARVOICE_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD || secrets.BANGLARVOICE_KEY_PASSWORD }}
+          ALIAS: ${{ secrets.KEY_ALIAS || secrets.BANGLARVOICE_KEY_ALIAS }}
         run: |
+          set -euo pipefail
+          : "${KS_B64:?Missing canonical or legacy keystore secret}"
+          : "${STORE_PASS:?Missing keystore password secret}"
+          : "${KEY_PASS:?Missing key password secret}"
+          : "${ALIAS:?Missing key alias secret}"
           D=mobile_monorepo/apps/${{ matrix.app }}/android
           mkdir -p "$D/app/keystore"
-          echo "$KS_B64" | base64 --decode > "$D/app/keystore/banglar-voice-release.jks"
+          printf '%s' "$KS_B64" | tr -d '\r\n[:space:]' | base64 --decode > "$D/app/keystore/banglar-voice-release.jks"
+          test -s "$D/app/keystore/banglar-voice-release.jks"
           printf 'storeFile=keystore/banglar-voice-release.jks\nkeyAlias=%s\nkeyPassword=%s\nstorePassword=%s\n' "$ALIAS" "$KEY_PASS" "$STORE_PASS" > "$D/key.properties"
       - name: Build AAB
         working-directory: mobile_monorepo/apps/${{ matrix.app }}

@@ -1,0 +1,36 @@
+name: Verify Release Signing Configuration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify production keystore and signing metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate signing secrets without printing values
+        shell: bash
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 || secrets.BANGLARVOICE_KEYSTORE_B64 }}
+          STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD || secrets.BANGLARVOICE_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD || secrets.BANGLARVOICE_KEY_PASSWORD }}
+          ALIAS: ${{ secrets.KEY_ALIAS || secrets.BANGLARVOICE_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          : "${KS_B64:?Keystore base64 secret is missing}"
+          : "${STORE_PASS:?Keystore password secret is missing}"
+          : "${KEY_PASS:?Key password secret is missing}"
+          : "${ALIAS:?Key alias secret is missing}"
+          printf '%s' "$KS_B64" | tr -d '\r\n[:space:]' | base64 --decode > release.keystore
+          test -s release.keystore
+          keytool -list -keystore release.keystore -storepass "$STORE_PASS" -alias "$ALIAS" >/dev/null
+          echo 'RELEASE_SIGNING_CONFIGURATION_VALID'
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f release.keystore
