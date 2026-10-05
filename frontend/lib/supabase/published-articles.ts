@@ -85,14 +85,23 @@ async function selectFirstAvailable(
 export async function fetchPublishedArticlesFeed(
   supabase: SupabaseClient = createPublicSupabase(),
 ): Promise<PublishedArticleRow[]> {
-  const { rows, error } = await selectFirstAvailable(supabase, 'public_articles_feed', [
+  const attempts = [
     PUBLISHED_ARTICLE_COLUMNS,
     CORE_VIEW_COLUMNS,
     NARROW_FEED_COLUMNS,
-  ]);
+  ];
+  const feed = await selectFirstAvailable(supabase, 'public_articles_feed', attempts);
+  if (!feed.error) return feed.rows;
 
-  if (error) throw error;
-  return rows;
+  // Keep public feeds available if the feed view's grants lag behind a view
+  // refresh. The detail view exposes the same published-safe article fields.
+  const detail = await selectFirstAvailable(supabase, 'public_article_detail', attempts);
+  if (!detail.error) {
+    console.warn('[published-articles] public_articles_feed unavailable; using public_article_detail', feed.error?.message);
+    return detail.rows;
+  }
+
+  throw detail.error || feed.error;
 }
 
 export async function fetchPublishedArticleById(
