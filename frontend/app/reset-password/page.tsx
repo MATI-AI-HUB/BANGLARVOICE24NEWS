@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import {
+  PASSWORD_MIN_LENGTH,
+  passwordPolicyFailure,
+} from '@/lib/password-policy';
 import { useRouter } from 'next/navigation';
 
 export default function ResetPasswordPage() {
@@ -37,8 +41,8 @@ export default function ResetPasswordPage() {
     setError('');
     setMessage('');
 
-    if (password.length < 8) {
-      setError('নতুন পাসওয়ার্ড অন্তত ৮ অক্ষরের হতে হবে।');
+    if (passwordPolicyFailure(password)) {
+      setError('পাসওয়ার্ডে অন্তত ১২টি অক্ষর, একটি letter, একটি number এবং একটি symbol থাকতে হবে।');
       return;
     }
 
@@ -97,7 +101,7 @@ export default function ResetPasswordPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
@@ -112,7 +116,7 @@ export default function ResetPasswordPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
