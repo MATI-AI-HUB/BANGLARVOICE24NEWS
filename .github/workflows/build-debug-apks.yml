@@ -23,6 +23,18 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Reclaim runner disk space
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android/sdk/system-images \
+            /usr/local/lib/android/sdk/emulator \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+          sudo apt-get clean
+          df -h /
+
       - name: Build debug APKs
         shell: bash
         run: |
@@ -41,6 +53,8 @@ jobs:
             # intended only for testing; they are not production releases.
             flutter build apk --debug --target "$target"
             cp build/app/outputs/flutter-apk/app-debug.apk "../../../debug-apks/app-$name-debug.apk"
+            flutter clean
+            rm -rf android/.gradle
             popd >/dev/null
           done
 
