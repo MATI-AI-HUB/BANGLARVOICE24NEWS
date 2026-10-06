@@ -29,12 +29,13 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
+          set -euo pipefail
           if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "SUPABASE_DB_URL is not configured; skipping video pipeline."
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "SUPABASE_DB_URL is not configured as a repository Actions secret." >&2
+            echo "Add it at Settings > Secrets and variables > Actions for MATI-AI-HUB/automation-king-." >&2
+            exit 1
           fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
       - name: Install deps
         if: steps.secrets.outputs.configured == 'true'
         working-directory: ./frontend
