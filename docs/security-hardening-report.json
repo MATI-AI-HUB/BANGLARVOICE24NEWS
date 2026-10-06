@@ -1,31 +1,13 @@
 {
   "project_ref": "fqqdpngmftoddffvdukn",
-  "generated_at": "2026-10-06T17:55:44Z",
+  "generated_at": "2026-10-06T17:58:58Z",
   "db_push": "Cannot find project ref. Have you run supabase link?\nTry rerunning the command with --debug to troubleshoot the error.",
-  "migration_apply_log": "=== applying supabase/migrations/20261002000000_public_article_views.sql ===\nBEGIN\nDROP VIEW\nDROP VIEW\nCREATE VIEW\nCREATE VIEW\nGRANT\nGRANT\nREVOKE\nGRANT\nCREATE FUNCTION\nREVOKE\nGRANT\nCOMMIT\n=== applying supabase/migrations/20261007000000_security_hardening_report.sql ===\nBEGIN\nCREATE SCHEMA\nCREATE TABLE\nCREATE INDEX\nREVOKE\nALTER TABLE\nGRANT\nGRANT\nGRANT\nDELETE 0\nCOMMIT\n=== applying supabase/migrations/20261007000001_fix_search_path.sql ===\nBEGIN\npsql:supabase/migrations/20261007000001_fix_search_path.sql:19: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000001_fix_search_path.sql:27: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000001_fix_search_path.sql:117: NOTICE:  TASK2: 13 function(s) hardened, 1 needed the pg_catalog,public fallback\nDO\nCOMMIT\n=== applying supabase/migrations/20261007000002_consolidate_policies.sql ===\nBEGIN\npsql:supabase/migrations/20261007000002_consolidate_policies.sql:17: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000002_consolidate_policies.sql:25: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000002_consolidate_policies.sql:95: NOTICE:  TASK3: consolidated 0 duplicate policy group(s)\nDO\nCOMMIT\n=== applying supabase/migrations/20261007000003_move_extensions.sql ===\nBEGIN\npsql:supabase/migrations/20261007000003_move_extensions.sql:16: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000003_move_extensions.sql:24: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000003_move_extensions.sql:26: NOTICE:  schema \"extensions\" already exists, skipping\nCREATE SCHEMA\nGRANT\nDO\nDO\nDO\nGRANT\nCOMMIT",
-  "leaked_password_protection": "--- before ---\n{\"password_hibp_enabled\":null}\n--- patch ---\nhttp_status=401\n{\"message\":\"Format is Authorization: Bearer [token]\"}",
-  "revalidate_webhook": "articles_webhook=missing -> creating\ncreate_http_status=401\n{\"message\":\"Format is Authorization: Bearer [token]\"}",
+  "migration_apply_log": "=== applying supabase/migrations/20261002000000_public_article_views.sql ===\nBEGIN\nDROP VIEW\nDROP VIEW\nCREATE VIEW\nCREATE VIEW\nGRANT\nGRANT\nREVOKE\nGRANT\nCREATE FUNCTION\nREVOKE\nGRANT\nCOMMIT\n=== applying supabase/migrations/20261007000000_security_hardening_report.sql ===\nBEGIN\npsql:supabase/migrations/20261007000000_security_hardening_report.sql:8: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000000_security_hardening_report.sql:17: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000000_security_hardening_report.sql:20: NOTICE:  relation \"security_hardening_report_run_idx\" already exists, skipping\nCREATE INDEX\nREVOKE\nALTER TABLE\nGRANT\nGRANT\nGRANT\nDELETE 44\nCOMMIT\n=== applying supabase/migrations/20261007000001_fix_search_path.sql ===\nBEGIN\npsql:supabase/migrations/20261007000001_fix_search_path.sql:19: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000001_fix_search_path.sql:27: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000001_fix_search_path.sql:117: NOTICE:  TASK2: 2 function(s) hardened, 1 needed the pg_catalog,public fallback\nDO\nCOMMIT\n=== applying supabase/migrations/20261007000002_consolidate_policies.sql ===\nBEGIN\npsql:supabase/migrations/20261007000002_consolidate_policies.sql:17: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000002_consolidate_policies.sql:25: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000002_consolidate_policies.sql:95: NOTICE:  TASK3: consolidated 0 duplicate policy group(s)\nDO\nCOMMIT\n=== applying supabase/migrations/20261007000003_move_extensions.sql ===\nBEGIN\npsql:supabase/migrations/20261007000003_move_extensions.sql:16: NOTICE:  schema \"maintenance\" already exists, skipping\nCREATE SCHEMA\npsql:supabase/migrations/20261007000003_move_extensions.sql:24: NOTICE:  relation \"security_hardening_report\" already exists, skipping\nCREATE TABLE\npsql:supabase/migrations/20261007000003_move_extensions.sql:26: NOTICE:  schema \"extensions\" already exists, skipping\nCREATE SCHEMA\nGRANT\nDO\nDO\nDO\nGRANT\nCOMMIT",
+  "leaked_password_protection": "management_api=skipped :: SUPABASE_ACCESS_TOKEN secret is not set on this repository -> see README Manual Steps",
+  "revalidate_webhook": "articles_webhook=unknown :: SUPABASE_ACCESS_TOKEN secret is not set on this repository -> see README Manual Steps",
   "isr_revalidate": "home=export const revalidate = 60;\ncategory=export const revalidate = 60;\nsearch=export const revalidate = 60;\narticle=export const revalidate = 60;\nepaper=export const revalidate = 300;",
-  "typescript_types": "generated=false\nAccess token not provided. Supply an access token by running `supabase login` or setting the SUPABASE_ACCESS_TOKEN environment variable.\nTry rerunning the command with --debug to troubleshoot the error.",
+  "typescript_types": "path=db-url-fallback (SUPABASE_ACCESS_TOKEN not set)\ngenerated=true lines=954",
   "findings": [
-    {
-      "task": "TASK2",
-      "item": "public.acquire_news_pipeline_lock(p_stale_before timestamp with time zone)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.admin_grant_manual_subscription(p_user_id uuid, p_plan text, p_expires_at timestamp with time zone, p_interval text)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.article_state_change()",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
     {
       "task": "TASK2",
       "item": "public.news_pipeline_last_success()",
@@ -34,57 +16,9 @@
     },
     {
       "task": "TASK2",
-      "item": "public.newsroom_claim_jobs(p_worker_id text, p_limit integer)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.newsroom_finish_job(p_job_id uuid, p_worker_id text, p_succeeded boolean, p_error_code text)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.newsroom_finish_job(p_job_id uuid, p_succeeded boolean, p_error_code text)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.newsroom_publish_article(p_article_id uuid)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.newsroom_record_review_decision(p_article_id uuid, p_decision text, p_article_version_hash text, p_reason text, p_authority_approval boolean)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
       "item": "public.newsroom_submit_for_verification(p_article_id uuid)",
       "action": "set search_path = 'pg_catalog, public'",
       "detail": "unqualified public references kept resolvable: articles"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.platform_role()",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.set_breaking_ticker(p_text text)",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.sync_public_article_preview()",
-      "action": "set search_path = ''",
-      "detail": "body fully schema-qualified; hardened to empty search_path"
     },
     {
       "task": "TASK2",
@@ -113,12 +47,6 @@
     {
       "task": "TASK2",
       "item": "public.is_rate_limited(p_identifier text, p_window_minutes integer, p_max integer)",
-      "action": "no-op",
-      "detail": "search_path already hardened"
-    },
-    {
-      "task": "TASK2",
-      "item": "public.news_pipeline_last_success()",
       "action": "no-op",
       "detail": "search_path already hardened"
     },
@@ -213,6 +141,12 @@
       "detail": "search_path already hardened"
     },
     {
+      "task": "TASK2",
+      "item": "public.news_pipeline_last_success()",
+      "action": "no-op",
+      "detail": "search_path already hardened"
+    },
+    {
       "task": "TASK3",
       "item": "public.articles [INSERT {authenticated}]",
       "action": "left untouched (2 distinct policies)",
@@ -263,14 +197,14 @@
     {
       "task": "TASK4",
       "item": "pg_trgm",
-      "action": "moved to extensions",
-      "detail": "alter extension pg_trgm set schema extensions"
+      "action": "no-op",
+      "detail": "not installed in public"
     },
     {
       "task": "TASK4",
       "item": "pg_net",
-      "action": "moved to extensions",
-      "detail": "dropped and recreated with schema extensions (net.* objects unchanged)"
+      "action": "no-op",
+      "detail": "not installed in public"
     }
   ]
 }
