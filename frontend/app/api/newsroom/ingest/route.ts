@@ -319,5 +319,19 @@ export async function POST(req: Request) {
   }
 
   if (!data) return json({ error: 'storage_failed', detail: 'insert failed' }, 500);
+  if (data.status === 'published') {
+    const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram'];
+    const { error: queueError } = await supabase.from('social_posts').upsert(
+      platforms.map((platform) => ({
+        article_id: data.id,
+        platform,
+        status: 'pending',
+        payload: { title: title.slice(0, 250), image_url: imageUrl },
+        updated_at: now,
+      })),
+      { onConflict: 'article_id,platform' },
+    );
+    if (queueError) return json({ error: 'social_queue_failed', detail: queueError.message }, 500);
+  }
   return json({ ok: true, id: data.id, status: data.status });
 }
