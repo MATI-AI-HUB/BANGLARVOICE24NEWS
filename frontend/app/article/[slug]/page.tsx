@@ -234,23 +234,23 @@ export default async function ArticlePage({ params }: PageProps) {
       {a.image_credit ? (
         <p className="mt-2 text-xs text-neutral-500">ছবি: {a.image_credit}</p>
       ) : null}
+      <div
+        className="prose mt-8 max-w-none whitespace-pre-wrap font-serifbn text-lg leading-[1.9]"
+        dangerouslySetInnerHTML={{ __html: sanitizedBody }}
+      />
       {a.source_url ? (
-        <p className="mt-4 text-sm">
+        <p className="mt-6 border-t border-border pt-3 text-sm text-neutral-500 dark:border-white/10">
+          সূত্র: {a.source_name || 'মূল সংবাদ'}{' '}
           <a
             href={a.source_url}
             rel="noopener noreferrer nofollow"
             target="_blank"
             className="font-semibold text-primary underline"
           >
-            মূল সংবাদ
+            মূল প্রতিবেদন
           </a>
-          {a.source_name ? <span className="text-neutral-500"> — {a.source_name}</span> : null}
         </p>
       ) : null}
-      <div
-        className="prose mt-8 max-w-none whitespace-pre-wrap font-serifbn text-lg leading-[1.9]"
-        dangerouslySetInnerHTML={{ __html: sanitizedBody }}
-      />
       {a.tags && a.tags.length > 0 && (
         <div className="mt-8 flex flex-wrap gap-2">
           {a.tags.map((t: string) => (

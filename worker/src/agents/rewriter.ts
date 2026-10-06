@@ -239,7 +239,7 @@ function ensureSourceLine(body: string, raw: RawItem): string {
   } catch {
     name = "সূত্র";
   }
-  return `${body.trim()}\n\nসূত্র: ${name} ${raw.link}`;
+  return `${body.trim()}\n\nসূত্র: ${name}`;
 }
 
 export async function rewrite(cfg: WorkerConfig, raw: RawItem): Promise<RewriteExtra> {

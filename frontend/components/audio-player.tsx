@@ -15,6 +15,8 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
   const [mounted, setMounted] = useState(false);
   const [supported, setSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const chunksRef = useRef<string[]>([]);
+  const chunkIndexRef = useRef(0);
 
   // Mount guard: prevents SSR/client hydration mismatch because
   // speechSynthesis is only available in the browser.
@@ -43,21 +45,36 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
     setSpeaking(false);
   };
 
+  const speakNext = (chunkIndex: number, nextRate = rate) => {
+    const chunk = chunksRef.current[chunkIndex];
+    if (!chunk) {
+      setSpeaking(false);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(chunk);
+    u.lang = bnVoice?.lang || 'bn-BD';
+    if (bnVoice) u.voice = bnVoice;
+    u.rate = nextRate;
+    u.onend = () => {
+      chunkIndexRef.current += 1;
+      speakNext(chunkIndexRef.current, nextRate);
+    };
+    u.onerror = () => setSpeaking(false);
+    utteranceRef.current = u;
+    window.speechSynthesis.speak(u);
+  };
+
   const toggle = () => {
     if (!supported) return;
     if (speaking) {
       stop();
       return;
     }
-    const u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ').slice(0, 4200));
-    u.lang = bnVoice?.lang || 'bn-BD';
-    if (bnVoice) u.voice = bnVoice;
-    u.rate = rate;
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    utteranceRef.current = u;
+    const normalized = text.replace(/\s+/g, ' ').trim();
+    chunksRef.current = normalized.match(/.{1,700}(?:\s+|$)/g)?.map((chunk) => chunk.trim()).filter(Boolean) || [normalized.slice(0, 700)];
+    chunkIndexRef.current = 0;
     window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
+    speakNext(0);
     setSpeaking(true);
   };
 
@@ -103,13 +120,7 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
                 if (speaking) {
                   stop();
                   setTimeout(() => {
-                    const u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ').slice(0, 4200));
-                    u.lang = bnVoice?.lang || 'bn-BD';
-                    if (bnVoice) u.voice = bnVoice;
-                    u.rate = r;
-                    u.onend = () => setSpeaking(false);
-                    u.onerror = () => setSpeaking(false);
-                    window.speechSynthesis.speak(u);
+                    speakNext(0, r);
                     setSpeaking(true);
                   }, 50);
                 }

@@ -50,12 +50,13 @@ async function webSearch(question: string): Promise<Source[]> {
   }
 }
 
-function pickProvider(): Provider | null {
+function pickProviders(): Provider[] {
+  const providers: Provider[] = [];
   const explicit = process.env.CHAT_AI_KEY;
-  if (explicit) return { key: explicit, base: (process.env.CHAT_AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, ''), model: process.env.CHAT_AI_MODEL || 'gpt-4o-mini' };
-  if (process.env.GROQ_API_KEY) return { key: process.env.GROQ_API_KEY, base: 'https://api.groq.com/openai/v1', model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant' };
-  if (process.env.OPENROUTER_API_KEY) return { key: process.env.OPENROUTER_API_KEY, base: 'https://openrouter.ai/api/v1', model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini' };
-  return null;
+  if (explicit) providers.push({ key: explicit, base: (process.env.CHAT_AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, ''), model: process.env.CHAT_AI_MODEL || 'gpt-4o-mini' });
+  if (process.env.OPENROUTER_API_KEY) providers.push({ key: process.env.OPENROUTER_API_KEY, base: 'https://openrouter.ai/api/v1', model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini' });
+  if (process.env.GROQ_API_KEY) providers.push({ key: process.env.GROQ_API_KEY, base: 'https://api.groq.com/openai/v1', model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant' });
+  return providers;
 }
 
 export async function POST(request: Request) {
@@ -80,9 +81,9 @@ export async function POST(request: Request) {
       kind: 'site' as const,
     }));
   const sources = [...site, ...web].slice(0, 8);
-  const provider = pickProvider();
+  const providers = pickProviders();
 
-  if (!provider) {
+  if (!providers.length) {
     return NextResponse.json({
       answer: sources.length
         ? `এই বিষয়ে পাওয়া সূত্রগুলো দেখুন:\n\n${sources.map((source, index) => `${index + 1}. ${source.title}\n${source.snippet}`).join('\n\n')}`
@@ -92,10 +93,15 @@ export async function POST(request: Request) {
   }
 
   const sourceText = sources.map((source, index) => `[${index + 1}] ${source.title}\nURL: ${source.url}\n${source.snippet}`).join('\n\n');
-  try {
-    const response = await fetch(`${provider.base}/chat/completions`, {
+  for (const provider of providers) {
+    try {
+      const response = await fetch(`${provider.base}/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.key}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${provider.key}`,
+        ...(provider.base.includes('openrouter.ai') ? { 'HTTP-Referer': 'https://www.banglarvoice24news.com', 'X-Title': 'Banglar Voice Learning Hub' } : {}),
+      },
       signal: AbortSignal.timeout(25000),
       body: JSON.stringify({
         model: provider.model,
@@ -109,9 +115,10 @@ export async function POST(request: Request) {
     });
     const data: { choices?: Array<{ message?: { content?: string } }> } = await response.json().catch(() => ({}));
     const answer = data.choices?.[0]?.message?.content;
-    if (response.ok && answer) return NextResponse.json({ answer, sources });
-  } catch {
-    // Fall through to a deterministic source-grounded response.
+      if (response.ok && answer) return NextResponse.json({ answer, sources });
+    } catch {
+      // Try the next configured provider.
+    }
   }
 
   return NextResponse.json({

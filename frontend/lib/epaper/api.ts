@@ -1,6 +1,11 @@
 import type { EPaperEdition } from './types';
 
-const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+const BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+  'https://www.banglarvoice24news.com'
+).replace(/\/+$/, '');
 
 async function safeFetch<T>(url: string, timeoutMs: number, empty: T): Promise<T> {
   try {
