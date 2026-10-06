@@ -1,0 +1,50 @@
+name: ops-health-fix
+on:
+  workflow_dispatch:
+
+jobs:
+  health-and-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Task A - pipeline health SQL
+        id: taskA
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          sudo apt-get install -y postgresql-client jq >/dev/null 2>&1
+          echo "### Task A - Pipeline health" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          psql "$SUPABASE_DB_URL" -c "SELECT COUNT(*) FILTER (WHERE status='published') AS published, COUNT(*) FILTER (WHERE status='pending') AS pending, MAX(created_at) AS latest_article FROM public.articles;" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          psql "$SUPABASE_DB_URL" -c "SELECT * FROM public.news_pipeline_runs ORDER BY started_at DESC LIMIT 5;" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Task B - check Vercel env vars
+        id: taskB
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          PROJECT=automation-king-lcb2
+          TEAM=team_ePmukwxucleK8YT0jr1edKhL
+          echo "### Task B - Vercel env status" >> $GITHUB_STEP_SUMMARY
+          RESP=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects/$PROJECT/env?teamId=$TEAM")
+          if echo "$RESP" | jq -e '.error' >/dev/null 2>&1; then
+            echo "Vercel API error:" >> $GITHUB_STEP_SUMMARY
+            echo "$RESP" | jq -c '.error' >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          for KEY in GROQ_API_KEY OPENROUTER_API_KEY CRON_SECRET; do
+            VAL="${!KEY}"
+            FOUND=$(echo "$RESP" | jq -r --arg k "$KEY" '[.envs[] | select(.key==$k)] | length')
+            if [ "$FOUND" = "0" ] && [ -n "$VAL" ]; then
+              echo "- $KEY MISSING -> creating via upsert" >> $GITHUB_STEP_SUMMARY
+              curl -s -X POST -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+                "https://api.vercel.com/v10/projects/$PROJECT/env?upsert=true&teamId=$TEAM" \
+                -d "{\"key\":\"$KEY\",\"value\":\"$VAL\",\"target\":[\"production\",\"preview\",\"development\"],\"type\":\"encrypted\"}" \
+                | jq -c '{key, type, error}' >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- $KEY present (count=$FOUND)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
