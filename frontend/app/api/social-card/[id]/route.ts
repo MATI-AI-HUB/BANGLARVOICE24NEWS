@@ -16,6 +16,30 @@ function escapeXml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char] || char);
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  national: 'জাতীয়',
+  bangladesh: 'বাংলাদেশ',
+  politics: 'রাজনীতি',
+  economy: 'অর্থনীতি',
+  business: 'ব্যবসা',
+  international: 'বিশ্ব',
+  world: 'বিশ্ব',
+  sports: 'খেলা',
+  technology: 'প্রযুক্তি',
+  science: 'বিজ্ঞান',
+  health: 'স্বাস্থ্য',
+  education: 'শিক্ষা',
+  entertainment: 'বিনোদন',
+  lifestyle: 'জীবনযাত্রা',
+  opinion: 'মতামত',
+  features: 'ফিচার',
+};
+
+function categoryLabel(key?: string | null): string {
+  const normalized = (key || '').trim().toLowerCase();
+  return CATEGORY_LABELS[normalized] || 'সর্বশেষ সংবাদ';
+}
+
 function wrapHeadline(value: string, maxChars = 25): string[] {
   const words = value.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -76,7 +100,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       <rect width="1200" height="630" fill="url(#shade)"/>
       <rect x="56" y="48" width="300" height="52" rx="26" fill="#12b981"/>
       <text x="88" y="83" fill="white" font-size="26" font-family=${JSON.stringify(BENGALI_SANS_STACK)} font-weight="700">বাংলার ভয়েস</text>
-      <text x="80" y="350" fill="#d1fae5" font-size="22" font-family=${JSON.stringify(BENGALI_SANS_STACK)}>${escapeXml(article.category_key || 'সর্বশেষ সংবাদ')}</text>
+      <text x="80" y="350" fill="#d1fae5" font-size="22" font-family=${JSON.stringify(BENGALI_SANS_STACK)}>${escapeXml(categoryLabel(article.category_key))}</text>
       ${headline}
       <rect x="80" y="575" width="1040" height="2" fill="#34d399" opacity=".9"/>
       <text x="80" y="610" fill="white" opacity=".85" font-size="18" font-family="DejaVu Sans, sans-serif">www.banglarvoice24news.com</text>
