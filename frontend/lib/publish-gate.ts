@@ -169,6 +169,8 @@ export function isValidHttpsImageUrl(value: string): boolean {
     const url = new URL(value)
     return (
       /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url.pathname) ||
+      url.pathname.includes('/api/brand-card') ||
+      url.pathname.includes('/api/social-card/') ||
       url.hostname.includes('pexels') ||
       url.hostname.includes('wikimedia') ||
       url.hostname.includes('openverse')
@@ -312,6 +314,9 @@ export function imagePublishable(input: {
     return { ok: false, reason: 'missing_image' }
   }
   const source = (input.imageSource || '').toLowerCase()
+  if (source === 'brand-card' || input.imageUrl.toLowerCase().includes('/api/brand-card')) {
+    return { ok: true, reason: 'ok' }
+  }
   if (source === 'pexels' || input.imageUrl.toLowerCase().includes('pexels')) {
     return { ok: true, reason: 'ok' }
   }

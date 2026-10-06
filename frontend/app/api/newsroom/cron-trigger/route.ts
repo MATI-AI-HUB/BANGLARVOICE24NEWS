@@ -34,7 +34,34 @@ const INTERNAL_DEADLINE_MS = 54_000
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
 const robotsCache = new Map<string, boolean>()
-const FALLBACK_IMAGE = 'https://www.banglarvoice24news.com/banglar-voice-logo.png'
+const BRAND_ORIGIN = (
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com'
+).replace(/\/+$/, '')
+const IMAGE_QUERY_STOPWORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with',
+  'from', 'by', 'as', 'is', 'are', 'was', 'were', 'be', 'been', 'after',
+  'before', 'over', 'under', 'near', 'new', 'news', 'says', 'said', 'amid',
+  'into', 'about', 'against', 'during', 'its', 'his', 'her', 'their', 'this',
+  'that', 'these', 'those', 'has', 'have', 'had', 'will', 'would', 'could',
+])
+function imageQueryTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/[\s-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !IMAGE_QUERY_STOPWORDS.has(token))
+}
+function imageRelevanceScore(alt: string, queryTokens: string[]): number {
+  if (!alt.trim()) return 0
+  const altTokens = new Set(imageQueryTokens(alt))
+  let score = 0
+  for (const token of queryTokens) {
+    if (altTokens.has(token)) score += 1
+    else if (token.length >= 6 && [...altTokens].some((altToken) => altToken.startsWith(token.slice(0, 5)))) score += 1
+  }
+  return score
+}
 const FEED_UA =
   'Mozilla/5.0 (compatible; BanglarVoiceNewsBot/1.0; +https://banglarvoice24news.com/contact) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 const FEED_ACCEPT =
@@ -625,11 +652,13 @@ async function pexelsImage(
 ): Promise<{ url: string; credit: string }> {
   const key = process.env.PEXELS_API_KEY
   if (!key) return { url: '', credit: '' }
+  const queryTokens = imageQueryTokens(query)
+  if (queryTokens.length < 2) return { url: '', credit: '' }
   try {
     const timeout = createTimeout(deadline, 5_000)
     try {
       const response = await fetch(
-        `https://api.pexels.com/v1/search?query=${encodeURIComponent(query.slice(0, 60) || 'Bangladesh')}&per_page=1`,
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(query.slice(0, 60) || 'Bangladesh')}&per_page=12`,
         {
           headers: { Authorization: key, Accept: 'application/json' },
           signal: timeout.signal,
@@ -641,12 +670,22 @@ async function pexelsImage(
         photos?: Array<{
           src?: { large?: string }
           photographer?: string
+          alt?: string
         }>
       }
-      const photo = data.photos?.[0]
-      const url = photo?.src?.large || ''
+      const minScore = queryTokens.length >= 4 ? 2 : 1
+      const ranked = (data.photos ?? [])
+        .map((photo) => ({
+          photo,
+          score: imageRelevanceScore(photo.alt || '', queryTokens),
+        }))
+        .filter((entry) => Boolean(entry.photo.src?.large))
+        .sort((a, b) => b.score - a.score)
+      const best = ranked[0]
+      if (!best || best.score < minScore) return { url: '', credit: '' }
+      const url = best.photo.src?.large || ''
       if (!url) return { url: '', credit: '' }
-      const photographer = (photo?.photographer || '').trim()
+      const photographer = (best.photo.photographer || '').trim()
       return {
         url,
         credit: photographer ? `Pexels — ${photographer}` : 'Pexels',
@@ -669,7 +708,7 @@ async function resolveArticleImage(
   credit: string
   alt: string
   license: string
-  source: 'rss' | 'pexels' | 'brand'
+  source: 'rss' | 'pexels' | 'brand' | 'brand-card'
   representational: boolean
   isFallback: boolean
 }> {
@@ -690,8 +729,16 @@ async function resolveArticleImage(
       isFallback: false,
     }
   }
-  const pexelsQueries = [options.keywords, item.title, titleBn].filter(
-    (query): query is string => Boolean(query && query.trim().length > 0),
+  // Stock photos are only used when the English search query can be verified
+  // against the photo's own description; otherwise a branded headline card is
+  // rendered so the image always matches the article.
+  const pexelsQueries = [options.keywords, item.title].reduce<string[]>(
+    (list, candidate) => {
+      const value = (candidate || '').trim()
+      if (value && imageQueryTokens(value).length >= 2) list.push(value)
+      return list
+    },
+    [],
   )
   for (const query of pexelsQueries) {
     const pexels = await pexelsImage(query, deadline)
@@ -707,14 +754,15 @@ async function resolveArticleImage(
       }
     }
   }
+  const cardTitle = (titleBn || item.title || 'বাংলার ভয়েস').slice(0, 200)
   return {
-    url: FALLBACK_IMAGE,
+    url: `${BRAND_ORIGIN}/api/brand-card?title=${encodeURIComponent(cardTitle)}`,
     credit: 'বাংলার ভয়েস',
-    alt: `প্রতীকী ছবি — ${titleBn || item.title || 'বাংলার ভয়েস'}`,
+    alt: `বাংলার ভয়েস কার্ড — ${cardTitle}`,
     license: 'brand',
-    source: 'brand',
+    source: 'brand-card',
     representational: true,
-    isFallback: true,
+    isFallback: false,
   }
 }
 
@@ -974,6 +1022,7 @@ function classifyError(
   if (message === 'chat_ai_config_incomplete') return 'ai_rewrite_missing_env'
   if (message === 'ai_empty_response') return 'ai_rewrite_empty'
   if (message === 'invalid_rewrite_payload') return 'ai_rewrite_invalid_payload'
+  if (message === 'invalid_rewrite_payload_bengali_quality') return 'ai_rewrite_bengali_quality'
   if (error instanceof SyntaxError) return `${stage}_invalid_json`
 
   if (

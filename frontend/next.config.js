@@ -4,6 +4,10 @@ const path = require('path')
 const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.join(__dirname),
+  outputFileTracingIncludes: {
+    '/api/brand-card': ['./assets/fonts/**'],
+    '/api/social-card/[id]': ['./assets/fonts/**'],
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'www.banglarvoice24news.com' },

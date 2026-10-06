@@ -12,7 +12,6 @@
     "check:publish-gate": "cmp -s lib/publish-gate.ts ../worker/src/lib/publish-gate.ts"
   },
   "dependencies": {
-    "@react-pdf/renderer": "^4.9.0",
     "@sentry/nextjs": "^10.74.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.45.4",
