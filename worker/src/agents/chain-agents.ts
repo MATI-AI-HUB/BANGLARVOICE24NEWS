@@ -11,6 +11,7 @@
 import type { WorkerConfig } from "../config.js";
 import { chat, hasChatKey } from "./chat.js";
 import type { DraftArticle, RawItem, SocialPostResult } from "./types.js";
+import { supabaseAdmin } from "../lib/pipeline.js";
 
 // --- Editor ----------------------------------------------------------------
 
@@ -113,7 +114,7 @@ async function postFacebook(cfg: WorkerConfig, text: string, url: string): Promi
 }
 
 async function postX(cfg: WorkerConfig, text: string, url: string): Promise<SocialPostResult> {
-  if (!cfg.social.xApiKey || !cfg.social.xAccessToken) {
+  if (!cfg.social.xAccessToken) {
     return { platform: "x", ok: false, error: "no credentials" };
   }
   try {
@@ -129,6 +130,47 @@ async function postX(cfg: WorkerConfig, text: string, url: string): Promise<Soci
     return { platform: "x", ok: !!data?.data?.id, postId: data?.data?.id };
   } catch (e: any) {
     return { platform: "x", ok: false, error: e?.message };
+  }
+}
+
+async function postInstagram(
+  cfg: WorkerConfig,
+  text: string,
+  url: string,
+  imageUrl?: string,
+): Promise<SocialPostResult> {
+  const accountId = cfg.social.instagramBusinessAccountId;
+  if (!cfg.social.instagramAccessToken || !accountId) {
+    return { platform: "instagram", ok: false, error: "no credentials" };
+  }
+  if (!imageUrl) {
+    return { platform: "instagram", ok: false, error: "image required" };
+  }
+  try {
+    const caption = `${text}\n\n${url}`.slice(0, 2200);
+    const createRes = await fetch(`https://graph.facebook.com/v19.0/${accountId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, caption, access_token: cfg.social.instagramAccessToken }),
+    });
+    const created: any = await createRes.json();
+    if (!createRes.ok || !created?.id) {
+      return { platform: "instagram", ok: false, error: created?.error?.message || "media container failed" };
+    }
+    const publishRes = await fetch(`https://graph.facebook.com/v19.0/${accountId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: created.id, access_token: cfg.social.instagramAccessToken }),
+    });
+    const published: any = await publishRes.json();
+    return {
+      platform: "instagram",
+      ok: publishRes.ok && !!published?.id,
+      postId: published?.id,
+      error: publishRes.ok ? undefined : published?.error?.message || "publish failed",
+    };
+  } catch (e: any) {
+    return { platform: "instagram", ok: false, error: e?.message };
   }
 }
 
@@ -162,14 +204,44 @@ async function postLinkedIn(cfg: WorkerConfig, text: string, url: string): Promi
   }
 }
 
-export async function broadcast(cfg: WorkerConfig, article: { titleBn: string; url: string }): Promise<SocialPostResult[]> {
+async function recordSocialResults(
+  cfg: WorkerConfig,
+  articleId: string | undefined,
+  url: string,
+  results: SocialPostResult[],
+): Promise<void> {
+  if (!articleId) return;
+  const client = supabaseAdmin(cfg);
+  if (!client) return;
+  const now = new Date().toISOString();
+  const rows = results.map((result) => ({
+    article_id: articleId,
+    platform: result.platform,
+    status: result.ok ? "published" : result.error === "no credentials" ? "skipped" : "failed",
+    external_post_id: result.postId || null,
+    error_message: result.error || null,
+    attempt_count: 1,
+    payload: { url },
+    posted_at: result.ok ? now : null,
+    updated_at: now,
+  }));
+  const { error } = await client.from("social_posts").upsert(rows, { onConflict: "article_id,platform" });
+  if (error) console.error("[social] audit write failed", error.message);
+}
+
+export async function broadcast(
+  cfg: WorkerConfig,
+  article: { id?: string; titleBn: string; url: string; imageUrl?: string },
+): Promise<SocialPostResult[]> {
   const text = article.titleBn;
   const url = article.url;
   const results = await Promise.all([
     postTelegram(cfg, text, url),
     postFacebook(cfg, text, url),
     postX(cfg, text, url),
+    postInstagram(cfg, text, url, article.imageUrl),
     postLinkedIn(cfg, text, url),
   ]);
+  await recordSocialResults(cfg, article.id, url, results);
   return results;
 }

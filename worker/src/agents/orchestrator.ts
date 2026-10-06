@@ -297,7 +297,12 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
           state.stage = "published";
           if (result.url) {
             try {
-              await broadcast(cfg, { titleBn: draft.titleBn, url: result.url });
+              await broadcast(cfg, {
+                id: result.id,
+                titleBn: draft.titleBn,
+                url: result.url,
+                imageUrl: draft.imageUrl,
+              });
             } catch (e) {
               console.error("[orchestrator] social broadcast failed", e);
             }

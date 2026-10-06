@@ -24,6 +24,7 @@ export interface WorkerConfig {
     xAccessToken: string;
     xAccessSecret: string;
     instagramAccessToken: string;
+    instagramBusinessAccountId?: string;
     linkedinAccessToken: string;
     linkedinOrganizationId: string;
   };
@@ -150,6 +151,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): WorkerConfig {
       xAccessToken: env.X_ACCESS_TOKEN ?? "",
       xAccessSecret: env.X_ACCESS_SECRET ?? "",
       instagramAccessToken: env.INSTAGRAM_ACCESS_TOKEN ?? "",
+      instagramBusinessAccountId: env.INSTAGRAM_BUSINESS_ACCOUNT_ID ?? "",
       linkedinAccessToken: env.LINKEDIN_ACCESS_TOKEN ?? "",
       linkedinOrganizationId: env.LINKEDIN_ORGANIZATION_ID ?? "",
     },
