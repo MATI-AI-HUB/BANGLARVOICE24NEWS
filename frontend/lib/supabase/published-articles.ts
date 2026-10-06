@@ -24,16 +24,17 @@ export type PublishedArticleRow = {
   origin?: string | null;
 };
 
-// Prefer the richest column set. If the live view predates a migration the
-// request 400s (PostgREST PGRST/42703) and we degrade to CORE (content-bearing)
-// columns instead of the old silent fallback that dropped article bodies.
+// Keep the feed query exactly aligned with the live public_articles_feed view.
+// Detail/source metadata belongs to public_article_detail and must not be sent
+// to the feed view, otherwise PostgREST returns 400 for unknown columns.
 export const PUBLISHED_ARTICLE_COLUMNS =
+  'id, title_bn, title_en, content_bn, content_en, excerpt_bn, cover_image_url, thumbnail_url, category, category_key, status, published_at, created_at, featured_image';
+
+export const PUBLIC_ARTICLE_DETAIL_COLUMNS =
   'id, title_bn, title_en, content_bn, content_en, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, created_at, source_name, source_url, image_credit, image_alt_bn, image_is_representational, is_fallback, canonical_url, origin';
 
-export const PUBLIC_ARTICLE_DETAIL_COLUMNS = PUBLISHED_ARTICLE_COLUMNS;
-
 const CORE_VIEW_COLUMNS =
-  'id, title_bn, title_en, content_bn, content_en, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, created_at, source_name, image_credit, image_alt_bn';
+  'id, title_bn, title_en, content_bn, content_en, excerpt_bn, thumbnail_url, category, category_key, status, published_at, created_at, featured_image';
 
 const NARROW_FEED_COLUMNS =
   'id, title_bn, category, published_at, thumbnail_url, status';
@@ -90,7 +91,11 @@ export async function fetchPublishedArticlesFeed(
     CORE_VIEW_COLUMNS,
     NARROW_FEED_COLUMNS,
   ];
-  const feed = await selectFirstAvailable(supabase, 'public_articles_feed', attempts);
+  const feed = await selectFirstAvailable(supabase, 'public_articles_feed', [
+    PUBLISHED_ARTICLE_COLUMNS,
+    CORE_VIEW_COLUMNS,
+    NARROW_FEED_COLUMNS,
+  ]);
   if (!feed.error) return feed.rows;
 
   // Keep public feeds available if the feed view's grants lag behind a view
@@ -111,7 +116,7 @@ export async function fetchPublishedArticleById(
   const attempts: Array<{ table: string; cols: string }> = [
     { table: 'public_article_detail', cols: PUBLIC_ARTICLE_DETAIL_COLUMNS },
     { table: 'public_article_detail', cols: CORE_VIEW_COLUMNS },
-    { table: 'public_articles_feed', cols: PUBLIC_ARTICLE_DETAIL_COLUMNS },
+    { table: 'public_articles_feed', cols: PUBLISHED_ARTICLE_COLUMNS },
     { table: 'public_articles_feed', cols: CORE_VIEW_COLUMNS },
     { table: 'public_articles_feed', cols: NARROW_FEED_COLUMNS },
   ];
