@@ -119,6 +119,10 @@ jobs:
         run: |
           set +e
           : > /tmp/hibp.out
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "management_api=skipped :: SUPABASE_ACCESS_TOKEN secret is not set on this repository -> see README Manual Steps" | tee -a /tmp/hibp.out
+            exit 0
+          fi
           echo "--- before ---" | tee -a /tmp/hibp.out
           curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             "https://api.supabase.com/v1/projects/$REF/config/auth" \
@@ -138,6 +142,10 @@ jobs:
         run: |
           set +e
           : > /tmp/webhook.out
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "articles_webhook=unknown :: SUPABASE_ACCESS_TOKEN secret is not set on this repository -> see README Manual Steps" | tee -a /tmp/webhook.out
+            exit 0
+          fi
           curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             "https://api.supabase.com/v1/projects/$REF/database/webhooks" -o /tmp/hooks.json
           if jq -e 'if type=="array" then (map(select(.table=="articles"))|length>0) else false end' /tmp/hooks.json >/dev/null 2>&1; then
@@ -166,15 +174,24 @@ jobs:
       - name: TASK 6 - regenerate TypeScript types
         id: types
         continue-on-error: true
+        env:
+          DB_URL: ${{ steps.conn.outputs.url }}
         run: |
           set +e
           mkdir -p frontend/types
-          supabase gen types typescript --project-id "$REF" > /tmp/database.types.ts 2> /tmp/types.err
+          : > /tmp/types.out
+          if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "path=management-api" | tee -a /tmp/types.out
+            supabase gen types typescript --project-id "$REF" > /tmp/database.types.ts 2> /tmp/types.err
+          else
+            echo "path=db-url-fallback (SUPABASE_ACCESS_TOKEN not set)" | tee -a /tmp/types.out
+            supabase gen types typescript --db-url "$DB_URL" > /tmp/database.types.ts 2> /tmp/types.err
+          fi
           if [ -s /tmp/database.types.ts ] && grep -q 'export type' /tmp/database.types.ts; then
             cp /tmp/database.types.ts frontend/types/database.types.ts
-            echo "generated=true lines=$(wc -l < frontend/types/database.types.ts)" | tee /tmp/types.out
+            echo "generated=true lines=$(wc -l < frontend/types/database.types.ts)" | tee -a /tmp/types.out
           else
-            echo "generated=false" | tee /tmp/types.out
+            echo "generated=false" | tee -a /tmp/types.out
             tail -20 /tmp/types.err 2>/dev/null | tee -a /tmp/types.out
           fi
 
