@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     const maxChars = Math.max(14, Math.floor(1010 / (fontSize * 0.62)));
     const lines = wrapHeadline(title, maxChars, 5);
     const headlineSvg = lines
-      .map((line, index) => `<text x="64" y="${266 + index * (fontSize + 16)}" class="headline" font-size="${fontSize}">${escapeXml(line)}</text>`)
+      .map((line, index) => `<text x="64" y="${266 + index * (fontSize + 16)}" fill="#f8fafc" font-size="${fontSize}" font-weight="700" font-family=${JSON.stringify(BENGALI_SERIF_STACK)}>${escapeXml(line)}</text>`)
       .join('');
 
     const svg = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">

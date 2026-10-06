@@ -69,7 +69,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const lines = wrapHeadline(article.title_bn || 'বাংলার ভয়েস সংবাদ');
     const headline = lines
-      .map((line, index) => `<text x="80" y="${390 + index * 58}" class="headline" font-family=${JSON.stringify(BENGALI_SERIF_STACK)}>${escapeXml(line)}</text>`)
+      .map((line, index) => `<text x="80" y="${390 + index * 58}" fill="#ffffff" font-size="44" font-weight="700" font-family=${JSON.stringify(BENGALI_SERIF_STACK)}>${escapeXml(line)}</text>`)
       .join('');
     const svg = Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#001b34" stop-opacity=".15"/><stop offset=".55" stop-color="#001122" stop-opacity=".28"/><stop offset="1" stop-color="#001122" stop-opacity=".94"/></linearGradient></defs>
