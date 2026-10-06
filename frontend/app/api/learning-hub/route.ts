@@ -92,21 +92,33 @@ export async function POST(request: Request) {
   }
 
   const sourceText = sources.map((source, index) => `[${index + 1}] ${source.title}\nURL: ${source.url}\n${source.snippet}`).join('\n\n');
-  const response = await fetch(`${provider.base}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.key}` },
-    body: JSON.stringify({
-      model: provider.model,
-      temperature: 0.2,
-      max_tokens: 900,
-      messages: [
-        { role: 'system', content: 'তুমি বাংলার ভয়েস লার্নিং হাবের গবেষণা সহকারী। বাংলায় উত্তর দেবে। প্রদত্ত সূত্রের বাইরে তথ্য বানাবে না। সাম্প্রতিক বা বিতর্কিত তথ্যের ক্ষেত্রে অনিশ্চয়তা স্পষ্ট করবে। প্রয়োজন হলে উত্তরে [1], [2] এভাবে সূত্র উদ্ধৃত করবে।' },
-        { role: 'user', content: `প্রশ্ন: ${question}\n\nগবেষণা সূত্র:\n${sourceText || 'কোনো নির্ভরযোগ্য সূত্র পাওয়া যায়নি।'}` },
-      ],
-    }),
+  try {
+    const response = await fetch(`${provider.base}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.key}` },
+      signal: AbortSignal.timeout(25000),
+      body: JSON.stringify({
+        model: provider.model,
+        temperature: 0.2,
+        max_tokens: 900,
+        messages: [
+          { role: 'system', content: 'তুমি বাংলার ভয়েস লার্নিং হাবের গবেষণা সহকারী। বাংলায় উত্তর দেবে। প্রদত্ত সূত্রের বাইরে তথ্য বানাবে না। সাম্প্রতিক বা বিতর্কিত তথ্যের ক্ষেত্রে অনিশ্চয়তা স্পষ্ট করবে। প্রয়োজন হলে উত্তরে [1], [2] এভাবে সূত্র উদ্ধৃত করবে।' },
+          { role: 'user', content: `প্রশ্ন: ${question}\n\nগবেষণা সূত্র:\n${sourceText || 'কোনো নির্ভরযোগ্য সূত্র পাওয়া যায়নি।'}` },
+        ],
+      }),
+    });
+    const data: { choices?: Array<{ message?: { content?: string } }> } = await response.json().catch(() => ({}));
+    const answer = data.choices?.[0]?.message?.content;
+    if (response.ok && answer) return NextResponse.json({ answer, sources });
+  } catch {
+    // Fall through to a deterministic source-grounded response.
+  }
+
+  return NextResponse.json({
+    answer: sources.length
+      ? `AI উত্তর সেবা সাময়িকভাবে ব্যস্ত। যাচাইযোগ্য সূত্র থেকে প্রাসঙ্গিক তথ্য:\n\n${sources.map((source, index) => `[${index + 1}] ${source.title}\n${source.snippet}\n${source.url}`).join('\n\n')}`
+      : 'এই মুহূর্তে নির্ভরযোগ্য উত্তর তৈরির জন্য কোনো সূত্র পাওয়া যায়নি। পরে আবার চেষ্টা করুন।',
+    sources,
+    degraded: true,
   });
-  const data: { choices?: Array<{ message?: { content?: string } }> } = await response.json().catch(() => ({}));
-  const answer = data.choices?.[0]?.message?.content;
-  if (!response.ok || !answer) return NextResponse.json({ answer: 'উত্তর তৈরি করতে সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।', sources }, { status: 502 });
-  return NextResponse.json({ answer, sources });
 }
