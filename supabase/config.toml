@@ -1,0 +1,10 @@
+# Supabase CLI configuration for the production project.
+# Sensitive functions use platform JWT verification by default.
+
+[functions.newsroom-worker]
+verify_jwt = true
+
+# The collector is invoked by the server-side scheduled pipeline and performs
+# its own service-key-backed operation; keep its existing non-JWT contract.
+[functions.news-pipeline]
+verify_jwt = false
