@@ -1,0 +1,59 @@
+name: ops-health-fix2
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  health-and-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Task A - pipeline health SQL
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          sudo apt-get install -y postgresql-client jq >/dev/null 2>&1
+          DBURL=$(printf '%s' "$SUPABASE_DB_URL" | tr -d '\r\n' | sed 's/[[:space:]]//g')
+          echo "TASKA_DBURL_LEN: ${#DBURL}"
+          psql "$DBURL" -t -A -F'|' -c "SELECT COUNT(*) FILTER (WHERE status='published') AS published, COUNT(*) FILTER (WHERE status='pending') AS pending, MAX(created_at) AS latest_article FROM public.articles;" 2>&1 | sed 's/^/TASKA_ARTICLES: /'
+          psql "$DBURL" -t -A -F'|' -c "SELECT * FROM public.news_pipeline_runs ORDER BY started_at DESC LIMIT 5;" 2>&1 | sed 's/^/TASKA_RUNS: /'
+      - name: Task B - check and fix Vercel env vars
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          PROJECT=automation-king-lcb2
+          TEAM=team_ePmukwxucleK8YT0jr1edKhL
+          echo "TASKB_SECRET_STATE: GROQ=$([ -n "$GROQ_API_KEY" ] && echo set || echo EMPTY) OPENROUTER=$([ -n "$OPENROUTER_API_KEY" ] && echo set || echo EMPTY) CRON=$([ -n "$CRON_SECRET" ] && echo set || echo EMPTY) VERCEL_TOKEN=$([ -n "$VERCEL_TOKEN" ] && echo set || echo EMPTY)"
+          RESP=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects/$PROJECT/env?teamId=$TEAM")
+          if echo "$RESP" | jq -e '.error' >/dev/null 2>&1; then
+            echo "TASKB_API_ERROR: $(echo "$RESP" | jq -c '.error')"
+            exit 0
+          fi
+          for KEY in GROQ_API_KEY OPENROUTER_API_KEY CRON_SECRET; do
+            VAL=$(printf '%s' "${!KEY}" | tr -d '\r\n')
+            FOUND=$(echo "$RESP" | jq -r --arg k "$KEY" '[.envs[] | select(.key==$k)] | length')
+            if [ "$FOUND" = "0" ]; then
+              if [ -n "$VAL" ]; then
+                OUT=$(curl -s -X POST -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+                  "https://api.vercel.com/v10/projects/$PROJECT/env?upsert=true&teamId=$TEAM" \
+                  -d "{\"key\":\"$KEY\",\"value\":\"$VAL\",\"target\":[\"production\",\"preview\",\"development\"],\"type\":\"encrypted\"}")
+                if echo "$OUT" | jq -e '.error' >/dev/null 2>&1; then
+                  echo "TASKB_FIX: $KEY was MISSING, upsert FAILED $(echo "$OUT" | jq -c '.error' | cut -c1-200)"
+                else
+                  echo "TASKB_FIX: $KEY was MISSING -> upserted OK"
+                fi
+              else
+                echo "TASKB_FIX: $KEY MISSING in Vercel AND empty in GitHub secrets -> STILL_BROKEN"
+              fi
+            else
+              echo "TASKB_FIX: $KEY present in Vercel (count=$FOUND)"
+            fi
+          done
+          RESP2=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects/$PROJECT/env?teamId=$TEAM")
+          for KEY in GROQ_API_KEY OPENROUTER_API_KEY CRON_SECRET; do
+            F=$(echo "$RESP2" | jq -r --arg k "$KEY" '[.envs[]? | select(.key==$k)] | length' 2>/dev/null)
+            echo "TASKB_FINAL: $KEY vercel_count=$F"
+          done
