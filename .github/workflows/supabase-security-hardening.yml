@@ -1,0 +1,222 @@
+name: Supabase Security Hardening
+
+# TASK 1..7 — apply migrations, harden functions/policies/extensions, regenerate
+# TypeScript types and sync platform-level config. Every credential comes from
+# GitHub Secrets; nothing is ever hardcoded.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20261002000000_public_article_views.sql'
+      - 'supabase/migrations/2026100700000*.sql'
+      - '.github/workflows/supabase-security-hardening.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: supabase-security-hardening
+  cancel-in-progress: false
+
+jobs:
+  harden:
+    name: Migrations, types and platform config
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      REF: fqqdpngmftoddffvdukn
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      REVALIDATE_URL: https://automation-king.vercel.app/api/newsroom/revalidate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client jq
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Resolve database connection
+        id: conn
+        run: |
+          set -euo pipefail
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            echo "url=$SUPABASE_DB_URL" >> "$GITHUB_OUTPUT"
+          elif [ -n "${SUPABASE_DB_PASSWORD:-}" ]; then
+            echo "url=postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${REF}.supabase.co:5432/postgres" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Link project
+        continue-on-error: true
+        env:
+          DB_URL: ${{ steps.conn.outputs.url }}
+        run: |
+          supabase link --project-ref "$REF" || echo "link failed (continuing)"
+
+      - name: Migration state before
+        continue-on-error: true
+        run: supabase migration list --linked || echo "migration list unavailable"
+
+      # ---------------------------------------------------------------- TASK 1-4
+      - name: Apply migrations (authoritative, idempotent)
+        env:
+          DB_URL: ${{ steps.conn.outputs.url }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL"
+          : > /tmp/psql.out
+          for f in \
+            supabase/migrations/20261002000000_public_article_views.sql \
+            supabase/migrations/20261007000000_security_hardening_report.sql \
+            supabase/migrations/20261007000001_fix_search_path.sql \
+            supabase/migrations/20261007000002_consolidate_policies.sql \
+            supabase/migrations/20261007000003_move_extensions.sql
+          do
+            echo "=== applying $f ===" | tee -a /tmp/psql.out
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$f" 2>&1 | tee -a /tmp/psql.out
+          done
+
+      - name: Record applied versions in migration history
+        continue-on-error: true
+        run: |
+          for v in 20261002000000 20261007000000 20261007000001 20261007000002 20261007000003; do
+            supabase migration repair --status applied "$v" || echo "repair $v skipped"
+          done
+
+      - name: TASK 1 - supabase db push (canonical CLI path)
+        id: dbpush
+        continue-on-error: true
+        run: |
+          supabase db push --linked 2>&1 | tee /tmp/dbpush.out || echo "db push reported a problem (see output)"
+
+      - name: Collect hardening report rows
+        env:
+          DB_URL: ${{ steps.conn.outputs.url }}
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -At \
+            -c "select coalesce(json_agg(json_build_object('task',task,'item',item,'action',action,'detail',detail) order by id),'[]'::json) from maintenance.security_hardening_report where run_at > now() - interval '1 hour'" \
+            > /tmp/report_rows.json || echo '[]' > /tmp/report_rows.json
+
+      # ------------------------------------------------------------------ TASK 5
+      - name: TASK 5 - enable Leaked Password Protection (HIBP)
+        id: hibp
+        continue-on-error: true
+        run: |
+          set +e
+          : > /tmp/hibp.out
+          echo "--- before ---" | tee -a /tmp/hibp.out
+          curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$REF/config/auth" \
+            | jq -c '{password_hibp_enabled}' 2>/dev/null | tee -a /tmp/hibp.out
+          echo "--- patch ---" | tee -a /tmp/hibp.out
+          curl -sS -X PATCH -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"password_hibp_enabled": true}' \
+            -w "http_status=%{http_code}\n" \
+            "https://api.supabase.com/v1/projects/$REF/config/auth" -o /tmp/hibp.patch | tee -a /tmp/hibp.out
+          cat /tmp/hibp.patch 2>/dev/null | tee -a /tmp/hibp.out
+
+      # ------------------------------------------------------------------ TASK 7
+      - name: TASK 7 - ensure articles revalidation webhook
+        id: webhook
+        continue-on-error: true
+        run: |
+          set +e
+          : > /tmp/webhook.out
+          curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$REF/database/webhooks" -o /tmp/hooks.json
+          if jq -e 'if type=="array" then (map(select(.table=="articles"))|length>0) else false end' /tmp/hooks.json >/dev/null 2>&1; then
+            echo "articles_webhook=present" | tee -a /tmp/webhook.out
+          else
+            echo "articles_webhook=missing -> creating" | tee -a /tmp/webhook.out
+            curl -sS -X POST -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"name\":\"articles-revalidate\",\"table\":\"articles\",\"events\":[\"INSERT\",\"UPDATE\"],\"type\":\"HTTP\",\"method\":\"POST\",\"url\":\"$REVALIDATE_URL\",\"headers\":[{\"name\":\"Authorization\",\"value\":\"Bearer $CRON_SECRET\"},{\"name\":\"x-cron-secret\",\"value\":\"$CRON_SECRET\"}],\"enabled\":true}" \
+              -w "create_http_status=%{http_code}\n" \
+              "https://api.supabase.com/v1/projects/$REF/database/webhooks" -o /tmp/webhook.create | tee -a /tmp/webhook.out
+            cat /tmp/webhook.create 2>/dev/null | tee -a /tmp/webhook.out
+          fi
+
+      - name: TASK 7 - verify ISR revalidate on public feed routes
+        run: |
+          {
+            echo "home=$(grep -m1 '^export const revalidate' frontend/app/page.tsx || echo missing)"
+            echo "category=$(grep -m1 '^export const revalidate' 'frontend/app/category/[slug]/page.tsx' || echo missing)"
+            echo "search=$(grep -m1 '^export const revalidate' frontend/app/search/page.tsx || echo missing)"
+            echo "article=$(grep -m1 '^export const revalidate' 'frontend/app/article/[slug]/page.tsx' || echo missing)"
+            echo "epaper=$(grep -m1 '^export const revalidate' frontend/app/epaper/page.tsx || echo missing)"
+          } | tee /tmp/revalidate.out
+
+      # ------------------------------------------------------------------ TASK 6
+      - name: TASK 6 - regenerate TypeScript types
+        id: types
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p frontend/types
+          supabase gen types typescript --project-id "$REF" > /tmp/database.types.ts 2> /tmp/types.err
+          if [ -s /tmp/database.types.ts ] && grep -q 'export type' /tmp/database.types.ts; then
+            cp /tmp/database.types.ts frontend/types/database.types.ts
+            echo "generated=true lines=$(wc -l < frontend/types/database.types.ts)" | tee /tmp/types.out
+          else
+            echo "generated=false" | tee /tmp/types.out
+            tail -20 /tmp/types.err 2>/dev/null | tee -a /tmp/types.out
+          fi
+
+      - name: Build machine-readable report
+        run: |
+          set -euo pipefail
+          [ -s /tmp/report_rows.json ] || echo '[]' > /tmp/report_rows.json
+          jq -e . /tmp/report_rows.json >/dev/null 2>&1 || echo '[]' > /tmp/report_rows.json
+          mkdir -p docs
+          jq -n \
+            --argjson findings "$(cat /tmp/report_rows.json)" \
+            --arg db_push "$(tail -40 /tmp/dbpush.out 2>/dev/null || echo 'not run')" \
+            --arg psql "$(tail -80 /tmp/psql.out 2>/dev/null || echo 'not run')" \
+            --arg hibp "$(tail -20 /tmp/hibp.out 2>/dev/null || echo 'not run')" \
+            --arg webhook "$(tail -20 /tmp/webhook.out 2>/dev/null || echo 'not run')" \
+            --arg isr "$(cat /tmp/revalidate.out 2>/dev/null || echo 'not run')" \
+            --arg types "$(cat /tmp/types.out 2>/dev/null || echo 'not run')" \
+            --arg ref "$REF" \
+            '{project_ref:$ref, generated_at:(now|todate), db_push:$db_push, migration_apply_log:$psql, leaked_password_protection:$hibp, revalidate_webhook:$webhook, isr_revalidate:$isr, typescript_types:$types, findings:$findings}' \
+            > docs/security-hardening-report.json
+          cat docs/security-hardening-report.json
+
+      - name: Commit report and regenerated types
+        run: |
+          set -euo pipefail
+          git config user.name "MATI-AI-HUB"
+          git config user.email "matiailearninghub@gmail.com"
+          git add docs/security-hardening-report.json frontend/types 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "chore(security): hardening report and regenerated supabase types"
+            git push origin HEAD:main
+          fi
+
+      - name: Step summary
+        if: always()
+        run: |
+          {
+            echo "## Supabase security hardening"
+            echo ""
+            echo '```json'
+            cat docs/security-hardening-report.json 2>/dev/null || echo '{}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -192,3 +192,26 @@ npm run build && npm start
 - `.gitattributes` (LFS reserved) + `.gitignore` hardening (`google-services.json` blocked)
 - Security scan: `sk_live` / `service_role` / `BEGIN PRIVATE KEY` → **০ hit**
 
+
+## Manual Steps
+
+Automated migrations, type regeneration and platform config run in
+`.github/workflows/supabase-security-hardening.yml` (project ref `fqqdpngmftoddffvdukn`).
+The following items cannot be fully automated from CI and need a one-time human action:
+
+1. **Leaked Password Protection (HIBP)** — if the Management API call in the workflow
+   returns a non-2xx status, enable it manually:
+   Supabase Dashboard → **Authentication → Settings → Enable Leaked Password Protection**.
+2. **Revalidation Database Webhook** — if the workflow reports `articles_webhook=missing`
+   after the create attempt, add it manually:
+   Supabase Dashboard → **Database → Webhooks → Create a new hook**
+   - Table: `articles` · Events: `INSERT`, `UPDATE`
+   - Type: HTTP Request · Method: `POST`
+   - URL: `https://automation-king.vercel.app/api/newsroom/revalidate`
+   - Header: `x-cron-secret: <CRON_SECRET>`
+   Guard the condition with `status = 'published'` in the hook's row filter.
+3. **Extension relocation review** — if `maintenance.security_hardening_report` shows
+   `pg_net` as *relocation failed — left in public*, resolve the listed dependents
+   (functions/views/triggers using `net.*`) and re-run the migration.
+4. **Supabase CLI access token** — `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`
+   and `SUPABASE_DB_URL` must exist in GitHub Secrets for the workflow to connect.
