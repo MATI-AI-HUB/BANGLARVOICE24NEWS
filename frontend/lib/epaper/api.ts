@@ -3,7 +3,6 @@ import type { EPaperEdition } from './types';
 const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
 
 async function safeFetch<T>(url: string, timeoutMs: number, empty: T): Promise<T> {
-  if (!BASE) return empty;
   try {
     const r = await fetch(url, {
       next: { revalidate: 300 },

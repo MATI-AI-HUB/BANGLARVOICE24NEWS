@@ -3,19 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 
 /**
- * Banglar Voice — Learning Hub chatbot.
+ * বাংলার ভয়েস লার্নিং হাব — server-backed research assistant.
  *
- * A self-contained, key-free assistant that answers common questions about the
- * newsroom, the AI pipeline, fact-checking, and how to use the site. It uses a
- * deterministic Bengali rule engine (fast, offline, zero-latency) and, when a
- * chat AI endpoint is configured via NEXT_PUBLIC_CHAT_AI_URL + NEXT_PUBLIC_CHAT_AI_KEY,
- * falls back to that endpoint for open-ended questions. No secrets are hardcoded.
+ * The browser never receives an AI key. Questions go to /api/learning-hub,
+ * where the server combines Banglar Voice articles and current web results
+ * before calling the configured server-side AI provider.
  */
 
-type ChatMessage = { role: 'user' | 'bot'; text: string };
-
-const CHAT_AI_URL = process.env.NEXT_PUBLIC_CHAT_AI_URL || '';
-const CHAT_AI_KEY = process.env.NEXT_PUBLIC_CHAT_AI_KEY || '';
+type ChatMessage = { role: 'user' | 'bot'; text: string; sources?: { title: string; url: string }[] };
 
 const SUGGESTIONS = [
   'বাংলার ভয়েস কী?',
@@ -113,36 +108,17 @@ export function LearningHub() {
     setInput('');
     setBusy(true);
 
-    // Fast deterministic answer first.
-    const local = answer(trimmed);
-    if (CHAT_AI_URL && CHAT_AI_KEY) {
-      try {
-        const res = await fetch(`${CHAT_AI_URL}/chat/completions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${CHAT_AI_KEY}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            temperature: 0.3,
-            messages: [
-              { role: 'system', content: 'You are the Banglar Voice assistant. Answer concisely in Bengali.' },
-              { role: 'user', content: trimmed },
-            ],
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const content: string = data?.choices?.[0]?.message?.content ?? '';
-          if (content) {
-            setMessages((m) => [...m, { role: 'bot', text: content }]);
-            setBusy(false);
-            return;
-          }
-        }
-      } catch {
-        // fall through to local answer
-      }
+    try {
+      const res = await fetch('/api/learning-hub', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: trimmed }),
+      });
+      const data = await res.json();
+      setMessages((m) => [...m, { role: 'bot', text: data?.answer || answer(trimmed), sources: data?.sources || [] }]);
+    } catch {
+      setMessages((m) => [...m, { role: 'bot', text: answer(trimmed) }]);
     }
-    setMessages((m) => [...m, { role: 'bot', text: local }]);
     setBusy(false);
   }
 
@@ -152,7 +128,7 @@ export function LearningHub() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'লিংকিং হাব বন্ধ করুন' : 'লিংকিং হাব খুলুন'}
+        aria-label={open ? 'বাংলার ভয়েস লার্নিং হাব বন্ধ করুন' : 'বাংলার ভয়েস লার্নিং হাব খুলুন'}
         className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-card transition-transform hover:scale-105 dark:bg-primary"
       >
         {open ? (
@@ -165,15 +141,15 @@ export function LearningHub() {
       {open && (
         <div
           role="dialog"
-          aria-label="লিংকিং হাব"
+          aria-label="বাংলার ভয়েস লার্নিং হাব"
           className="fixed bottom-24 right-4 z-50 flex h-[520px] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-border bg-paper shadow-card dark:border-white/10 dark:bg-ink"
         >
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-border bg-primary px-4 py-3 text-white dark:border-white/10">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-sm font-bold">ব</div>
             <div>
-              <div className="text-sm font-bold">লিংকিং হাব</div>
-              <div className="text-[11px] text-white/80">বাংলার ভয়েস সহকারী</div>
+              <div className="text-sm font-bold">বাংলার ভয়েস লার্নিং হাব</div>
+              <div className="text-[11px] text-white/80">ওয়েব গবেষণা AI সহকারী</div>
             </div>
           </div>
 
@@ -187,8 +163,15 @@ export function LearningHub() {
                       ? 'rounded-br-sm bg-primary text-white'
                       : 'rounded-bl-sm bg-muted text-ink dark:bg-white/10 dark:text-white'
                   }`}
-                >
+                  >
                   {m.text}
+                  {m.sources && m.sources.length > 0 && (
+                    <div className="mt-2 border-t border-current/20 pt-2 text-[11px] opacity-80">
+                      {m.sources.slice(0, 4).map((source, sourceIndex) => (
+                        <a key={`${source.url}-${sourceIndex}`} href={source.url} target="_blank" rel="noreferrer" className="block underline">[{sourceIndex + 1}] {source.title}</a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

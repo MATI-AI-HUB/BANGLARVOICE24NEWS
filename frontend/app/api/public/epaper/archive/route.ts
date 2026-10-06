@@ -1,0 +1,5 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+export const dynamic = 'force-dynamic';
+function db() { const url = process.env.NEXT_PUBLIC_SUPABASE_URL; const key = process.env.SUPABASE_SERVICE_ROLE_KEY; if (!url || !key) throw new Error('Supabase not configured'); return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }); }
+export async function GET(request: Request) { try { const limit = Math.min(Math.max(Number(new URL(request.url).searchParams.get('limit') || 30), 1), 100); const { data, error } = await db().from('epaper_editions').select('edition_date,title,article_count').order('edition_date', { ascending: false }).limit(limit); if (error) throw error; return NextResponse.json({ editions: (data || []).map((row) => ({ date: row.edition_date, label: row.title, articleCount: row.article_count })) }); } catch { return NextResponse.json({ editions: [], error: 'epaper_unavailable' }, { status: 503 }); } }

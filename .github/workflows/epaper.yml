@@ -1,0 +1,32 @@
+name: Daily e-paper
+
+on:
+  schedule:
+    # 23:30 Asia/Dhaka = 17:30 UTC
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BV_BASE_URL: https://www.banglarvoice24news.com
+    steps:
+      - name: Generate and archive today’s e-paper
+        env:
+          NEWSROOM_INGEST_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEWSROOM_INGEST_KEY:-}" ]; then
+            echo '::error::NEWSROOM_INGEST_KEY is not configured'
+            exit 1
+          fi
+          code=$(curl -sS -m 90 -o response.json -w '%{http_code}' \
+            -X POST "$BV_BASE_URL/api/newsroom/epaper" \
+            -H "x-ingest-key: $NEWSROOM_INGEST_KEY" \
+            -H 'Content-Type: application/json' \
+            --data '{}')
+          echo "HTTP $code"
+          cat response.json
+          [ "$code" -lt 400 ]

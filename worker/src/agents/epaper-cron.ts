@@ -71,17 +71,17 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Fetch the day's top articles from the backend public feed. */
+/** Fetch the day's top articles from the live JSON feed. */
 async function fetchTopArticles(cfg: WorkerConfig, date: string): Promise<{ headline: string; body: string; attribution?: string }[]> {
-  const url = `${cfg.bvBaseUrl}/api/public/articles?limit=12`;
+  const url = `${cfg.bvBaseUrl}/api/public/feed.json`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`epaper: articles fetch failed ${res.status}`);
-  const data = (await res.json()) as { items?: { title?: string; excerpt?: string; author?: string }[] };
+  const data = (await res.json()) as { items?: { title?: string; summary?: string; authors?: { name?: string }[]; date_published?: string }[] };
   return (data.items ?? []).map((a) => ({
     headline: a.title ?? "শিরোনামহীন",
-    body: a.excerpt ?? "",
-    attribution: a.author ? `লেখক: ${a.author}` : undefined,
-  }));
+    body: a.summary ?? "",
+    attribution: a.authors?.[0]?.name ? `সূত্র: ${a.authors[0].name}` : undefined,
+  })).filter((a, index) => index < 24);
 }
 
 /** Archive the edition into the backend `epaper_editions` table. */
