@@ -31,6 +31,9 @@ const MAX_AI_RESPONSE_BYTES = 1024 * 1024
 const MAX_ARTICLE_BYTES = 512 * 1024
 const MAX_CONCURRENCY = 4
 const INTERNAL_DEADLINE_MS = 54_000
+const AI_FETCH_TIMEOUT_MS = 15_000
+const AI_MAX_TOKENS = 3000
+const AI_TRANSIENT_RETRY_DELAYS_MS = [400, 800]
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
 const robotsCache = new Map<string, boolean>()
@@ -283,7 +286,7 @@ async function publishBufferedEditorialFallback(
     .select('id, source_name, source_url, source_published_at, title, description, image_url')
     .is('article_id', null)
     .in('status', ['pending_review', 'failed'])
-    .in('last_error', ['source_fetch_failed', 'ai_rewrite_timeout', 'ai_rewrite_invalid_json', 'ai_rewrite_model_not_found'])
+    .in('last_error', ['source_fetch_failed', 'ai_rewrite_timeout', 'ai_rewrite_invalid_json', 'ai_rewrite_truncated', 'ai_rewrite_model_not_found'])
     .order('source_published_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: true })
     .limit(1)
@@ -842,6 +845,49 @@ function extractJsonObject(text: string): string {
   throw new SyntaxError('unterminated_json_object')
 }
 
+function repairTruncatedJson(text: string): string {
+  const stripped = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+  const start = stripped.indexOf('{')
+  if (start < 0) throw new SyntaxError('no_json_object')
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+  let end = stripped.length
+
+  for (let i = start; i < stripped.length; i += 1) {
+    const ch = stripped[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{') depth += 1
+    else if (ch === '}') {
+      depth -= 1
+      if (depth === 0) {
+        end = i + 1
+        break
+      }
+    }
+  }
+
+  let slice = stripped.slice(start, end)
+  if (inString) slice += '"'
+  while (depth > 0) {
+    slice += '}'
+    depth -= 1
+  }
+  slice = slice.replace(/,\s*([}\]])/g, '$1')
+  JSON.parse(slice)
+  return slice
+}
+
 function parseRewrite(content: string): RewriteResult {
   const jsonText = extractJsonObject(
     content
@@ -892,6 +938,9 @@ async function rewriteArticleOnce(
   jsonMode: boolean,
 ): Promise<RewriteResult> {
   const endpoint = `${config.baseUrl}/chat/completions`
+  const startedAt = Date.now()
+  let httpStatus: number | null = null
+  let finishReason: string | null = null
 
   const requestBody: Record<string, unknown> = {
     model: config.model,
@@ -907,43 +956,144 @@ async function rewriteArticleOnce(
       },
     ],
     temperature: 0.2,
-    max_tokens: 1800,
+    max_tokens: AI_MAX_TOKENS,
   }
 
   if (jsonMode) {
     requestBody.response_format = { type: 'json_object' }
   }
 
-  const { response, text } = await fetchTextLimited(
-    endpoint,
-    {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${config.apiKey}`,
-        'content-type': 'application/json',
+  if (config.provider === 'groq' && /gpt-oss/i.test(config.model)) {
+    requestBody.reasoning_effort = 'low'
+  }
+
+  const logCall = (reviewReason: string | null) => {
+    console.info('[newsroom] ai_rewrite call', {
+      provider: config.provider,
+      model: config.model,
+      elapsed_ms: Date.now() - startedAt,
+      http_status: httpStatus,
+      finish_reason: finishReason,
+      json_mode: jsonMode,
+      review_reason: reviewReason,
+    })
+  }
+
+  try {
+    const { response, text } = await fetchTextLimited(
+      endpoint,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${config.apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    },
-    deadline,
-    MAX_AI_RESPONSE_BYTES,
-    15_000,
-  )
+      deadline,
+      MAX_AI_RESPONSE_BYTES,
+      AI_FETCH_TIMEOUT_MS,
+    )
 
-  if (!response.ok) {
-    throw new Error(classifyAiHttp(response.status))
+    httpStatus = response.status
+
+    if (!response.ok) {
+      throw new Error(classifyAiHttp(response.status))
+    }
+
+    const payload = JSON.parse(text) as {
+      choices?: Array<{
+        message?: { content?: string | null }
+        finish_reason?: string | null
+      }>
+    }
+
+    finishReason = payload.choices?.[0]?.finish_reason ?? null
+    const content = payload.choices?.[0]?.message?.content
+
+    if (!content) {
+      if (finishReason === 'length') throw new Error('ai_rewrite_truncated')
+      throw new Error('ai_empty_response')
+    }
+
+    try {
+      const result = parseRewrite(content)
+      logCall(null)
+      return result
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        try {
+          const result = parseRewrite(repairTruncatedJson(content))
+          logCall(null)
+          return result
+        } catch {
+          if (finishReason === 'length') throw new Error('ai_rewrite_truncated')
+          throw error
+        }
+      }
+      throw error
+    }
+  } catch (error) {
+    logCall(classifyError('ai_rewrite', error))
+    throw error
+  }
+}
+
+function remainingUntilDeadline(deadline: number): number {
+  return deadline - Date.now()
+}
+
+function canAttemptAiCall(deadline: number, extraMs = 0): boolean {
+  return remainingUntilDeadline(deadline) > extraMs + AI_FETCH_TIMEOUT_MS
+}
+
+function isTransientAiError(error: unknown): boolean {
+  const code = classifyError('ai_rewrite', error)
+  if (code === 'ai_rewrite_timeout') return true
+  const match = /^ai_rewrite_http_(\d{3})$/.exec(code)
+  return Boolean(match && Number(match[1]) >= 500)
+}
+
+async function rewriteArticleWithTransientRetries(
+  config: AIConfig,
+  item: FeedItem,
+  deadline: number,
+  jsonMode: boolean,
+): Promise<RewriteResult> {
+  let lastError: unknown = new Error('deadline_exceeded')
+
+  for (let attempt = 0; attempt <= AI_TRANSIENT_RETRY_DELAYS_MS.length; attempt += 1) {
+    const delay = attempt === 0 ? 0 : AI_TRANSIENT_RETRY_DELAYS_MS[attempt - 1]
+    if (!canAttemptAiCall(deadline, delay)) {
+      console.warn('[newsroom] ai_rewrite skip retry', {
+        provider: config.provider,
+        model: config.model,
+        attempt,
+        remaining_ms: remainingUntilDeadline(deadline),
+        need_ms: delay + AI_FETCH_TIMEOUT_MS,
+        code: classifyError('ai_rewrite', lastError),
+      })
+      throw lastError
+    }
+
+    if (delay > 0) await sleep(delay)
+
+    try {
+      return await rewriteArticleOnce(config, item, deadline, jsonMode)
+    } catch (error) {
+      lastError = error
+      if (!isTransientAiError(error)) throw error
+      console.warn('[newsroom] ai_rewrite transient failure', {
+        provider: config.provider,
+        model: config.model,
+        attempt,
+        code: classifyError('ai_rewrite', error),
+        remaining_ms: remainingUntilDeadline(deadline),
+      })
+    }
   }
 
-  const payload = JSON.parse(text) as {
-    choices?: Array<{ message?: { content?: string | null } }>
-  }
-
-  const content = payload.choices?.[0]?.message?.content
-
-  if (!content) {
-    throw new Error('ai_empty_response')
-  }
-
-  return parseRewrite(content)
+  throw lastError
 }
 
 async function rewriteArticle(
@@ -952,13 +1102,20 @@ async function rewriteArticle(
   deadline: number,
 ): Promise<RewriteResult> {
   try {
-    return await rewriteArticleOnce(config, item, deadline, true)
+    return await rewriteArticleWithTransientRetries(config, item, deadline, true)
   } catch (error) {
-    // Some providers/models reject `response_format`; retry once without it
-    // rather than failing the whole article.
-    const message = error instanceof Error ? error.message : ''
-    if (message === 'ai_rewrite_http_400' || message === 'ai_rewrite_http_422') {
+    const code = classifyError('ai_rewrite', error)
+    if (code === 'ai_rewrite_http_400' || code === 'ai_rewrite_http_422') {
+      if (!canAttemptAiCall(deadline)) throw error
+      return rewriteArticleWithTransientRetries(config, item, deadline, false)
+    }
+    if (code === 'ai_rewrite_invalid_json') {
+      if (!canAttemptAiCall(deadline)) throw error
       return rewriteArticleOnce(config, item, deadline, false)
+    }
+    if (code === 'ai_rewrite_truncated') {
+      if (!canAttemptAiCall(deadline)) throw error
+      return rewriteArticleOnce(config, item, deadline, true)
     }
     throw error
   }
@@ -972,6 +1129,19 @@ async function rewriteArticleWithFallback(
   let lastError: unknown = new Error('ai_no_provider')
 
   for (const config of configs) {
+    if (!canAttemptAiCall(deadline)) {
+      console.warn('[newsroom] ai_rewrite skip provider', {
+        provider: config.provider,
+        model: config.model,
+        remaining_ms: remainingUntilDeadline(deadline),
+        need_ms: AI_FETCH_TIMEOUT_MS,
+      })
+      lastError = lastError instanceof Error && lastError.message !== 'ai_no_provider'
+        ? lastError
+        : new Error('deadline_exceeded')
+      continue
+    }
+
     try {
       const result = await rewriteArticle(config, item, deadline)
       return { result, provider: config.provider, model: config.model }
@@ -1021,6 +1191,7 @@ function classifyError(
   if (message === 'invalid_https_url') return `${stage}_invalid_url`
   if (message === 'chat_ai_config_incomplete') return 'ai_rewrite_missing_env'
   if (message === 'ai_empty_response') return 'ai_rewrite_empty'
+  if (message === 'ai_rewrite_truncated') return 'ai_rewrite_truncated'
   if (message === 'invalid_rewrite_payload') return 'ai_rewrite_invalid_payload'
   if (message === 'invalid_rewrite_payload_bengali_quality') return 'ai_rewrite_bengali_quality'
   if (error instanceof SyntaxError) return `${stage}_invalid_json`
