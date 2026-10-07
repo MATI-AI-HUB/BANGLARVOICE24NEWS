@@ -94,6 +94,38 @@ type Candidate = {
   item: FeedItem
 }
 
+const PRIORITY_TOPIC_TERMS = [
+  'কৃত্রিম বুদ্ধিমত্তা', 'এআই', 'প্রযুক্তি', 'সাইবার', 'সফটওয়্যার', 'সফটওয়্যার',
+  'technology', 'artificial intelligence', 'ai ', 'cyber', 'software',
+  'ক্রিকেট', 'ফুটবল', 'খেলা', 'স্পোর্টস', 'cricket', 'football', 'sports',
+  'আন্তর্জাতিক', 'বিশ্ব', 'বিদেশ', 'international', 'world', 'global', 'foreign',
+]
+const PRIORITY_RISK_TERMS = [
+  'হত্যা', 'নিহত', 'খুন', 'ধর্ষণ', 'আত্মহত্যা', 'সাম্প্রদায়িক', 'সাম্প্রদায়িক',
+  'গ্রেপ্তার', 'অভিযোগ', 'মামলা', 'নির্বাচন', 'ভোট', 'সহিংসতা', 'হামলা',
+  'murder', 'killed', 'rape', 'suicide', 'arrest', 'allegation', 'election',
+  'attack', 'violence', 'unverified', 'rumor', 'rumour',
+]
+
+function priorityTopicScore(candidate: Candidate): number {
+  const text = `${candidate.item.title} ${candidate.item.description} ${candidate.source.name}`.toLowerCase()
+  const topicHits = PRIORITY_TOPIC_TERMS.filter((term) => text.includes(term)).length
+  const riskHits = PRIORITY_RISK_TERMS.filter((term) => text.includes(term)).length
+  return topicHits > 0 && riskHits === 0 ? topicHits : 0
+}
+
+function selectCandidateBatch(candidates: Candidate[]): Candidate[] {
+  const ranked = candidates
+    .map((candidate, index) => ({ candidate, index, score: priorityTopicScore(candidate) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+  const preferred = ranked.filter((entry) => entry.score > 0)
+  const general = ranked.filter((entry) => entry.score === 0)
+  const preferredQuota = Math.ceil(MAX_CANDIDATES * 0.7)
+  return [...preferred.slice(0, preferredQuota), ...general]
+    .slice(0, MAX_CANDIDATES)
+    .map((entry) => entry.candidate)
+}
+
 type RewriteResult = {
   title_bn: string
   content_bn: string
@@ -1282,6 +1314,7 @@ async function runCronTrigger() {
   const skipReasons = new Set<string>()
   const aiProvidersUsed = new Set<string>()
   const candidates: Candidate[] = []
+  let priorityCandidatesSelected = 0
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -1389,7 +1422,8 @@ async function runCronTrigger() {
       stats.failed += candidates.length
       stats.queued += candidates.length
     } else {
-      const batch = candidates.slice(0, MAX_CANDIDATES)
+      const batch = selectCandidateBatch(candidates)
+      priorityCandidatesSelected = batch.filter((candidate) => priorityTopicScore(candidate) > 0).length
       const overflow = Math.max(0, candidates.length - batch.length)
       if (overflow > 0) {
         stats.skipped += overflow
@@ -1778,6 +1812,8 @@ async function runCronTrigger() {
       articles_failed: stats.failed,
       articles_queued: stats.queued,
       articles_pending: stats.pending,
+      priority_candidates_selected: priorityCandidatesSelected,
+      priority_candidate_target_percent: 70,
       ai_provider: aiProvidersUsed.size > 0 ? [...aiProvidersUsed].join(',') : null,
       error_codes: [...errorCodes],
       skip_reasons: [...skipReasons],
