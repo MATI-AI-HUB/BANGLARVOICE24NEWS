@@ -25,14 +25,14 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const MAX_ITEMS_PER_SOURCE = 6
-const MAX_CANDIDATES = 12
+const MAX_CANDIDATES = 6
 const MAX_FEED_BYTES = 2 * 1024 * 1024
 const MAX_AI_RESPONSE_BYTES = 1024 * 1024
 const MAX_ARTICLE_BYTES = 512 * 1024
-const MAX_CONCURRENCY = 4
-const INTERNAL_DEADLINE_MS = 54_000
-const AI_FETCH_TIMEOUT_MS = 15_000
-const AI_MAX_TOKENS = 3000
+const MAX_CONCURRENCY = 2
+const INTERNAL_DEADLINE_MS = 56_000
+const AI_FETCH_TIMEOUT_MS = 12_000
+const AI_MAX_TOKENS = 1200
 const AI_TRANSIENT_RETRY_DELAYS_MS = [400, 800]
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
@@ -795,15 +795,6 @@ function getAIConfigs(): AIConfig[] {
     })
   }
 
-  if (process.env.GROQ_API_KEY) {
-    configs.push({
-      apiKey: process.env.GROQ_API_KEY,
-      baseUrl: 'https://api.groq.com/openai/v1',
-      model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
-      provider: 'groq',
-    })
-  }
-
   if (process.env.OPENROUTER_API_KEY) {
     configs.push({
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -812,6 +803,15 @@ function getAIConfigs(): AIConfig[] {
         process.env.OPENROUTER_MODEL ||
         'meta-llama/llama-3.1-8b-instruct',
       provider: 'openrouter',
+    })
+  }
+
+  if (process.env.GROQ_API_KEY) {
+    configs.push({
+      apiKey: process.env.GROQ_API_KEY,
+      baseUrl: 'https://api.groq.com/openai/v1',
+      model: process.env.GROQ_MODEL || 'llama-3.1-8b-instant',
+      provider: 'groq',
     })
   }
 
@@ -952,7 +952,7 @@ async function rewriteArticleOnce(
       },
       {
         role: 'user',
-        content: `শিরোনাম: ${item.title}\nলিংক: ${item.link}\n\nউৎস পাঠ্য:\n${(item.sourceText || item.description).slice(0, 8000)}`,
+        content: `শিরোনাম: ${item.title}\nলিংক: ${item.link}\n\nউৎস পাঠ্য:\n${(item.sourceText || item.description).slice(0, 6000)}`,
       },
     ],
     temperature: 0.2,
