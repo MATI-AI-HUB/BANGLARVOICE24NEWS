@@ -8,3 +8,7 @@ verify_jwt = true
 # its own service-key-backed operation; keep its existing non-JWT contract.
 [functions.news-pipeline]
 verify_jwt = false
+
+# Central AI routing is internal and additionally requires a service_role JWT.
+[functions.ai-gateway]
+verify_jwt = true
