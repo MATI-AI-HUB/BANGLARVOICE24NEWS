@@ -19,3 +19,5 @@ node_modules/
 .vercel/
 .env.local
 worker/node_modules/
+
+mobile_monorepo/apps/*/android/app/keystore/
