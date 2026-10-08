@@ -1192,9 +1192,9 @@ async function isRequestAuthorized(request: Request) {
   const authorization = request.headers.get('authorization')
   const bearer = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null
   return (
-    isAuthorized(headerKey, ingestKey) ||
-    isAuthorized(bearer, ingestKey) ||
-    isAuthorized(bearer, cronSecret)
+    isAuthorized(headerKey, ingestKey ?? undefined) ||
+    isAuthorized(bearer, ingestKey ?? undefined) ||
+    isAuthorized(bearer, cronSecret ?? undefined)
   )
 }
 
@@ -1203,7 +1203,7 @@ export async function GET(request: Request) {
   const authorization = request.headers.get('authorization')
   const bearer = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null
 
-  if (!isAuthorized(bearer, cronSecret)) {
+  if (!isAuthorized(bearer, cronSecret ?? undefined)) {
     return jsonError('Unauthorized', 401)
   }
 
