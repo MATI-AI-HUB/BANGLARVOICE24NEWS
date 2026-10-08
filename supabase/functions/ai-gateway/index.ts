@@ -114,7 +114,7 @@ async function markSuccess(row: KeyRow): Promise<void> {
 async function audit(input: Record<string, unknown>): Promise<void> {
   await admin.from("ai_gateway_usage_events").insert(input);
 }
-async function callProvider(row: KeyRow, key: string, model: string, messages: ChatMessage[], temperature: number, maxTokens: number): Promise<{ status: number; text: string; outputChars: number }> {
+async function callProvider(row: KeyRow, key: string, model: string, messages: ChatMessage[], temperature: number, maxTokens: number, jsonMode: boolean): Promise<{ status: number; text: string; outputChars: number }> {
   const base = row.base_url || DEFAULT_BASE_URLS[row.provider] || "";
   const headers: Record<string, string> = { "content-type": "application/json", authorization: `Bearer ${key}` };
   if (row.provider === "openrouter") {
@@ -123,7 +123,13 @@ async function callProvider(row: KeyRow, key: string, model: string, messages: C
   }
   const response = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, {
     method: "POST", headers, signal: AbortSignal.timeout(25_000),
-    body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
+    }),
   });
   const body = await response.text();
   if (!response.ok) throw Object.assign(new Error(classifyStatus(response.status)), { status: response.status, body: body.slice(0, 200) });
@@ -150,6 +156,8 @@ Deno.serve(async (req: Request) => {
     const maxTokens = clampInt(body.max_tokens, policy.max_tokens, 64, policy.max_tokens);
     const temperature = Math.max(0, Math.min(1, Number(body.temperature ?? 0.2)));
     const requestedModel = typeof body.model === "string" && body.model.length < 160 ? body.model : "";
+    const metadata = typeof body.metadata === "object" && body.metadata ? body.metadata as Record<string, unknown> : {};
+    const jsonMode = metadata.json_mode === true;
     const keys = (await loadKeys()).sort((a, b) => PROVIDER_ORDER.indexOf(a.provider) - PROVIDER_ORDER.indexOf(b.provider) || a.priority - b.priority);
     if (!keys.length) return json({ ok: false, error: "no_healthy_provider", request_id: id }, 503);
     const inputChars = messages.reduce((sum, m) => sum + m.content.length, 0);
@@ -158,9 +166,9 @@ Deno.serve(async (req: Request) => {
       if (!key) { await markFailure(row, "vault_decrypt_failed"); continue; }
       const model = requestedModel || row.model || (row.provider === "groq" ? "llama-3.1-8b-instant" : "meta-llama/llama-3.1-8b-instruct");
       try {
-        const result = await callProvider(row, key, model, messages, temperature, maxTokens);
+        const result = await callProvider(row, key, model, messages, temperature, maxTokens, jsonMode);
         await markSuccess(row);
-        await audit({ request_id: id, task, provider: row.provider, api_vault_id: row.api_vault_id, account_label: row.account_label, model, status_code: result.status, outcome: "success", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: result.outputChars, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata: typeof body.metadata === "object" && body.metadata ? body.metadata : {} });
+        await audit({ request_id: id, task, provider: row.provider, api_vault_id: row.api_vault_id, account_label: row.account_label, model, status_code: result.status, outcome: "success", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: result.outputChars, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata });
         return json({ ok: true, request_id: id, provider: row.provider, model, answer: result.text });
       } catch (error) {
         const code = error instanceof Error ? error.message : "provider_error";
