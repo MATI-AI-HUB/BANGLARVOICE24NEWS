@@ -26,10 +26,9 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const MAX_ITEMS_PER_SOURCE = 6
-// One premium article per scheduled run keeps the serverless invocation bounded.
-// The 70% policy remains an eligible-candidate preference, not a reason to publish
-// multiple lower-quality articles in a single short-lived invocation.
-const MAX_CANDIDATES = 1
+// Try a small bounded set so one blocked source does not waste the whole window,
+// while the run-level cap below still permits at most one public article.
+const MAX_CANDIDATES = 3
 const MAX_FEED_BYTES = 2 * 1024 * 1024
 const MAX_ARTICLE_BYTES = 512 * 1024
 const SOURCE_FETCH_CONCURRENCY = 8
@@ -141,7 +140,7 @@ function selectCandidateBatch(candidates: Candidate[]): Candidate[] {
     .sort((a, b) => b.score - a.score || a.index - b.index)
   const preferred = ranked.filter((entry) => entry.score > 0)
   const general = ranked.filter((entry) => entry.score === 0)
-  const preferredQuota = Math.ceil(MAX_CANDIDATES * 0.7)
+  const preferredQuota = Math.max(1, Math.floor(MAX_CANDIDATES * 0.7))
   return [...preferred.slice(0, preferredQuota), ...general]
     .slice(0, MAX_CANDIDATES)
     .map((entry) => entry.candidate)
@@ -1437,7 +1436,13 @@ async function runCronTrigger() {
         skipReasons.add('batch_limit')
       }
 
+      let publishedThisRun = false
       await runPool(batch, ARTICLE_PROCESS_CONCURRENCY, async ({ source, item }) => {
+        if (publishedThisRun) {
+          stats.skipped += 1
+          skipReasons.add('one_publish_per_run')
+          return
+        }
         if (Date.now() >= deadline - 500) {
           stats.failed += 1
           errorCodes.add('deadline')
@@ -1768,6 +1773,7 @@ async function runCronTrigger() {
 
         if (publishNow) {
           stats.ingested += 1
+          publishedThisRun = true
         } else {
           stats.pending += 1
           stats.queued += 1
