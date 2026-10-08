@@ -84,7 +84,7 @@ async function loadKeys(): Promise<KeyRow[]> {
     .from("ai_gateway_key_state")
     .select("api_vault_id,provider,account_label,priority,model,base_url,is_enabled,state,failure_count,cooldown_until,api_vault!inner(key_encrypted,is_active,service_name)")
     .eq("is_enabled", true)
-    .eq("state", "healthy")
+    .in("state", ["healthy", "degraded"])
     .eq("api_vault.is_active", true)
     .in("provider", PROVIDER_ORDER)
     .order("priority", { ascending: true });
@@ -121,16 +121,27 @@ async function callProvider(row: KeyRow, key: string, model: string, messages: C
     headers["HTTP-Referer"] = "https://www.banglarvoice24news.com";
     headers["X-Title"] = "Banglar Voice AI Gateway";
   }
-  const response = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST", headers, signal: AbortSignal.timeout(25_000),
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
-    }),
+  const endpoint = `${base.replace(/\/$/, "")}/chat/completions`;
+  const requestBody = (includeJsonFormat: boolean) => JSON.stringify({
+    model,
+    messages,
+    temperature,
+    max_tokens: maxTokens,
+    ...(includeJsonFormat ? { response_format: { type: "json_object" } } : {}),
   });
+  let response = await fetch(endpoint, {
+    method: "POST", headers, signal: AbortSignal.timeout(18_000),
+    body: requestBody(jsonMode),
+  });
+  // Some OpenAI-compatible providers/models reject response_format even though
+  // they support normal chat completions. Retry without it; the newsroom prompt
+  // still requires a JSON object and the application parser validates the result.
+  if (jsonMode && response.status === 400) {
+    response = await fetch(endpoint, {
+      method: "POST", headers, signal: AbortSignal.timeout(18_000),
+      body: requestBody(false),
+    });
+  }
   const body = await response.text();
   if (!response.ok) throw Object.assign(new Error(classifyStatus(response.status)), { status: response.status, body: body.slice(0, 200) });
   let parsed: { choices?: Array<{ message?: { content?: string } }> } = {};
