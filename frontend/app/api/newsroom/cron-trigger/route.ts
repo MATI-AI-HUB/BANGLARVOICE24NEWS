@@ -141,9 +141,24 @@ function selectCandidateBatch(candidates: Candidate[]): Candidate[] {
   const preferred = ranked.filter((entry) => entry.score > 0)
   const general = ranked.filter((entry) => entry.score === 0)
   const preferredQuota = Math.max(1, Math.floor(MAX_CANDIDATES * 0.7))
-  return [...preferred.slice(0, preferredQuota), ...general]
-    .slice(0, MAX_CANDIDATES)
-    .map((entry) => entry.candidate)
+  const selected: typeof ranked = []
+  const seenSources = new Set<string>()
+  const addDiverse = (pool: typeof ranked) => {
+    for (const entry of pool) {
+      if (selected.length >= MAX_CANDIDATES) break
+      if (seenSources.has(entry.candidate.source.id)) continue
+      selected.push(entry)
+      seenSources.add(entry.candidate.source.id)
+    }
+  }
+  addDiverse(preferred.slice(0, preferredQuota))
+  addDiverse(general)
+  addDiverse(preferred)
+  for (const entry of [...preferred, ...general]) {
+    if (selected.length >= MAX_CANDIDATES) break
+    if (!selected.includes(entry)) selected.push(entry)
+  }
+  return selected.map((entry) => entry.candidate)
 }
 
 type RewriteResult = {
