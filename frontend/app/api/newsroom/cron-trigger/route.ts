@@ -1174,9 +1174,20 @@ function classifyError(
   return stage
 }
 
-function isRequestAuthorized(request: Request) {
-  const ingestKey = process.env.NEWSROOM_INGEST_KEY
-  const cronSecret = process.env.CRON_SECRET
+async function vaultSecret(serviceName: string): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceRoleKey) return null
+  const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { data: row } = await supabase.from('api_vault').select('key_encrypted').eq('service_name', serviceName).eq('environment', 'prod').eq('is_active', true).maybeSingle()
+  if (!row?.key_encrypted) return null
+  const { data: plain } = await supabase.rpc('decrypt_vault_secret', { p_secret_id: row.key_encrypted })
+  return typeof plain === 'string' && plain.length > 0 ? plain : null
+}
+
+async function isRequestAuthorized(request: Request) {
+  const ingestKey = await vaultSecret('NEWSROOM_INGEST_KEY')
+  const cronSecret = await vaultSecret('CRON_SECRET')
   const headerKey = request.headers.get('x-ingest-key')
   const authorization = request.headers.get('authorization')
   const bearer = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null
@@ -1188,7 +1199,7 @@ function isRequestAuthorized(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
+  const cronSecret = await vaultSecret('CRON_SECRET')
   const authorization = request.headers.get('authorization')
   const bearer = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null
 
@@ -1200,14 +1211,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const configuredIngestKey = process.env.NEWSROOM_INGEST_KEY
-  const cronSecret = process.env.CRON_SECRET
+  const configuredIngestKey = await vaultSecret('NEWSROOM_INGEST_KEY')
+  const cronSecret = await vaultSecret('CRON_SECRET')
 
   if (!configuredIngestKey && !cronSecret) {
     return jsonError('Server authentication is not configured', 500)
   }
 
-  if (!isRequestAuthorized(request)) {
+  if (!(await isRequestAuthorized(request))) {
     return jsonError('Unauthorized', 401)
   }
 

@@ -30,8 +30,18 @@ function admin() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+async function vaultSecret(serviceName: string): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return null;
+  const client = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: row } = await client.from('api_vault').select('key_encrypted').eq('service_name', serviceName).eq('environment', 'prod').eq('is_active', true).maybeSingle();
+  if (!row?.key_encrypted) return null;
+  const { data: plain } = await client.rpc('decrypt_vault_secret', { p_secret_id: row.key_encrypted });
+  return typeof plain === 'string' && plain.length > 0 ? plain : null;
+}
+async function authorized(request: Request): Promise<boolean> {
+  const secret = await vaultSecret('CRON_SECRET') || await vaultSecret('NEWSROOM_INGEST_KEY');
   if (!secret) return false;
   const header = request.headers.get('authorization') || '';
   return header === `Bearer ${secret}` || request.headers.get('x-cron-secret') === secret;
@@ -119,7 +129,7 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!(await authorized(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   if (process.env.SOCIAL_AUTOMATION_ENABLED !== 'true') {
     return NextResponse.json({ ok: true, processed: 0, disabled: true });
   }

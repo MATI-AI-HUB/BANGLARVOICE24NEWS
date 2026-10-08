@@ -1,95 +1,13 @@
-name: News ingest
+name: News ingest (Supabase scheduled)
 
+# Production scheduling is owned by Supabase pg_cron and Vault-backed HTTP calls.
+# This workflow intentionally has no schedule and no secrets.
 on:
-  schedule:
-    # GitHub Actions cron is UTC. Bangladesh is UTC+06:00.
-    # Daytime (06:00–23:59 BDT): every 15 minutes.
-    - cron: "*/15 0-17 * * *"
-    # Overnight (00:00–05:59 BDT): one run per hour at minute 0.
-    - cron: "0 18-23 * * *"
   workflow_dispatch:
 
-concurrency:
-  group: news-ingest
-  cancel-in-progress: false
-
 jobs:
-  ingest:
+  status:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      BV_BASE_URL: https://www.banglarvoice24news.com
-      VERCEL_PROJECT_ID: prj_552hrMTjvldSlUHpcuqNqqNbhshb
     steps:
-      - name: Resolve newsroom ingest key from Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          FALLBACK_KEY: ${{ secrets.NEWSROOM_INGEST_KEY }}
-        run: |
-          set -euo pipefail
-          key=""
-          if [ -n "${VERCEL_TOKEN:-}" ]; then
-            envs=$(curl -sS -m 20 -H "Authorization: Bearer $VERCEL_TOKEN" \
-              "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?decrypt=false" || true)
-            eid=$(printf '%s' "$envs" | python3 -c "import sys,json;d=json.load(sys.stdin);print(next((e['id'] for e in d.get('envs',[]) if e.get('key')=='NEWSROOM_INGEST_KEY'),''))" 2>/dev/null || true)
-            if [ -n "$eid" ]; then
-              key=$(curl -sS -m 20 -H "Authorization: Bearer $VERCEL_TOKEN" \
-                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$eid" \
-                | python3 -c "import sys,json;print(json.load(sys.stdin).get('value',''))" 2>/dev/null || true)
-            fi
-          fi
-          if [ -z "$key" ]; then key="${FALLBACK_KEY:-}"; fi
-          if [ -z "$key" ]; then
-            echo "::error::Could not resolve NEWSROOM_INGEST_KEY from Vercel or GitHub secrets"
-            exit 1
-          fi
-          echo "::add-mask::$key"
-          echo "NEWSROOM_INGEST_KEY=$key" >> "$GITHUB_ENV"
-
-      - name: Trigger Vercel newsroom pipeline
-        run: |
-          set -euo pipefail
-          code=$(curl -sS -m 90 -o response.json -w '%{http_code}' \
-            -X POST "$BV_BASE_URL/api/newsroom/cron-trigger" \
-            -H "Authorization: Bearer $NEWSROOM_INGEST_KEY" \
-            -H "Content-Type: application/json")
-          echo "HTTP $code"
-          cat response.json; echo
-          if [ "$code" -ge 400 ]; then exit 1; fi
-
-      - name: Resolve social dispatcher secret from Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          FALLBACK_CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          set -euo pipefail
-          secret=""
-          if [ -n "${VERCEL_TOKEN:-}" ]; then
-            envs=$(curl -sS -m 20 -H "Authorization: Bearer $VERCEL_TOKEN" \
-              "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?decrypt=false" || true)
-            eid=$(printf '%s' "$envs" | python3 -c "import sys,json;d=json.load(sys.stdin);print(next((e['id'] for e in d.get('envs',[]) if e.get('key')=='CRON_SECRET'),''))" 2>/dev/null || true)
-            if [ -n "$eid" ]; then
-              secret=$(curl -sS -m 20 -H "Authorization: Bearer $VERCEL_TOKEN" \
-                "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$eid" \
-                | python3 -c "import sys,json;print(json.load(sys.stdin).get('value',''))" 2>/dev/null || true)
-            fi
-          fi
-          if [ -z "$secret" ]; then secret="${FALLBACK_CRON_SECRET:-}"; fi
-          if [ -z "$secret" ]; then
-            echo "::warning::CRON_SECRET unavailable; social dispatch skipped"
-          else
-            echo "::add-mask::$secret"
-            echo "CRON_SECRET=$secret" >> "$GITHUB_ENV"
-          fi
-
-      - name: Trigger Vercel social dispatcher
-        if: env.CRON_SECRET != ''
-        run: |
-          set -euo pipefail
-          code=$(curl -sS -m 90 -o social-response.json -w '%{http_code}' \
-            -X POST "$BV_BASE_URL/api/social/dispatch" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json")
-          echo "HTTP $code"
-          cat social-response.json; echo
-          if [ "$code" -ge 400 ]; then exit 1; fi
+      - name: Supabase owns production scheduling
+        run: echo 'Production news ingest, e-paper and social dispatch are scheduled by Supabase pg_cron using Vault-backed credentials.'
