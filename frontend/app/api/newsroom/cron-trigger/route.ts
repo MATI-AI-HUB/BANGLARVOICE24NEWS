@@ -34,8 +34,9 @@ const MAX_ARTICLE_BYTES = 512 * 1024
 const SOURCE_FETCH_CONCURRENCY = 8
 const ARTICLE_PROCESS_CONCURRENCY = 1
 const INTERNAL_DEADLINE_MS = 52_000
-const AI_FETCH_TIMEOUT_MS = 12_000
-const AI_MAX_TOKENS = 1200
+const MIN_CANDIDATE_BUDGET_MS = 24_000
+const AI_FETCH_TIMEOUT_MS = 18_000
+const AI_MAX_TOKENS = 1000
 const AI_TRANSIENT_RETRY_DELAYS_MS = [400, 800]
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
@@ -1458,9 +1459,9 @@ async function runCronTrigger() {
           skipReasons.add('one_publish_per_run')
           return
         }
-        if (Date.now() >= deadline - 500) {
-          stats.failed += 1
-          errorCodes.add('deadline')
+        if (Date.now() >= deadline - MIN_CANDIDATE_BUDGET_MS) {
+          stats.skipped += 1
+          skipReasons.add('run_budget_exhausted')
           return
         }
 
