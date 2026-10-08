@@ -26,7 +26,6 @@ fs.mkdirSync(OUTPUT, { recursive: true });
 // Env loaded via config
 
 const { Client } = require('pg');
-const GROQ_KEY = process.env.GROQ_API_KEY;
 const PEXELS_KEY = process.env.PEXELS_API_KEY;
 const DB = process.env.SUPABASE_DB_URL;
 

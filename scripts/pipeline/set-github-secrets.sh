@@ -71,8 +71,6 @@ SECRETS=(
   "SUPABASE_SERVICE_ROLE_KEY"
   "NEXT_PUBLIC_SUPABASE_URL"
   "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  "GROQ_API_KEY"
-  "OPENROUTER_API_KEY"
   "PEXELS_API_KEY"
   "YOUTUBE_API_KEY"
   "YOUTUBE_CHANNEL_ID"
@@ -130,4 +128,3 @@ fi
 echo ""
 echo "📋 Secrets currently on GitHub:"
 gh secret list --repo "$REPO" 2>&1 | head -20 || echo "   (could not list)"
-

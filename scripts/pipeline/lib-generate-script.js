@@ -16,8 +16,8 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-const GROQ_KEY = process.env.GROQ_API_KEY;
-const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const SYSTEM_PROMPT = 'তুমি একজন পেশাদার বাংলা সংবাদ উপস্থাপক।';
 
@@ -39,50 +39,28 @@ function buildPrompt(article) {
 ${content.slice(0, 1500)}`;
 }
 
-async function tryGroq(article, model) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+async function tryGateway(article) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('supabase_gateway_credentials_missing');
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-gateway`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + GROQ_KEY,
+      Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
     },
     body: JSON.stringify({
-      model,
+      task: 'video_script',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: buildPrompt(article) },
       ],
       temperature: 0.7,
       max_tokens: 800,
+      metadata: { source: 'video-pipeline' },
     }),
   });
   const j = await res.json();
-  if (j.error) throw new Error(j.error.message);
-  return j.choices?.[0]?.message?.content?.trim();
-}
-
-async function tryOpenRouter(article) {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + OPENROUTER_KEY,
-      'HTTP-Referer': 'https://banglarvoice24news.com',
-      'X-Title': 'Banglar Voice Pipeline',
-    },
-    body: JSON.stringify({
-      model: 'nvidia/nemotron-3-super-120b-a12b:free',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildPrompt(article) },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
-    }),
-  });
-  const j = await res.json();
-  if (j.error) throw new Error(j.error.message);
-  return j.choices?.[0]?.message?.content?.trim();
+  if (!res.ok || !j.ok) throw new Error(j.error || `gateway_http_${res.status}`);
+  return j.answer?.trim();
 }
 
 function staticTemplate(article) {
@@ -94,36 +72,15 @@ function staticTemplate(article) {
 async function generateScript(article) {
   const errors = [];
 
-  // 1. GROQ OpenAI gpt-oss-120b (best quality)
+  // Provider credentials never enter this runner; the Supabase Gateway owns routing and failover.
   try {
-    console.log('   [1/5] GROQ openai/gpt-oss-120b...');
-    const r = await tryGroq(article, 'openai/gpt-oss-120b');
-    if (r) { console.log('   ✅ Success: gpt-oss-120b'); return r; }
-  } catch (e) { errors.push('gpt-oss-120b: ' + e.message); }
+    console.log('   [1/2] Supabase AI Gateway (Vault-routed providers)...');
+    const r = await tryGateway(article);
+    if (r) { console.log('   ✅ Success: AI Gateway'); return r; }
+  } catch (e) { errors.push('AI Gateway: ' + e.message); }
 
-  // 2. GROQ Qwen 3.8 27B (multilingual strong)
-  try {
-    console.log('   [2/5] GROQ qwen/qwen3.8-27b...');
-    const r = await tryGroq(article, 'qwen/qwen3.8-27b');
-    if (r) { console.log('   ✅ Success: qwen3.8-27b'); return r; }
-  } catch (e) { errors.push('qwen-27b: ' + e.message); }
-
-  // 3. GROQ OpenAI gpt-oss-20b (fast fallback)
-  try {
-    console.log('   [3/5] GROQ openai/gpt-oss-20b...');
-    const r = await tryGroq(article, 'openai/gpt-oss-20b');
-    if (r) { console.log('   ✅ Success: gpt-oss-20b'); return r; }
-  } catch (e) { errors.push('gpt-oss-20b: ' + e.message); }
-
-  // 4. OpenRouter
-  try {
-    console.log('   [4/5] OpenRouter nemotron...');
-    const r = await tryOpenRouter(article);
-    if (r) { console.log('   ✅ Success: OpenRouter'); return r; }
-  } catch (e) { errors.push('OpenRouter: ' + e.message); }
-
-  // 5. Static fallback
-  console.log('   [5/5] Static template fallback');
+  // Safe degraded mode: never invent provider output.
+  console.log('   [2/2] Static template fallback');
   console.log('   ⚠️  All AI failed. Errors: ' + errors.join(' | '));
   return staticTemplate(article);
 }
