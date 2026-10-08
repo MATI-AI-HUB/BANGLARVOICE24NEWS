@@ -40,6 +40,7 @@ const AI_MAX_TOKENS = 1000
 const AI_TRANSIENT_RETRY_DELAYS_MS = [400, 800]
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
+const RICH_RSS_FALLBACK_MIN_CHARS = 1_200
 const robotsCache = new Map<string, boolean>()
 const BRAND_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com'
@@ -1527,7 +1528,11 @@ async function runCronTrigger() {
           return
         }
 
-        const pageText = await fetchArticlePageText(link, deadline)
+        const pageText = await fetchArticlePageText(link, deadline) || (
+          item.description.trim().length >= RICH_RSS_FALLBACK_MIN_CHARS
+            ? item.description.trim().slice(0, 20_000)
+            : null
+        )
         if (!pageText) {
           stats.pending += 1
           stats.queued += 1
