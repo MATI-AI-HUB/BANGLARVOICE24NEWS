@@ -314,8 +314,10 @@ export function imagePublishable(input: {
     return { ok: false, reason: 'missing_image' }
   }
   const source = (input.imageSource || '').toLowerCase()
+  // A headline card is branded fallback artwork, not a related news photograph.
+  // It may be shown on a draft, but it must never satisfy the premium auto-publish gate.
   if (source === 'brand-card' || input.imageUrl.toLowerCase().includes('/api/brand-card')) {
-    return { ok: true, reason: 'ok' }
+    return { ok: false, reason: 'image_not_related' }
   }
   if (source === 'pexels' || input.imageUrl.toLowerCase().includes('pexels')) {
     return { ok: true, reason: 'ok' }

@@ -26,11 +26,15 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const MAX_ITEMS_PER_SOURCE = 6
-const MAX_CANDIDATES = 6
+// One premium article per scheduled run keeps the serverless invocation bounded.
+// The 70% policy remains an eligible-candidate preference, not a reason to publish
+// multiple lower-quality articles in a single short-lived invocation.
+const MAX_CANDIDATES = 1
 const MAX_FEED_BYTES = 2 * 1024 * 1024
 const MAX_ARTICLE_BYTES = 512 * 1024
-const MAX_CONCURRENCY = 2
-const INTERNAL_DEADLINE_MS = 56_000
+const SOURCE_FETCH_CONCURRENCY = 8
+const ARTICLE_PROCESS_CONCURRENCY = 1
+const INTERNAL_DEADLINE_MS = 52_000
 const AI_FETCH_TIMEOUT_MS = 12_000
 const AI_MAX_TOKENS = 1200
 const AI_TRANSIENT_RETRY_DELAYS_MS = [400, 800]
@@ -699,11 +703,11 @@ async function headOk(url: string, deadline: number): Promise<boolean> {
 async function pexelsImage(
   query: string,
   deadline: number,
-): Promise<{ url: string; credit: string }> {
+): Promise<{ url: string; credit: string; sourceUrl: string; relevanceScore: number }> {
   const key = process.env.PEXELS_API_KEY
-  if (!key) return { url: '', credit: '' }
+  if (!key) return { url: '', credit: '', sourceUrl: '', relevanceScore: 0 }
   const queryTokens = imageQueryTokens(query)
-  if (queryTokens.length < 2) return { url: '', credit: '' }
+  if (queryTokens.length < 2) return { url: '', credit: '', sourceUrl: '', relevanceScore: 0 }
   try {
     const timeout = createTimeout(deadline, 5_000)
     try {
@@ -715,12 +719,13 @@ async function pexelsImage(
           cache: 'no-store',
         },
       )
-      if (!response.ok) return { url: '', credit: '' }
+      if (!response.ok) return { url: '', credit: '', sourceUrl: '', relevanceScore: 0 }
       const data = (await response.json()) as {
         photos?: Array<{
           src?: { large?: string }
           photographer?: string
           alt?: string
+          url?: string
         }>
       }
       const minScore = queryTokens.length >= 4 ? 2 : 1
@@ -732,19 +737,21 @@ async function pexelsImage(
         .filter((entry) => Boolean(entry.photo.src?.large))
         .sort((a, b) => b.score - a.score)
       const best = ranked[0]
-      if (!best || best.score < minScore) return { url: '', credit: '' }
+      if (!best || best.score < minScore) return { url: '', credit: '', sourceUrl: '', relevanceScore: 0 }
       const url = best.photo.src?.large || ''
-      if (!url) return { url: '', credit: '' }
+      if (!url) return { url: '', credit: '', sourceUrl: '', relevanceScore: 0 }
       const photographer = (best.photo.photographer || '').trim()
       return {
         url,
         credit: photographer ? `Pexels — ${photographer}` : 'Pexels',
+        sourceUrl: best.photo.url || 'https://www.pexels.com/license/',
+        relevanceScore: best.score,
       }
     } finally {
       timeout.dispose()
     }
   } catch {
-    return { url: '', credit: '' }
+    return { url: '', credit: '', sourceUrl: '', relevanceScore: 0 }
   }
 }
 
@@ -758,6 +765,8 @@ async function resolveArticleImage(
   credit: string
   alt: string
   license: string
+  sourceUrl: string
+  relevanceScore: number
   source: 'rss' | 'pexels' | 'brand' | 'brand-card'
   representational: boolean
   isFallback: boolean
@@ -774,6 +783,8 @@ async function resolveArticleImage(
       credit: 'সূত্র',
       alt: titleBn || item.title || 'সংবাদ ছবি',
       license: 'source',
+      sourceUrl: item.imageUrl,
+      relevanceScore: 100,
       source: 'rss',
       representational: false,
       isFallback: false,
@@ -798,6 +809,8 @@ async function resolveArticleImage(
         credit: pexels.credit,
         alt: `প্রতীকী ছবি — ${titleBn || item.title || 'বাংলাদেশ'}`,
         license: 'Pexels License',
+        sourceUrl: pexels.sourceUrl,
+        relevanceScore: pexels.relevanceScore,
         source: 'pexels',
         representational: true,
         isFallback: false,
@@ -810,6 +823,8 @@ async function resolveArticleImage(
     credit: 'বাংলার ভয়েস',
     alt: `বাংলার ভয়েস কার্ড — ${cardTitle}`,
     license: 'brand',
+    sourceUrl: '',
+    relevanceScore: 0,
     source: 'brand-card',
     representational: true,
     isFallback: false,
@@ -1288,7 +1303,7 @@ async function runCronTrigger() {
     stats.failed += 1
     errorCodes.add('source_query')
   } else {
-    await runPool((sources ?? []) as Source[], MAX_CONCURRENCY, async (source) => {
+    await runPool((sources ?? []) as Source[], SOURCE_FETCH_CONCURRENCY, async (source) => {
       const nowIso = new Date().toISOString()
       const sourceKey = source.id || source.feed_url
       try {
@@ -1364,7 +1379,7 @@ async function runCronTrigger() {
         skipReasons.add('batch_limit')
       }
 
-      await runPool(batch, MAX_CONCURRENCY, async ({ source, item }) => {
+      await runPool(batch, ARTICLE_PROCESS_CONCURRENCY, async ({ source, item }) => {
         if (Date.now() >= deadline - 500) {
           stats.failed += 1
           errorCodes.add('deadline')
@@ -1503,6 +1518,11 @@ async function runCronTrigger() {
             image_credit: image.credit.slice(0, 250),
             image_license: image.license,
             image_is_representational: image.representational,
+            image_source_url: image.sourceUrl || null,
+            image_license_url: image.source === 'pexels' ? 'https://www.pexels.com/license/' : image.source === 'rss' ? link : null,
+            image_rights_verified: image.source === 'pexels' || (image.source === 'rss' && licenceNoteAllowsReuse(source.licence_note)),
+            image_relevance_score: image.relevanceScore,
+            image_rights_checked_at: new Date().toISOString(),
             is_fallback: true,
             media_type: image.url ? 'image' : 'none',
             risk_level: decidePublish({
@@ -1641,6 +1661,11 @@ async function runCronTrigger() {
             image_credit: image.credit.slice(0, 250),
             image_license: image.license,
             image_is_representational: image.representational,
+            image_source_url: image.sourceUrl || null,
+            image_license_url: image.source === 'pexels' ? 'https://www.pexels.com/license/' : image.source === 'rss' ? link : null,
+            image_rights_verified: image.source === 'pexels' || (image.source === 'rss' && licenceNoteAllowsReuse(source.licence_note)),
+            image_relevance_score: image.relevanceScore,
+            image_rights_checked_at: new Date().toISOString(),
             is_fallback: image.isFallback,
             media_type: image.url ? 'image' : 'none',
             risk_level: gate.riskLevel,
