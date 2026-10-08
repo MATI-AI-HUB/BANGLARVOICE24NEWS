@@ -43,6 +43,10 @@ function isServiceRole(req: Request): boolean {
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return false;
+  // Supabase projects may use the newer sb_secret_* server key format, which
+  // is not a JWT. It is still safe here because this is an internal function
+  // and the comparison is against the function's own server-side secret.
+  if (SERVICE_ROLE && token === SERVICE_ROLE) return true;
   try {
     const part = token.split(".")[1];
     if (!part) return false;
