@@ -12,9 +12,12 @@ function admin() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-function authorized(request: Request): boolean {
-  const key = process.env.NEWSROOM_INGEST_KEY;
-  if (!key) return false;
+async function authorized(request: Request): Promise<boolean> {
+  const client = admin();
+  const { data: row } = await client.from('api_vault').select('key_encrypted').eq('service_name', 'NEWSROOM_INGEST_KEY').eq('environment', 'prod').eq('is_active', true).maybeSingle();
+  if (!row?.key_encrypted) return false;
+  const { data: key } = await client.rpc('decrypt_vault_secret', { p_secret_id: row.key_encrypted });
+  if (typeof key !== 'string' || !key) return false;
   const supplied = request.headers.get('x-ingest-key') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
   return supplied === key;
 }
@@ -54,7 +57,7 @@ function buildPages(articles: Array<{ id?: string; title_bn: string; content_bn?
 }
 
 export async function POST(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!(await authorized(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
     const body = await request.json().catch(() => ({}));
     const requestedDate = typeof body?.edition_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.edition_date) ? body.edition_date : dhakaDate();
