@@ -42,10 +42,10 @@ const AI_MAX_TOKENS = 600
 const AI_TRANSIENT_RETRY_DELAYS_MS: number[] = []
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
-// Many legitimate RSS feeds provide a concise 600–1,000 character summary
+// Many legitimate RSS feeds provide a concise summary
 // while blocking the article page. Use that summary as AI input; never publish
 // it raw—the Bengali rewrite and editorial gate still remain mandatory.
-const RICH_RSS_FALLBACK_MIN_CHARS = 600
+const RICH_RSS_FALLBACK_MIN_CHARS = 80
 const robotsCache = new Map<string, boolean>()
 const BRAND_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com'
