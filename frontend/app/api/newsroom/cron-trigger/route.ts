@@ -1774,6 +1774,21 @@ async function runCronTrigger() {
         if (publishNow) {
           stats.ingested += 1
           publishedThisRun = true
+          const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram']
+          const { error: socialQueueError } = await supabase.from('social_posts').upsert(
+            platforms.map((platform) => ({
+              article_id: inserted?.id,
+              platform,
+              status: 'pending',
+              payload: { title: rewrite.title_bn.slice(0, 250), image_url: image.url },
+              updated_at: new Date().toISOString(),
+            })),
+            { onConflict: 'article_id,platform' },
+          )
+          if (socialQueueError) {
+            errorCodes.add('social_queue_failed')
+            console.error('[newsroom] social queue failed', { article_id: inserted?.id, message: socialQueueError.message })
+          }
         } else {
           stats.pending += 1
           stats.queued += 1

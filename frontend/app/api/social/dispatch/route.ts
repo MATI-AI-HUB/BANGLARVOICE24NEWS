@@ -126,7 +126,9 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
 
 export async function POST(request: Request) {
   if (!(await authorized(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  if (process.env.SOCIAL_AUTOMATION_ENABLED !== 'true') {
+  // Social dispatch is enabled by default; an explicit false is the only kill switch.
+  // Platform credentials remain Vault-backed, so missing credentials are skipped safely.
+  if (process.env.SOCIAL_AUTOMATION_ENABLED === 'false') {
     return NextResponse.json({ ok: true, processed: 0, disabled: true });
   }
   const supabase = admin();
