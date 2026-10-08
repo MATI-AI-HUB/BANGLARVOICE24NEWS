@@ -85,6 +85,7 @@ type Source = {
   kill_switch?: boolean | null
   interval_minutes?: number | null
   licence_note?: string | null
+  consecutive_failures?: number | null
 }
 
 type FeedItem = {
@@ -1371,7 +1372,7 @@ async function runCronTrigger() {
 
     const { data: sources, error: sourcesError } = await supabase
     .from('news_sources')
-    .select('id, name, feed_url, enabled, kill_switch, interval_minutes, licence_note')
+      .select('id, name, feed_url, enabled, kill_switch, interval_minutes, licence_note, consecutive_failures')
     .eq('enabled', true)
     .eq('kill_switch', false)
 
@@ -1396,6 +1397,18 @@ async function runCronTrigger() {
         stats.sourcesProcessed += 1
         stats.fetched += items.length
         sourceOutcomes[sourceKey] = { status: 'ok', http_status: 200, at: nowIso }
+        await supabase
+          .from('news_sources')
+          .update({
+            last_probe_at: nowIso,
+            last_probe_status: 'ok',
+            last_probe_http_status: 200,
+            last_probe_items: items.length,
+            last_probe_error: null,
+            consecutive_failures: 0,
+            updated_at: nowIso,
+          })
+          .eq('id', source.id)
 
         for (const item of items) {
           candidates.push({ source, item })
@@ -1404,6 +1417,19 @@ async function runCronTrigger() {
         stats.failed += 1
         const code = classifyError('feed_fetch', error)
         errorCodes.add(code)
+        const httpStatus = /feed_fetch_http_(\d{3})/.exec(code)?.[1]
+        await supabase
+          .from('news_sources')
+          .update({
+            last_probe_at: nowIso,
+            last_probe_status: 'error',
+            last_probe_http_status: httpStatus ? Number(httpStatus) : null,
+            last_probe_items: 0,
+            last_probe_error: code.slice(0, 500),
+            consecutive_failures: (source.consecutive_failures ?? 0) + 1,
+            updated_at: nowIso,
+          })
+          .eq('id', source.id)
         console.error('[newsroom] feed_fetch failure', {
           source_id: source.id,
           code,

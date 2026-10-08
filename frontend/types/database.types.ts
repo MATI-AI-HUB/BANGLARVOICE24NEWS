@@ -259,14 +259,14 @@ isOneToOne: false
                   ]
                 },"news_sources": {
                   Row: {
-                    "created_at": string,"enabled": boolean,"etag": string | null,"feed_url": string,"id": string,"interval_minutes": number,"kill_switch": boolean,"last_modified": string | null,"licence_note": string,"logo_url": string,"name": string,"updated_at": string
+                    "consecutive_failures": number,"created_at": string,"enabled": boolean,"etag": string | null,"feed_url": string,"id": string,"interval_minutes": number,"kill_switch": boolean,"last_modified": string | null,"last_probe_at": string | null,"last_probe_error": string | null,"last_probe_http_status": number | null,"last_probe_items": number | null,"last_probe_status": string | null,"licence_note": string,"logo_url": string,"name": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"enabled"?: boolean,"etag"?: string | null,"feed_url": string,"id"?: string,"interval_minutes"?: number,"kill_switch"?: boolean,"last_modified"?: string | null,"licence_note"?: string,"logo_url"?: string,"name": string,"updated_at"?: string
+                    "consecutive_failures"?: number,"created_at"?: string,"enabled"?: boolean,"etag"?: string | null,"feed_url": string,"id"?: string,"interval_minutes"?: number,"kill_switch"?: boolean,"last_modified"?: string | null,"last_probe_at"?: string | null,"last_probe_error"?: string | null,"last_probe_http_status"?: number | null,"last_probe_items"?: number | null,"last_probe_status"?: string | null,"licence_note"?: string,"logo_url"?: string,"name": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"enabled"?: boolean,"etag"?: string | null,"feed_url"?: string,"id"?: string,"interval_minutes"?: number,"kill_switch"?: boolean,"last_modified"?: string | null,"licence_note"?: string,"logo_url"?: string,"name"?: string,"updated_at"?: string
+                    "consecutive_failures"?: number,"created_at"?: string,"enabled"?: boolean,"etag"?: string | null,"feed_url"?: string,"id"?: string,"interval_minutes"?: number,"kill_switch"?: boolean,"last_modified"?: string | null,"last_probe_at"?: string | null,"last_probe_error"?: string | null,"last_probe_http_status"?: number | null,"last_probe_items"?: number | null,"last_probe_status"?: string | null,"licence_note"?: string,"logo_url"?: string,"name"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
