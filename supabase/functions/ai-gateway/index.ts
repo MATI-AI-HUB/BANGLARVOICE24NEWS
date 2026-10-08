@@ -80,6 +80,7 @@ async function loadKeys(): Promise<KeyRow[]> {
     .from("ai_gateway_key_state")
     .select("api_vault_id,provider,account_label,priority,model,base_url,is_enabled,state,failure_count,cooldown_until,api_vault!inner(key_encrypted,is_active,service_name)")
     .eq("is_enabled", true)
+    .eq("state", "healthy")
     .eq("api_vault.is_active", true)
     .in("provider", PROVIDER_ORDER)
     .order("priority", { ascending: true });
@@ -87,7 +88,7 @@ async function loadKeys(): Promise<KeyRow[]> {
   return ((data ?? []) as unknown[]).map((value) => {
     const row = value as KeyRow & { api_vault: { key_encrypted: string | null } };
     return { ...row, key_encrypted: row.api_vault?.key_encrypted ?? null };
-  }).filter((row) => row.key_encrypted && row.state !== "quarantined" && isDue(row));
+  }).filter((row) => row.key_encrypted && isDue(row));
 }
 async function markFailure(row: KeyRow, code: string): Promise<void> {
   const quarantine = code === "provider_invalid_key";
