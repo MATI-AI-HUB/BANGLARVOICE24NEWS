@@ -145,3 +145,52 @@ Provider API keys, social tokens, YouTube refresh token এবং database URL-�
 ## Required next action
 
 Supabase Vault-এ valid keys **সঠিক নতুন names**-এ যোগ/rotate করে live probe pass করাতে হবে। এরপর provider rows-এর `state`, `last_probe_at`, `last_success_at` যাচাই করে একটি manual production ingest চালাতে হবে। Successful ingest-এর পরে social queue, test publication এবং video/e-paper run আলাদা করে যাচাই না করা পর্যন্ত পূর্ণ production sign-off দেওয়া যাবে না।
+
+
+## Addendum — 2026-10-09 verification
+
+### Latest verified deployment
+
+- Commit `2388a7c`: `fix: enqueue and dispatch social posts for auto-published news`
+- Vercel deployment `dpl_DfjZgwTxtuVHsLGM43TTdJeToNRs`
+- State: `READY`
+- Production aliases: `www.banglarvoice24news.com`, `banglarvoice24news.com`
+
+### Request 96
+
+- HTTP 500
+- `ai_gateway_unavailable`
+- `published=0`
+- এটি provider health remediation-এর আগে ঘটেছে।
+
+### Request 97
+
+- HTTP 503: `no_healthy_provider`
+- OpenRouter timeout এবং Groq 404-এর পরে দুটো provider degraded ছিল।
+- কোনো article public publish হয়নি।
+
+### Request 98
+
+- Controlled AI Gateway probe সফল।
+- OpenRouter: HTTP 200, outcome `success`, latency 2733 ms.
+- OpenRouter state `healthy`; Groq backup state reset-এর পরে `healthy`।
+- কোনো secret value পড়া বা report-এ লেখা হয়নি।
+
+### Request 99
+
+- HTTP 200, pipeline completed successfully.
+- `fetched=6`, `queued=3`, `published=0`, `pending_review=3`, `skipped=3`.
+- তিনটি candidate-এর `last_error=source_fetch_failed`.
+- Request 99-এ article publish হয়নি; তাই social queue-ও তৈরি হয়নি।
+- এটি fail-closed safety behavior, success নয়।
+
+### Social flow remediation
+
+- Auto-publish branch এখন idempotent `social_posts` rows তৈরি করে।
+- Dispatch route explicit `SOCIAL_AUTOMATION_ENABLED=false` না থাকলে active থাকে।
+- Vercel environment flag create করার MCP attempt 403 scope permission-এ ব্যর্থ হয়েছিল; code-level default-এর কারণে আলাদা flag এখন blocker নয়।
+- External Facebook/Instagram/X/LinkedIn/Telegram posting এখনও credentials ও successful live post দিয়ে প্রমাণিত নয়।
+
+### Current sign-off decision
+
+**Full production sign-off দেওয়া যাচ্ছে না।** কারণ Gateway এখন healthy হলেও fresh RSS source pages fetch না হওয়ায় একটি premium published article এবং তার social dispatch এখনো প্রমাণিত হয়নি। Source integrity bypass করে RSS summary বা raw text public করা হবে না।
