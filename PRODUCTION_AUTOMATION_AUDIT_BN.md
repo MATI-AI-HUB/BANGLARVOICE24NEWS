@@ -125,6 +125,12 @@ Provider API keys, social tokens, YouTube refresh token এবং database URL-�
 
 **70% policy** হলো candidate selection preference, unconditional publication guarantee নয়। প্রতিটি batch-এর audit details-এ target ও actual selection দুটোই রাখতে হবে।
 
+## Vercel deployment failure evidence
+
+সর্বশেষ দুইটি production deployment—commit `06831c3` এবং `99a0174`—দুটিই `BLOCKED` হয়েছে। Vercel deployment detail-এ build/compile error নেই; error link হলো account configuration troubleshooting। একই সময়ে GitHub Authority check-এ commit author `3.31898859e+08+MATI-AI-HUB@users.noreply.github.com`-কে unauthorized বলা হয়েছে, যেখানে workflow `matiailearninghub@gmail.com` অনুমোদিত ধরে। ফলে deployment block-এর একটি সরাসরি configuration cause হলো commit identity বনাম authorized identity mismatch।
+
+আরও একটি গুরুত্বপূর্ণ পার্থক্য: এই `BLOCKED` status AI provider key বা news pipeline runtime failure নয়; provider key failure আলাদা Supabase runtime সমস্যা (`ai_rewrite_invalid_key`)।
+
 ## Final status
 
 - Schedule: **সংশোধিত এবং pushed**
