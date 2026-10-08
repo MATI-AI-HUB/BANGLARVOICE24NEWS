@@ -1276,6 +1276,25 @@ export async function POST(request: Request) {
     return jsonError('Unauthorized', 401)
   }
 
+  const body = await request.json().catch(() => ({})) as { probe?: unknown }
+  if (body.probe === 'ai_gateway') {
+    try {
+      const result = await callAiGateway({
+        task: 'production_probe',
+        messages: [
+          { role: 'system', content: 'Respond with exactly the single word READY.' },
+          { role: 'user', content: 'Production connectivity probe. Reply exactly READY.' },
+        ],
+        temperature: 0,
+        maxTokens: 16,
+        metadata: { source: 'production_probe', non_editorial: true },
+        signal: AbortSignal.timeout(30_000),
+      })
+      return NextResponse.json({ ok: true, probe: 'ai_gateway', answer: result.answer, provider: result.provider, model: result.model, request_id: result.requestId })
+    } catch (error) {
+      return NextResponse.json({ ok: false, probe: 'ai_gateway', error: error instanceof Error ? error.message : 'ai_gateway_probe_failed' }, { status: 503 })
+    }
+  }
   return runCronTrigger()
 }
 
