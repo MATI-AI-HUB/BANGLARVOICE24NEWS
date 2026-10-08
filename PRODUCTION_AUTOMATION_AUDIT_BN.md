@@ -194,3 +194,38 @@ Supabase Vault-এ valid keys **সঠিক নতুন names**-এ যোগ/
 ### Current sign-off decision
 
 **Full production sign-off দেওয়া যাচ্ছে না।** কারণ Gateway এখন healthy হলেও fresh RSS source pages fetch না হওয়ায় একটি premium published article এবং তার social dispatch এখনো প্রমাণিত হয়নি। Source integrity bypass করে RSS summary বা raw text public করা হবে না।
+
+
+## Addendum — source diversity ও rich RSS verification
+
+### Commit `92577e0` — source diversity
+
+Candidate selection এখন priority score বজায় রেখে আলাদা RSS source থেকে candidate নিতে চেষ্টা করে; একই blocked source-এর একাধিক item দিয়ে পুরো run নষ্ট হয় না। Vercel deployment READY হয়েছে।
+
+### Commit `a946d0b` — AI budget hardening
+
+- Minimum remaining budget guard যোগ হয়েছে।
+- AI request timeout 18 seconds করা হয়েছে।
+- Rewrite output cap 1000 tokens করা হয়েছে।
+- অবশিষ্ট budget কমে গেলে পরের candidate skip হয়; run অপ্রয়োজনীয়ভাবে deadline failure-এ যায় না।
+
+Request `101`-এ pipeline HTTP 200 এবং status success হয়েছে, কিন্তু source fetch failure-এর কারণে `published=0`, `pending_review=3`।
+
+### Commit `19128d9` — rich RSS fallback
+
+শুধু কমপক্ষে 1,200 অক্ষরের RSS content source-page fetch ব্যর্থ হলে AI rewrite input হিসেবে ব্যবহার করা হয়। ছোট summary/title raw publish হয় না। Vercel deployment READY হয়েছে।
+
+Request `102`-এ fallback path কার্যকর হওয়ার পরও AI rewrite timeout হয়েছে:
+
+- HTTP 500
+- `published=0`
+- `pending_review=1`
+- `articles_failed=1`
+- error: `ai_rewrite_timeout`
+- social rows: 0
+
+**Current blocker:** source fetch fallback এখন যথেষ্ট content দিতে পারলেও production AI rewrite request-এ নির্ভরযোগ্য latency/response completion এখনও প্রমাণিত নয়। Quality gate bypass করা হয়নি।
+
+### Current honest status
+
+Scheduler, Vercel deployment, source diversity, rich-RSS safety fallback এবং AI Gateway probe কার্যকর। কিন্তু request `102`-এ fresh article publish ও social delivery এখনো প্রমাণিত নয়। তাই end-to-end automated news SaaS sign-off এখনও দেওয়া যাবে না।
