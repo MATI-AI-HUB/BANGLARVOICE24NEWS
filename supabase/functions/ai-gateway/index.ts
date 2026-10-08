@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
     for (const row of keys) {
       const key = await decrypt(row.key_encrypted!);
       if (!key) { await markFailure(row, "vault_decrypt_failed"); continue; }
-      const model = requestedModel || row.model || (row.provider === "groq" ? "llama-3.1-8b-instant" : "meta-llama/llama-3.1-8b-instruct");
+      const model = requestedModel || row.model || (row.provider === "groq" ? "openai/gpt-oss-120b" : "meta-llama/llama-3.1-8b-instruct");
       try {
         const result = await callProvider(row, key, model, messages, temperature, maxTokens, jsonMode);
         await markSuccess(row);
