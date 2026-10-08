@@ -322,6 +322,9 @@ export function imagePublishable(input: {
   if (source === 'pexels' || input.imageUrl.toLowerCase().includes('pexels')) {
     return { ok: true, reason: 'ok' }
   }
+  if (source === 'wikimedia' || input.imageUrl.toLowerCase().includes('wikimedia')) {
+    return { ok: true, reason: 'ok' }
+  }
   if ((source === 'rss' || source === 'source') && input.licenceAllowsReuse) {
     return { ok: true, reason: 'ok' }
   }

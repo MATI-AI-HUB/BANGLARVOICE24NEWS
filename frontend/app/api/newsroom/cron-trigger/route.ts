@@ -755,6 +755,31 @@ async function pexelsImage(
   }
 }
 
+async function wikimediaImage(
+  query: string,
+  deadline: number,
+): Promise<{ url: string; credit: string; sourceUrl: string; license: string; relevanceScore: number }> {
+  const tokens = imageQueryTokens(query)
+  if (tokens.length < 2) return { url: '', credit: '', sourceUrl: '', license: '', relevanceScore: 0 }
+  try {
+    const timeout = createTimeout(deadline, 4_000)
+    try {
+      const params = new URLSearchParams({ action: 'query', generator: 'search', gsrsearch: tokens.slice(0, 6).join(' '), gsrnamespace: '6', gsrlimit: '8', prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '1600', format: 'json', origin: '*' })
+      const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { headers: { accept: 'application/json', 'user-agent': FEED_UA }, signal: timeout.signal, cache: 'no-store' })
+      if (!response.ok) return { url: '', credit: '', sourceUrl: '', license: '', relevanceScore: 0 }
+      const data = await response.json() as { query?: { pages?: Record<string, { imageinfo?: Array<{ thumburl?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }> }> } }
+      for (const page of Object.values(data.query?.pages || {})) {
+        const info = page.imageinfo?.[0]
+        const license = info?.extmetadata?.LicenseShortName?.value?.replace(/<[^>]+>/g, '').trim() || ''
+        if (!info?.thumburl || !/(cc|public domain|pd|gfdl)/i.test(license)) continue
+        const artist = info.extmetadata?.Artist?.value?.replace(/<[^>]+>/g, '').trim() || 'Wikimedia Commons contributor'
+        return { url: info.thumburl, credit: `Wikimedia Commons — ${artist.slice(0, 180)}`, sourceUrl: info.descriptionurl || 'https://commons.wikimedia.org/', license, relevanceScore: 2 }
+      }
+      return { url: '', credit: '', sourceUrl: '', license: '', relevanceScore: 0 }
+    } finally { timeout.dispose() }
+  } catch { return { url: '', credit: '', sourceUrl: '', license: '', relevanceScore: 0 } }
+}
+
 async function resolveArticleImage(
   item: FeedItem,
   titleBn: string,
@@ -767,7 +792,7 @@ async function resolveArticleImage(
   license: string
   sourceUrl: string
   relevanceScore: number
-  source: 'rss' | 'pexels' | 'brand' | 'brand-card'
+  source: 'rss' | 'pexels' | 'wikimedia' | 'brand' | 'brand-card'
   representational: boolean
   isFallback: boolean
 }> {
@@ -812,6 +837,20 @@ async function resolveArticleImage(
         sourceUrl: pexels.sourceUrl,
         relevanceScore: pexels.relevanceScore,
         source: 'pexels',
+        representational: true,
+        isFallback: false,
+      }
+    }
+    const commons = await wikimediaImage(query, deadline)
+    if (commons.url) {
+      return {
+        url: commons.url,
+        credit: commons.credit,
+        alt: `প্রতীকী ছবি — ${titleBn || item.title || 'বাংলাদেশ'}`,
+        license: commons.license,
+        sourceUrl: commons.sourceUrl,
+        relevanceScore: commons.relevanceScore,
+        source: 'wikimedia',
         representational: true,
         isFallback: false,
       }
@@ -1519,10 +1558,10 @@ async function runCronTrigger() {
             image_license: image.license,
             image_is_representational: image.representational,
             image_source_url: image.sourceUrl || null,
-            image_license_url: image.source === 'pexels' ? 'https://www.pexels.com/license/' : image.source === 'rss' ? link : null,
-            image_rights_verified: image.source === 'pexels' || (image.source === 'rss' && licenceNoteAllowsReuse(source.licence_note)),
             image_relevance_score: image.relevanceScore,
             image_rights_checked_at: new Date().toISOString(),
+            image_license_url: image.source === 'pexels' ? 'https://www.pexels.com/license/' : image.source === 'wikimedia' ? image.sourceUrl : image.source === 'rss' ? link : null,
+            image_rights_verified: image.source === 'pexels' || image.source === 'wikimedia' || (image.source === 'rss' && licenceNoteAllowsReuse(source.licence_note)),
             is_fallback: true,
             media_type: image.url ? 'image' : 'none',
             risk_level: decidePublish({
@@ -1662,10 +1701,10 @@ async function runCronTrigger() {
             image_license: image.license,
             image_is_representational: image.representational,
             image_source_url: image.sourceUrl || null,
-            image_license_url: image.source === 'pexels' ? 'https://www.pexels.com/license/' : image.source === 'rss' ? link : null,
-            image_rights_verified: image.source === 'pexels' || (image.source === 'rss' && licenceNoteAllowsReuse(source.licence_note)),
             image_relevance_score: image.relevanceScore,
             image_rights_checked_at: new Date().toISOString(),
+            image_license_url: image.source === 'pexels' ? 'https://www.pexels.com/license/' : image.source === 'wikimedia' ? image.sourceUrl : image.source === 'rss' ? link : null,
+            image_rights_verified: image.source === 'pexels' || image.source === 'wikimedia' || (image.source === 'rss' && licenceNoteAllowsReuse(source.licence_note)),
             is_fallback: image.isFallback,
             media_type: image.url ? 'image' : 'none',
             risk_level: gate.riskLevel,
