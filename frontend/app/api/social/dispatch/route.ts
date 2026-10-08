@@ -69,16 +69,14 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
   const imageUrl = article.featured_image || article.thumbnail_url || cardUrl;
 
   if (platform === 'facebook') {
-    const pageId = process.env.FACEBOOK_PAGE_ID;
-    const token = process.env.FACEBOOK_PAGE_TOKEN;
+    const [pageId, token] = await Promise.all([vaultSecret('SOCIAL_FACEBOOK_PAGE_ID'), vaultSecret('SOCIAL_FACEBOOK_PAGE_TOKEN')]);
     if (!pageId || !token) return { status: 'skipped', error: 'missing Facebook credentials' };
     const { response, data } = await graph(`${pageId}/feed`, { message: text, link: articleUrl, access_token: token });
     return response.ok && data?.id ? { status: 'published', external_post_id: data.id } : { status: 'failed', error: data?.error?.message || 'Facebook publish failed' };
   }
 
   if (platform === 'instagram') {
-    const accountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
-    const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+    const [accountId, token] = await Promise.all([vaultSecret('SOCIAL_INSTAGRAM_BUSINESS_ACCOUNT_ID'), vaultSecret('SOCIAL_INSTAGRAM_ACCESS_TOKEN')]);
     if (!accountId || !token) return { status: 'skipped', error: 'missing Instagram credentials' };
     const created = await graph(`${accountId}/media`, { image_url: imageUrl, caption: text.slice(0, 2200), access_token: token });
     if (!created.response.ok || !created.data?.id) return { status: 'failed', error: created.data?.error?.message || 'Instagram media creation failed' };
@@ -87,7 +85,7 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
   }
 
   if (platform === 'x') {
-    const token = process.env.X_ACCESS_TOKEN;
+    const token = await vaultSecret('SOCIAL_X_ACCESS_TOKEN');
     if (!token) return { status: 'skipped', error: 'missing X credentials' };
     const response = await fetch('https://api.x.com/2/tweets', {
       method: 'POST',
@@ -99,8 +97,7 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
   }
 
   if (platform === 'linkedin') {
-    const token = process.env.LINKEDIN_ACCESS_TOKEN;
-    const organizationId = process.env.LINKEDIN_ORGANIZATION_ID;
+    const [token, organizationId] = await Promise.all([vaultSecret('SOCIAL_LINKEDIN_ACCESS_TOKEN'), vaultSecret('SOCIAL_LINKEDIN_ORGANIZATION_ID')]);
     if (!token || !organizationId) return { status: 'skipped', error: 'missing LinkedIn credentials' };
     const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
@@ -116,8 +113,7 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
     return response.ok && data?.id ? { status: 'published', external_post_id: data.id } : { status: 'failed', error: data?.message || 'LinkedIn publish failed' };
   }
 
-  const bot = process.env.TELEGRAM_BOT_TOKEN;
-  const channel = process.env.TELEGRAM_CHANNEL_ID;
+  const [bot, channel] = await Promise.all([vaultSecret('SOCIAL_TELEGRAM_BOT_TOKEN'), vaultSecret('SOCIAL_TELEGRAM_CHANNEL_ID')]);
   if (!bot || !channel) return { status: 'skipped', error: 'missing Telegram credentials' };
   const response = await fetch(`https://api.telegram.org/bot${bot}/sendPhoto`, {
     method: 'POST',
