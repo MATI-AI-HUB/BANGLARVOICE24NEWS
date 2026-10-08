@@ -100,6 +100,23 @@ const PRIORITY_TOPIC_TERMS = [
   'ক্রিকেট', 'ফুটবল', 'খেলা', 'স্পোর্টস', 'cricket', 'football', 'sports',
   'আন্তর্জাতিক', 'বিশ্ব', 'বিদেশ', 'international', 'world', 'global', 'foreign',
 ]
+const CATEGORY_RULES: Array<{ key: string; terms: string[] }> = [
+  { key: 'sports', terms: ['ক্রিকেট', 'ফুটবল', 'খেলা', 'স্পোর্টস', 'cricket', 'football', 'sports', 'tournament', 'match'] },
+  { key: 'tech', terms: ['প্রযুক্তি', 'কৃত্রিম বুদ্ধিমত্তা', 'এআই', 'সাইবার', 'technology', 'artificial intelligence', 'cyber', 'software', 'smartphone'] },
+  { key: 'international', terms: ['আন্তর্জাতিক', 'বিশ্ব', 'বিদেশ', 'international', 'world', 'global', 'foreign', 'bbc', 'reuters', 'al jazeera'] },
+  { key: 'economy', terms: ['অর্থনীতি', 'ব্যাংক', 'বাজেট', 'economy', 'bank', 'budget', 'inflation', 'stock'] },
+  { key: 'entertainment', terms: ['বিনোদন', 'সিনেমা', 'নাটক', 'entertainment', 'movie', 'film', 'music'] },
+  { key: 'health', terms: ['স্বাস্থ্য', 'হাসপাতাল', 'health', 'hospital', 'disease'] },
+]
+
+function detectCategory(title: string, description: string, sourceName: string): string {
+  const text = `${title} ${description} ${sourceName}`.toLowerCase()
+  for (const rule of CATEGORY_RULES) {
+    if (rule.terms.some((term) => text.includes(term))) return rule.key
+  }
+  return 'national'
+}
+
 const PRIORITY_RISK_TERMS = [
   'হত্যা', 'নিহত', 'খুন', 'ধর্ষণ', 'আত্মহত্যা', 'সাম্প্রদায়িক', 'সাম্প্রদায়িক',
   'গ্রেপ্তার', 'অভিযোগ', 'মামলা', 'নির্বাচন', 'ভোট', 'সহিংসতা', 'হামলা',
@@ -1561,8 +1578,8 @@ async function runCronTrigger() {
             source_id: source.id,
             origin: 'aggregated',
             workflow_status: 'draft',
-            category: 'national',
-            category_key: 'national',
+            category: detectCategory(item.title, item.description, source.name),
+            category_key: detectCategory(item.title, item.description, source.name),
             thumbnail_url: image.url,
             featured_image: image.url,
             image_alt_bn: image.alt.slice(0, 250),
@@ -1663,7 +1680,7 @@ async function runCronTrigger() {
           titleBn: rewrite.title_bn,
           sourceText: item.sourceText || item.description,
           sourcePublishedAt: item.publishedAt,
-          category: 'national',
+          category: detectCategory(item.title, item.description, source.name),
           minAiScore: scoreFloor,
           aiSensitive: rewrite.sensitive,
           aiSensitivityFailed: rewrite.sensitivityFailed,
@@ -1699,8 +1716,8 @@ async function runCronTrigger() {
             source_id: source.id,
             origin: 'aggregated',
             workflow_status: publishNow ? 'published' : 'draft',
-            category: 'national',
-            category_key: 'national',
+            category: detectCategory(item.title, item.description, source.name),
+            category_key: detectCategory(item.title, item.description, source.name),
             thumbnail_url: image.url,
             featured_image: image.url,
             image_alt_bn: image.alt.slice(0, 250),
