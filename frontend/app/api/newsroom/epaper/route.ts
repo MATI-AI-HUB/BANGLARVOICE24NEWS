@@ -71,6 +71,9 @@ export async function POST(request: Request) {
       source_name: row.source_name || 'বাংলার ভয়েস ডেস্ক',
       source_url: row.source_url || row.canonical_url || '',
     }));
+    if (!articles.length) {
+      return NextResponse.json({ ok: false, error: 'no_published_articles_for_edition', edition_date: requestedDate }, { status: 503 });
+    }
     const supabase = admin();
     const now = new Date().toISOString();
     const payload = {
