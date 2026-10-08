@@ -130,7 +130,7 @@ async function callProvider(row: KeyRow, key: string, model: string, messages: C
     ...(includeJsonFormat ? { response_format: { type: "json_object" } } : {}),
   });
   let response = await fetch(endpoint, {
-    method: "POST", headers, signal: AbortSignal.timeout(18_000),
+    method: "POST", headers, signal: AbortSignal.timeout(14_000),
     body: requestBody(jsonMode),
   });
   // Some OpenAI-compatible providers/models reject response_format even though
@@ -138,7 +138,7 @@ async function callProvider(row: KeyRow, key: string, model: string, messages: C
   // still requires a JSON object and the application parser validates the result.
   if (jsonMode && response.status === 400) {
     response = await fetch(endpoint, {
-      method: "POST", headers, signal: AbortSignal.timeout(18_000),
+      method: "POST", headers, signal: AbortSignal.timeout(3_000),
       body: requestBody(false),
     });
   }

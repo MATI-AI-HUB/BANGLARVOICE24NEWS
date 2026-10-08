@@ -37,8 +37,8 @@ const INTERNAL_DEADLINE_MS = 52_000
 const MIN_CANDIDATE_BUDGET_MS = 24_000
 // The Supabase gateway already performs provider failover. Retrying the whole
 // rewrite here wastes the Vercel invocation budget and causes deadline races.
-const AI_FETCH_TIMEOUT_MS = 24_000
-const AI_MAX_TOKENS = 700
+const AI_FETCH_TIMEOUT_MS = 16_000
+const AI_MAX_TOKENS = 600
 const AI_TRANSIENT_RETRY_DELAYS_MS: number[] = []
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
