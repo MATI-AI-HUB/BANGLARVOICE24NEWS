@@ -21,11 +21,3 @@ node_modules/
 worker/node_modules/
 
 mobile_monorepo/apps/*/android/app/keystore/
-.next/
-node_modules/
-.env
-.env.*
-!.env.example
-.vercel/
-supabase/.temp/
-*.zip

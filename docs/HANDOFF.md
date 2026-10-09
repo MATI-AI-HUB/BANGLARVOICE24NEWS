@@ -12,7 +12,7 @@ Rules: `.env` / secrets were not committed or printed. No SQL was applied to pro
 
 - Source due interval still uses `PIPELINE_INTERVAL_MINUTES = 14` (`worker/src/lib/publish-gate.ts`).
 - Production scheduler is Supabase `pg_cron` + Vault → `https://www.banglarvoice24news.com/api/newsroom/cron-trigger` (`*/15 0-17`, overnight hourly). Failed-item retry: `7-59/15 * * * *`.
-- Do not rely on Vercel Hobby cron or the old the old Vercel domain webhook.
+- Do not rely on Vercel Hobby cron or the old `automation-king.vercel.app` webhook.
 - Lock: `news_pipeline_runs` `status='running'`; stale after `STALE_LOCK_MS = 10 min`.
 - Per-source due: `SOURCE_DUE_GRACE_MINUTES = 2`.
 

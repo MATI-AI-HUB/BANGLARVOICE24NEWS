@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const revalidate = 3600; // 1h ISR
 
-const GITHUB_REPO = process.env.NEXT_PUBLIC_GITHUB_REPO ?? 'OWNER/REPO';
+const GITHUB_REPO = 'MATI-AI-HUB/automation-king-';
 const FALLBACK_VERSION = 'v1.0.0';
 
 export const metadata: Metadata = {

@@ -20,7 +20,7 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          OWNER: ${{ vars.AUTHORIZED_EMAIL }}
+          OWNER: matiailearninghub@gmail.com
         run: |
           RANGE="$BASE..$HEAD_SHA"
           BAD=$(git log "$RANGE" --format='%ae%n%ce' | sort -u | grep -v '^$' | grep -v -E "^$|^noreply@github.com$" | grep -vx "$OWNER" || true)
