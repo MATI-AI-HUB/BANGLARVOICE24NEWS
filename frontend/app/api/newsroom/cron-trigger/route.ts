@@ -1895,18 +1895,19 @@ async function runCronTrigger() {
       .select('id, article_id, source_name, source_url, source_published_at, title, description, last_error')
       .in('status', ['pending_review', 'failed'])
       .in('last_error', retryableErrors)
-      .not('article_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
 
-    if (queuedRetry?.article_id && queuedRetry.source_url) {
-      const { data: pendingArticle } = await supabase
+    if (queuedRetry?.source_url) {
+      const articleQuery = supabase
         .from('articles')
         .select('id,title_bn,content_bn,excerpt_bn,status,risk_level,source_name,source_url,source_published_at,featured_image,image_credit,image_rights_verified,image_is_representational,image_license,image_source_url')
-        .eq('id', queuedRetry.article_id)
         .eq('status', 'pending')
-        .maybeSingle()
+        .limit(1)
+      const { data: pendingArticle } = queuedRetry.article_id
+        ? await articleQuery.eq('id', queuedRetry.article_id).maybeSingle()
+        : await articleQuery.eq('source_url', queuedRetry.source_url).maybeSingle()
 
       if (pendingArticle) {
         const source: Source = {
