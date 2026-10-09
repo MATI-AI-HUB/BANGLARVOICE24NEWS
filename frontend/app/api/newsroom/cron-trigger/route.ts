@@ -1879,6 +1879,131 @@ async function runCronTrigger() {
     }
   }
 
+  // Recover one retryable pending item per run. This closes the production
+  // loop for articles that were persisted before a transient AI timeout: the
+  // item still passes the normal rewrite, image, sensitivity and publish gates.
+  if (stats.ingested === 0 && aiConfigs.length > 0 && canAttemptAiCall(deadline)) {
+    const retryableErrors = [
+      'ai_rewrite_timeout',
+      'ai_gateway_unavailable',
+      'ai_rewrite_invalid_json',
+      'ai_rewrite_truncated',
+      'ai_rewrite_model_not_found',
+    ]
+    const { data: queuedRetry } = await supabase
+      .from('news_ingest_queue')
+      .select('id, article_id, source_name, source_url, source_published_at, title, description, last_error')
+      .in('status', ['pending_review', 'failed'])
+      .in('last_error', retryableErrors)
+      .not('article_id', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (queuedRetry?.article_id && queuedRetry.source_url) {
+      const { data: pendingArticle } = await supabase
+        .from('articles')
+        .select('id,title_bn,content_bn,excerpt_bn,status,risk_level,source_name,source_url,source_published_at,featured_image,image_credit,image_rights_verified,image_is_representational,image_license,image_source_url')
+        .eq('id', queuedRetry.article_id)
+        .eq('status', 'pending')
+        .maybeSingle()
+
+      if (pendingArticle) {
+        const source: Source = {
+          id: pendingArticle.id,
+          name: queuedRetry.source_name || pendingArticle.source_name || 'সংবাদসূত্র',
+          feed_url: queuedRetry.source_url,
+          licence_note: 'RSS public',
+        }
+        const item: FeedItem = {
+          title: queuedRetry.title || pendingArticle.title_bn || '',
+          link: queuedRetry.source_url,
+          description: queuedRetry.description || pendingArticle.content_bn || '',
+          publishedAt: queuedRetry.source_published_at || pendingArticle.source_published_at || null,
+          imageUrl: '',
+          sourceText: queuedRetry.description || pendingArticle.content_bn || '',
+        }
+        try {
+          const outcome = await rewriteArticleWithFallback(aiConfigs, item, deadline)
+          const rewrite = outcome.result
+          const body = ensureSourceLine(rewrite.content_bn, source.name, item.link)
+          const imageUrl = pendingArticle.featured_image || ''
+          const gate = decidePublish({
+            autoPublish,
+            sourceEnabled: true,
+            killSwitch: false,
+            sourceUrl: item.link,
+            imageUrl,
+            isFallback: false,
+            rewriteMethod: 'ai',
+            bodyBn: body,
+            titleBn: rewrite.title_bn,
+            sourceText: item.sourceText || item.description,
+            sourcePublishedAt: item.publishedAt,
+            minAiScore: scoreFloor,
+            aiSensitive: rewrite.sensitive,
+            aiSensitivityFailed: rewrite.sensitivityFailed,
+            imageSource: pendingArticle.image_license || undefined,
+            licenceAllowsReuse: pendingArticle.image_rights_verified === true,
+          })
+          const publishNow = gate.action === 'publish'
+          const { error: retryUpdateError } = await supabase
+            .from('articles')
+            .update({
+              title_bn: rewrite.title_bn,
+              content_bn: body,
+              excerpt_bn: rewrite.excerpt_bn,
+              status: publishNow ? 'published' : 'pending',
+              editorial_status: publishNow ? 'auto_published' : 'pending_review',
+              workflow_status: publishNow ? 'published' : 'draft',
+              review_reason: publishNow ? null : gate.reason,
+              ai_model: outcome.model,
+              ai_confidence: Math.max(0, Math.min(1, (gate.score || 0) / 100)),
+              published_at: publishNow ? new Date().toISOString() : null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', pendingArticle.id)
+          if (retryUpdateError) throw retryUpdateError
+
+          await supabase
+            .from('news_ingest_queue')
+            .update({
+              status: publishNow ? 'published' : 'pending_review',
+              last_error: publishNow ? null : gate.reason,
+              processed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', queuedRetry.id)
+
+          stats.processed += 1
+          if (publishNow) {
+            stats.ingested += 1
+            const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram']
+            await supabase.from('social_posts').upsert(
+              platforms.map((platform) => ({
+                article_id: pendingArticle.id,
+                platform,
+                status: 'pending',
+                payload: { title: rewrite.title_bn.slice(0, 250), image_url: imageUrl },
+                updated_at: new Date().toISOString(),
+              })),
+              { onConflict: 'article_id,platform' },
+            )
+          } else {
+            stats.pending += 1
+            stats.queued += 1
+          }
+        } catch (error) {
+          const code = classifyError('ai_rewrite', error)
+          stats.failed += 1
+          stats.pending += 1
+          errorCodes.add(code)
+          await supabase.from('news_ingest_queue').update({ last_error: code, updated_at: new Date().toISOString() }).eq('id', queuedRetry.id)
+        }
+      }
+    }
+  }
+
   if (stats.ingested === 0) {
     const fallback = await publishBufferedEditorialFallback(supabase, lock.runId, deadline)
     if (fallback === 'published') {
