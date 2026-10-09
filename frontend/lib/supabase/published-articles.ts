@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export type PublishedArticleRow = {
   id: string;
+  slug?: string | null;
   title_bn?: string | null;
   title_en?: string | null;
   content_bn?: string | null;
@@ -28,10 +29,10 @@ export type PublishedArticleRow = {
 // Detail/source metadata belongs to public_article_detail and must not be sent
 // to the feed view, otherwise PostgREST returns 400 for unknown columns.
 export const PUBLISHED_ARTICLE_COLUMNS =
-  'id, title_bn, title_en, content_bn, content_en, excerpt_bn, cover_image_url, thumbnail_url, category, category_key, status, published_at, created_at, featured_image';
+  'id, slug, title_bn, title_en, content_bn, content_en, excerpt_bn, cover_image_url, thumbnail_url, category, category_key, status, published_at, created_at, featured_image';
 
 export const PUBLIC_ARTICLE_DETAIL_COLUMNS =
-  'id, title_bn, title_en, content_bn, content_en, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, created_at, source_name, source_url, image_credit, image_alt_bn, image_is_representational, is_fallback, canonical_url, origin';
+  'id, slug, title_bn, title_en, content_bn, content_en, excerpt_bn, category, category_key, thumbnail_url, featured_image, status, published_at, created_at, source_name, source_url, image_credit, image_alt_bn, image_is_representational, is_fallback, canonical_url, origin';
 
 const CORE_VIEW_COLUMNS =
   'id, title_bn, title_en, content_bn, content_en, excerpt_bn, thumbnail_url, category, category_key, status, published_at, created_at, featured_image';
@@ -135,5 +136,27 @@ export async function fetchPublishedArticleById(
     lastError = error;
   }
 
+  throw lastError;
+}
+
+export async function fetchPublishedArticleBySlug(
+  slug: string,
+  supabase: SupabaseClient = createPublicSupabase(),
+): Promise<PublishedArticleRow | null> {
+  const attempts: Array<{ table: string; cols: string }> = [
+    { table: 'public_article_detail', cols: PUBLIC_ARTICLE_DETAIL_COLUMNS },
+    { table: 'public_articles_feed', cols: PUBLISHED_ARTICLE_COLUMNS },
+  ];
+  let lastError: QueryError = null;
+  for (const attempt of attempts) {
+    const { data, error } = await supabase
+      .from(attempt.table)
+      .select(attempt.cols)
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .maybeSingle();
+    if (!error) return (data as PublishedArticleRow | null) ?? null;
+    lastError = error;
+  }
   throw lastError;
 }

@@ -57,7 +57,7 @@ export async function GET() {
         const sourceName = a.source_name || 'সূত্র';
         return {
           id: a.id,
-          url: `${SITE}/article/${a.id}`,
+          url: `${SITE}/article/${encodeURIComponent(a.slug || a.id)}`,
           title: a.title_bn,
           summary: (a.excerpt_bn || a.content_bn || '').slice(0, 200),
           content_text: a.origin === 'original' ? a.content_bn : (a.excerpt_bn || '').slice(0, 400),

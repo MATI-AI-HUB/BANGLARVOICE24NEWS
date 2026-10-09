@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     .slice(0, 5)
     .map((row) => ({
       title: row.title_bn || 'বাংলার ভয়েস সংবাদ',
-      url: `https://www.banglarvoice24news.com/article/${row.id}`,
+      url: `https://www.banglarvoice24news.com/article/${encodeURIComponent(row.slug || row.id)}`,
       snippet: (row.excerpt_bn || row.content_bn || '').slice(0, 500),
       kind: 'site' as const,
     }));

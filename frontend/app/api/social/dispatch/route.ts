@@ -16,6 +16,7 @@ type QueueRow = {
 
 type Article = {
   id: string;
+  slug?: string | null;
   title_bn: string;
   thumbnail_url: string | null;
   featured_image: string | null;
@@ -63,7 +64,7 @@ function articleText(article: Article, articleUrl: string, youtubeId?: string) {
 }
 
 async function publish(platform: Platform, article: Article, youtubeId?: string) {
-  const articleUrl = `${BASE_URL}/article/${article.id}`;
+  const articleUrl = `${BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
   const cardUrl = `${BASE_URL}/api/social-card/${article.id}`;
   const text = articleText(article, articleUrl, youtubeId);
   const imageUrl = article.featured_image || article.thumbnail_url || cardUrl;
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
   if (!queue?.length) return NextResponse.json({ ok: true, processed: 0 });
 
   const articleIds = [...new Set((queue as QueueRow[]).map((row) => row.article_id))];
-  const { data: articles } = await supabase.from('articles').select('id,title_bn,thumbnail_url,featured_image,category_key,video_id').in('id', articleIds);
+  const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,thumbnail_url,featured_image,category_key,video_id').in('id', articleIds);
   const articleMap = new Map((articles as Article[] || []).map((article) => [article.id, article]));
   const videoIds = (articles as Article[] || []).map((article) => article.video_id).filter((id): id is string => Boolean(id));
   const { data: videos } = videoIds.length ? await supabase.from('videos').select('id,youtube_id').in('id', videoIds) : { data: [] };

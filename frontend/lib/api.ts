@@ -99,6 +99,7 @@ async function safeFetch<T>(url: string, timeoutMs = 4000, empty: T): Promise<T>
 
 type SupabaseArticle = {
   id: string;
+  slug?: string | null;
   title_bn?: string | null;
   title_en?: string | null;
   content_bn?: string | null;
@@ -143,7 +144,7 @@ function mapArticle(row: SupabaseArticle | null | undefined): FeedArticle | null
   const title = (row.title_bn || '').trim() || 'শিরোনাম পাওয়া যায়নি';
   return {
     id: row.id,
-    slug: row.id,
+    slug: row.slug || row.id,
     title_bn: title,
     title_en: row.title_en || undefined,
     dek_bn: summary,
@@ -270,8 +271,10 @@ export const api = {
       return {};
     }
     try {
-      const { fetchPublishedArticleById } = await import('./supabase/published-articles');
-      const data = await fetchPublishedArticleById(slug, supabase);
+      const { fetchPublishedArticleById, fetchPublishedArticleBySlug } = await import('./supabase/published-articles');
+      const data = UUID_RE.test(slug)
+        ? await fetchPublishedArticleById(slug, supabase)
+        : await fetchPublishedArticleBySlug(slug, supabase);
       if (!data) return {};
       const row = data as SupabaseArticle;
       const base = mapArticle(row);

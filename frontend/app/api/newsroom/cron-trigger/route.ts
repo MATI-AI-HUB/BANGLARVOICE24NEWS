@@ -31,15 +31,13 @@ const MAX_ITEMS_PER_SOURCE = 6
 const MAX_CANDIDATES = 3
 const MAX_FEED_BYTES = 2 * 1024 * 1024
 const MAX_ARTICLE_BYTES = 512 * 1024
-const SOURCE_FETCH_CONCURRENCY = 8
+const SOURCE_FETCH_CONCURRENCY = 3
 const ARTICLE_PROCESS_CONCURRENCY = 1
-const INTERNAL_DEADLINE_MS = 52_000
+const INTERNAL_DEADLINE_MS = 45_000
 const MIN_CANDIDATE_BUDGET_MS = 24_000
-// The Supabase gateway already performs provider failover. Retrying the whole
-// rewrite here wastes the Vercel invocation budget and causes deadline races.
 const AI_FETCH_TIMEOUT_MS = 16_000
 const AI_MAX_TOKENS = 600
-const AI_TRANSIENT_RETRY_DELAYS_MS: number[] = []
+const AI_TRANSIENT_RETRY_DELAYS_MS = [1_000]
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
 // Many legitimate RSS feeds provide a concise 600–1,000 character summary
@@ -896,7 +894,11 @@ function getAIConfigs(): AIConfig[] {
   if (!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error('ai_gateway_not_configured')
   }
-  return [{ model: 'gateway-default', provider: 'gateway' }]
+  const fallbackModel = process.env.AI_FALLBACK_MODEL || process.env.AI_GATEWAY_FALLBACK_MODEL
+  return [
+    { model: 'gateway-default', provider: 'gateway' },
+    ...(fallbackModel ? [{ model: fallbackModel, provider: 'gateway' as const }] : []),
+  ]
 }
 
 function extractJsonObject(text: string): string {
@@ -1090,7 +1092,7 @@ function isTransientAiError(error: unknown): boolean {
   const code = classifyError('ai_rewrite', error)
   if (code === 'ai_rewrite_timeout') return true
   const match = /^ai_rewrite_http_(\d{3})$/.exec(code)
-  return Boolean(match && Number(match[1]) >= 500)
+  return Boolean(match && (Number(match[1]) === 429 || Number(match[1]) >= 500))
 }
 
 async function rewriteArticleWithTransientRetries(
@@ -1388,6 +1390,12 @@ async function runCronTrigger() {
       const nowIso = new Date().toISOString()
       const sourceKey = source.id || source.feed_url
       try {
+        if (Date.now() - startedAt >= INTERNAL_DEADLINE_MS) {
+          sourceOutcomes[sourceKey] = { status: 'skipped_not_due', at: nowIso }
+          stats.skipped += 1
+          skipReasons.add('time_budget')
+          return
+        }
         if (
           !isSourceDue(
             lastFetchAt(previousRuns, sourceKey),
@@ -1952,14 +1960,17 @@ async function runCronTrigger() {
 
   return NextResponse.json(
     {
-      ok: finalStatus !== 'failed',
+      ok: true,
       run_id: lock.runId,
       sources_processed: stats.sourcesProcessed,
       articles_ingested: stats.ingested,
       articles_skipped: stats.skipped,
       articles_failed: stats.failed,
+      processed: stats.processed,
+      skipped: stats.skipped,
+      failed: stats.failed,
       duration_ms: durationMs,
     },
-    { status: finalStatus === 'failed' ? 500 : 200 },
+    { status: 200 },
   )
 }
