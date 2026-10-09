@@ -24,7 +24,7 @@
 
 ## ২. এজেন্ট তালিকা ও ভূমিকা (Agent Registry)
 
-বাস্তব কোড: `docs/design-web-v6/worker/src/agents/` — `types.ts`, `registry.ts`, `chain-agents.ts`, `supervisor.ts`
+বাস্তব কোড: `worker/src/agents/` — `types.ts`, `registry.ts`, `chain-agents.ts`, `supervisor.ts`
 
 ### ২.১ এজেন্ট রেজিস্ট্রি (registry.ts)
 

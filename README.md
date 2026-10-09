@@ -43,7 +43,6 @@ banglar-voice-v5.0.0/
 ├── .github/workflows/        # CI/CD
 │   ├── build_apks.yml        #   ৪-অ্যাপ matrix → সাইনড APK (কোনো secret ছাড়াই চলে; ঐচ্ছিক override)
 │   └── deploy_backend.yml    #   Go Docker → SSH সার্ভারে ডিপ্লয়
-├── docs/design-web-v6/       # ডিজাইন/ডক রেফারেন্স
 └── README.md / .gitignore / BV-RELEASE-NOTES.md
 ```
 
