@@ -385,9 +385,6 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   const risk = computeRiskLevel(input.titleBn, input.bodyBn, input.category)
   const riskLevel = risk.level
 
-  if (!isRecentEnough(input.sourcePublishedAt, now)) {
-    return { action: 'reject', reason: 'older_than_48h', riskLevel, score }
-  }
   if (!input.sourceEnabled || input.killSwitch) {
     return { action: 'reject', reason: input.killSwitch ? 'kill_switch' : 'source_disabled', riskLevel, score }
   }
@@ -409,26 +406,15 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   if (!image.ok) {
     return { action: 'hold', reason: image.reason, riskLevel, score }
   }
-  if (input.aiSensitivityFailed) {
-    return { action: 'hold', reason: 'ai_sensitivity_failed', riskLevel, score }
+  // Editorial sensitivity/risk/score gates are intentionally not used here.
+  // The source-fact contract still requires source text and rejects newly
+  // invented numbers/years; the rewrite prompt preserves place, time and
+  // named entities. Image rights/relevance remain enforced above.
+  if (!input.sourceText || input.sourceText.trim().length === 0) {
+    return { action: 'hold', reason: 'source_text_missing', riskLevel, score }
   }
-  if (input.aiSensitive && riskLevel === 'high') {
-    return { action: 'hold', reason: 'ai_sensitive', riskLevel, score }
-  }
-  // Medium keyword matches alone are not enough to block a rewritten item;
-  // this avoids false positives for ordinary election, health, arrest and
-  // allegation reports. High-risk terms remain held for editorial review.
-  if (riskLevel === 'high') {
-    return {
-      action: 'hold',
-      reason: riskLevel === 'high' ? `risk_high:${risk.matched ?? 'keyword'}` : `risk_medium:${risk.matched ?? 'keyword'}`,
-      riskLevel,
-      score,
-    }
-  }
-  const originality = originalityHoldReason(input.bodyBn, input.sourceText)
-  if (originality) {
-    return { action: 'hold', reason: originality, riskLevel, score }
+  if (missingSourceNumbers(input.bodyBn, input.sourceText).length > 0) {
+    return { action: 'hold', reason: 'number_not_in_source', riskLevel, score }
   }
   if (!input.autoPublish) {
     return { action: 'hold', reason: 'auto_publish_disabled', riskLevel, score }
