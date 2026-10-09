@@ -13,6 +13,7 @@ const NAV_KEYS = [
   { href: '/category/politics', key: 'politics' as const },
   { href: '/category/economy', key: 'economy' as const },
   { href: '/category/international', key: 'international' as const },
+  { href: '/epaper', key: 'epaper' as const },
   { href: '/search', key: 'search_placeholder' as const },
   { href: '/download', key: 'app' as const },
 ];

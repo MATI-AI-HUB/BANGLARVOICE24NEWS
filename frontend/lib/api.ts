@@ -254,10 +254,6 @@ export const api = {
     const feed = (await response.json()) as PublicFeedResponse;
     const sourceItems = Array.isArray(feed.items) ? feed.items : [];
 
-    if (!sourceItems.length) {
-      throw new Error('Public feed returned zero published articles');
-    }
-
     return {
       items: sourceItems.slice(0, limit).map(publicFeedItemToArticle),
     };

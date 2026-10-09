@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import { LOCALE_COOKIE, getLocaleFromCookie, t, type Locale } from '../lib/i18n';
 import { api } from '../lib/api';
 import type { Metadata } from 'next';
@@ -124,6 +125,20 @@ export default async function HomePage() {
       {/* 60% lead + stacked secondary + tabbed right rail (সর্বশেষ/ট্রেন্ডিং) */}
       <HeroBentoGrid articles={feed.map((a) => toBento(a, locale))} locale={locale} />
 
+      <section
+        aria-label="ই-পেপার"
+        className="mt-8 flex flex-col items-start justify-between gap-4 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-paper to-paper p-5 shadow-sm sm:flex-row sm:items-center sm:p-6 dark:from-primary/20 dark:via-neutral-900 dark:to-neutral-900"
+      >
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">বাংলার ভয়েস</p>
+          <h2 className="mt-1 font-serifbn text-xl font-bold text-ink dark:text-paper">দৈনিক ই-পেপার পড়ুন</h2>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">দিনের সেরা সংবাদ একসাথে — সংস্করণ, আর্কাইভ ও প্রিন্ট/PDF সুবিধাসহ।</p>
+        </div>
+        <Link href="/epaper" className="inline-flex shrink-0 items-center rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary/90">
+          ই-পেপার খুলুন
+        </Link>
+      </section>
+
       {/* App download banner — mobile users */}
       <section
         aria-label={t(locale, 'app_download_cta')}
@@ -165,7 +180,7 @@ export default async function HomePage() {
       {feed.length >= 6 && <CategoryModules articles={feed.map((a) => toBento(a, locale))} locale={locale} />}
 
       {items.length === 0 && !error && (
-        <p className="py-10 text-center text-neutral-400">কোনো প্রকাশিত সংবাদ নেই।</p>
+        <p className="py-10 text-center text-neutral-500 dark:text-neutral-400">নতুন প্রকাশিত সংবাদ প্রস্তুত হচ্ছে। যাচাইকৃত সংবাদ প্রকাশিত হলে এখানেই দেখা যাবে।</p>
       )}
 
       {/* Al Jazeera-style live-blog timeline */}
