@@ -263,9 +263,16 @@ export function numbersAndYears(text: string): string[] {
   return [...new Set(found)]
 }
 
+function normalizeNumberText(text: string): string {
+  const bengaliDigits = '০১২৩৪৫৬৭৮৯'
+  return text
+    .replace(/[০-৯]/g, (digit) => String(bengaliDigits.indexOf(digit)))
+    .replace(/[,.٬]/g, '')
+}
+
 export function missingSourceNumbers(output: string, source: string): string[] {
-  const src = source
-  return numbersAndYears(output).filter((n) => !src.includes(n))
+  const src = normalizeNumberText(source)
+  return numbersAndYears(normalizeNumberText(output)).filter((n) => !src.includes(n))
 }
 
 export function originalityHoldReason(output: string, source: string | undefined): string | null {
