@@ -46,7 +46,7 @@ const AI_TRANSIENT_RETRY_DELAYS_MS = [1_000]
 const ARTICLE_FETCH_TIMEOUT_MS = 8_000
 const FULL_TEXT_MIN_CHARS = 280
 const RICH_RSS_FALLBACK_MIN_CHARS = 280
-const robotsCache = new Map<string, boolean>()
+const robotsTxtCache = new Map<string, string | null>()
 const BRAND_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com'
 ).replace(/\/+$/, '')
@@ -77,6 +77,8 @@ function imageRelevanceScore(alt: string, queryTokens: string[]): number {
 }
 const FEED_UA =
   'Mozilla/5.0 (compatible; BanglarVoiceNewsBot/1.0; +https://banglarvoice24news.com/contact) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+const BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 const FEED_ACCEPT =
   'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, text/html;q=0.8, */*;q=0.5'
 
@@ -278,19 +280,11 @@ function robotsPathAllowed(robotsTxt: string, path: string) {
   return !blocked
 }
 
-async function robotsAllows(articleUrl: string, deadline: number): Promise<boolean> {
-  let parsed: URL
-  try {
-    parsed = new URL(articleUrl)
-  } catch {
-    return false
-  }
-  if (parsed.protocol !== 'https:') return false
-  const cached = robotsCache.get(parsed.origin)
-  if (cached !== undefined) return cached
+async function robotsTxtFor(origin: string, deadline: number): Promise<string | null> {
+  if (robotsTxtCache.has(origin)) return robotsTxtCache.get(origin) ?? null
   try {
     const { response, text } = await fetchTextLimited(
-      `${parsed.origin}/robots.txt`,
+      `${origin}/robots.txt`,
       {
         headers: { accept: 'text/plain', 'user-agent': FEED_UA },
         redirect: 'follow',
@@ -299,38 +293,55 @@ async function robotsAllows(articleUrl: string, deadline: number): Promise<boole
       64 * 1024,
       4_000,
     )
-    if (!response.ok) {
-      robotsCache.set(parsed.origin, true)
-      return true
-    }
-    const allowed = robotsPathAllowed(text, parsed.pathname || '/')
-    robotsCache.set(parsed.origin, allowed)
-    return allowed
+    const body = response.ok ? text : null
+    robotsTxtCache.set(origin, body)
+    return body
   } catch {
-    robotsCache.set(parsed.origin, true)
-    return true
+    robotsTxtCache.set(origin, null)
+    return null
   }
+}
+
+async function robotsAllows(articleUrl: string, deadline: number): Promise<boolean> {
+  let parsed: URL
+  try {
+    parsed = new URL(articleUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:') return false
+  const txt = await robotsTxtFor(parsed.origin, deadline)
+  if (txt == null) return true
+  return robotsPathAllowed(txt, parsed.pathname || '/')
 }
 
 async function fetchArticlePageText(articleUrl: string, deadline: number): Promise<string | null> {
   try {
     if (!(await robotsAllows(articleUrl, deadline))) return null
-    const { response, text } = await fetchTextLimited(
-      articleUrl,
-      {
-        headers: {
-          accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-          'user-agent': FEED_UA,
-        },
-        redirect: 'follow',
-      },
-      deadline,
-      MAX_ARTICLE_BYTES,
-      ARTICLE_FETCH_TIMEOUT_MS,
-    )
-    if (!response.ok) return null
-    const extracted = htmlToArticleText(text)
-    return extracted.length >= FULL_TEXT_MIN_CHARS ? extracted.slice(0, 20_000) : null
+    const userAgents = [FEED_UA, BROWSER_UA]
+    for (const userAgent of userAgents) {
+      try {
+        const { response, text } = await fetchTextLimited(
+          articleUrl,
+          {
+            headers: {
+              accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+              'user-agent': userAgent,
+            },
+            redirect: 'follow',
+          },
+          deadline,
+          MAX_ARTICLE_BYTES,
+          ARTICLE_FETCH_TIMEOUT_MS,
+        )
+        if (!response.ok) continue
+        const extracted = htmlToArticleText(text)
+        if (extracted.length >= FULL_TEXT_MIN_CHARS) return extracted.slice(0, 20_000)
+      } catch {
+        continue
+      }
+    }
+    return null
   } catch {
     return null
   }
@@ -1363,7 +1374,6 @@ async function runCronTrigger(request: Request) {
 
   const sourceOutcomes: Record<string, SourceFetchOutcome> = {}
   const disabledSources: string[] = []
-  const contentBlockedSources = new Set<string>()
   let finalStatus: 'success' | 'partial' | 'failed' = 'failed'
   let aiConfigs: AIConfig[] = []
 
@@ -1492,11 +1502,6 @@ async function runCronTrigger(request: Request) {
 
       let publishedThisRun = 0
       await runPool(batch, ARTICLE_PROCESS_CONCURRENCY, async ({ source, item }) => {
-        if (contentBlockedSources.has(source.id)) {
-          stats.skipped += 1
-          skipReasons.add('source_content_unavailable')
-          return
-        }
         if (publishedThisRun >= MAX_PUBLISH_PER_RUN) {
           stats.skipped += 1
           skipReasons.add('batch_publish_cap')
@@ -1571,11 +1576,11 @@ async function runCronTrigger(request: Request) {
         }
 
         const rssText = item.description.trim()
-        const pageText = rssText.length >= RICH_RSS_FALLBACK_MIN_CHARS
-          ? rssText.slice(0, 20_000)
-          : await fetchArticlePageText(link, deadline)
+        let pageText = await fetchArticlePageText(link, deadline)
+        if (!pageText && rssText.length >= RICH_RSS_FALLBACK_MIN_CHARS) {
+          pageText = rssText.slice(0, 20_000)
+        }
         if (!pageText) {
-          contentBlockedSources.add(source.id)
           stats.pending += 1
           stats.queued += 1
           skipReasons.add('source_fetch_failed')
@@ -1877,6 +1882,7 @@ async function runCronTrigger(request: Request) {
 
   if (stats.ingested < MAX_PUBLISH_PER_RUN && aiConfigs.length > 0 && canAttemptAiCall(deadline)) {
     const retryableErrors = [
+      'source_fetch_failed',
       'ai_rewrite_timeout',
       'ai_gateway_unavailable',
       'ai_rewrite_invalid_json',

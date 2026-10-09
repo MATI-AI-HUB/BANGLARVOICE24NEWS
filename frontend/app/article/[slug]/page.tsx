@@ -5,6 +5,7 @@ import { getLocaleFromCookie, LOCALE_COOKIE, t, translateCategory, type Locale }
 import { mockFeedItems } from '../../../lib/mockData';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { AudioPlayerWidget } from '../../../components/audio-player';
 import { TrustSignals } from '../../../components/trust-signals';
@@ -226,7 +227,14 @@ export default async function ArticlePage({ params }: PageProps) {
         </span>
       </div>
       {a.featured_image && (
-        <img src={a.featured_image} alt={a.image_alt_bn || displayTitle} className="mt-6 aspect-video w-full rounded object-cover" />
+        <Image
+          src={a.featured_image}
+          alt={a.image_alt_bn || displayTitle}
+          width={1280}
+          height={720}
+          className="mt-6 aspect-video w-full rounded object-cover"
+          unoptimized
+        />
       )}
       {a.image_is_representational ? (
         <p className="mt-2 text-xs font-semibold text-neutral-500">প্রতীকী ছবি</p>

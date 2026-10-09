@@ -8,11 +8,11 @@ Rules: `.env` / secrets were not committed or printed. No SQL was applied to pro
 
 `AUTO_PUBLISH=true` stays on. Auto-publish only non-sensitive, full original-wording articles with a low-risk-licence picture. Anything sensitive is held as `pending` with `review_reason`.
 
-## Cadence — 14 minutes
+## Cadence
 
-- `PIPELINE_INTERVAL_MINUTES = 14`, `PIPELINE_CRON = '*/14 * * * *'` (`worker/src/lib/publish-gate.ts`).
-- `frontend/vercel.json` cron: `*/14 * * * *` → `/api/newsroom/cron-trigger`.
-- `.github/workflows/news-ingest.yml`: `*/14 * * * *`. Resolves `NEWSROOM_INGEST_KEY` from Vercel with `decrypt=true`, then GitHub secret fallback; POSTs Bearer and `x-ingest-key`. Retry 401 with the GitHub fallback key.
+- Source due interval still uses `PIPELINE_INTERVAL_MINUTES = 14` (`worker/src/lib/publish-gate.ts`).
+- Production scheduler is Supabase `pg_cron` + Vault → `https://www.banglarvoice24news.com/api/newsroom/cron-trigger` (`*/15 0-17`, overnight hourly). Failed-item retry: `7-59/15 * * * *`.
+- Do not rely on Vercel Hobby cron or the old `automation-king.vercel.app` webhook.
 - Lock: `news_pipeline_runs` `status='running'`; stale after `STALE_LOCK_MS = 10 min`.
 - Per-source due: `SOURCE_DUE_GRACE_MINUTES = 2`.
 

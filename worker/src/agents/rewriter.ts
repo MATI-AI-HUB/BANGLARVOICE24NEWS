@@ -11,8 +11,11 @@ const STOP_WORDS = new Set([
 
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000;
 const ROBOTS_TIMEOUT_MS = 4_000;
-const FULL_TEXT_MIN_CHARS = 400;
-const robotsCache = new Map<string, boolean>();
+const FULL_TEXT_MIN_CHARS = 280;
+const RICH_RSS_FALLBACK_MIN_CHARS = 280;
+const robotsTxtCache = new Map<string, string | null>();
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 export type RewriteExtra = RewriteResult & {
   imageKeywords?: string;
@@ -103,7 +106,7 @@ function htmlToArticleText(html: string): string {
     .trim();
 }
 
-function robotsPathAllowed(robotsTxt: string, path: string): boolean {
+export function robotsPathAllowed(robotsTxt: string, path: string): boolean {
   const lines = robotsTxt.split(/\r?\n/);
   let inStar = false;
   const disallows: string[] = [];
@@ -153,6 +156,23 @@ async function fetchTimed(url: string, timeoutMs: number, headers: Record<string
   }
 }
 
+async function robotsTxtFor(origin: string): Promise<string | null> {
+  if (robotsTxtCache.has(origin)) return robotsTxtCache.get(origin) ?? null;
+  try {
+    const res = await fetchTimed(`${origin}/robots.txt`, ROBOTS_TIMEOUT_MS, { Accept: "text/plain" });
+    if (!res || !res.ok) {
+      robotsTxtCache.set(origin, null);
+      return null;
+    }
+    const txt = await res.text();
+    robotsTxtCache.set(origin, txt);
+    return txt;
+  } catch {
+    robotsTxtCache.set(origin, null);
+    return null;
+  }
+}
+
 export async function robotsAllows(articleUrl: string): Promise<boolean> {
   let parsed: URL;
   try {
@@ -161,33 +181,26 @@ export async function robotsAllows(articleUrl: string): Promise<boolean> {
     return false;
   }
   if (parsed.protocol !== "https:") return false;
-  const key = parsed.origin;
-  const cached = robotsCache.get(key);
-  if (cached !== undefined) return cached;
-  try {
-    const res = await fetchTimed(`${parsed.origin}/robots.txt`, ROBOTS_TIMEOUT_MS, { Accept: "text/plain" });
-    if (!res || !res.ok) {
-      robotsCache.set(key, true);
-      return true;
-    }
-    const txt = await res.text();
-    const allowed = robotsPathAllowed(txt, parsed.pathname || "/");
-    robotsCache.set(key, allowed);
-    return allowed;
-  } catch {
-    robotsCache.set(key, true);
-    return true;
-  }
+  const txt = await robotsTxtFor(parsed.origin);
+  if (txt == null) return true;
+  return robotsPathAllowed(txt, parsed.pathname || "/");
 }
 
 export async function fetchArticlePageText(articleUrl: string): Promise<string | null> {
   try {
     if (!(await robotsAllows(articleUrl))) return null;
-    const res = await fetchTimed(articleUrl, ARTICLE_FETCH_TIMEOUT_MS);
-    if (!res || !res.ok) return null;
-    const html = await res.text();
-    const text = htmlToArticleText(html);
-    return text.length >= FULL_TEXT_MIN_CHARS ? text : null;
+    const userAgents = [
+      "Mozilla/5.0 (compatible; BanglarVoiceNewsBot/1.0; +https://banglarvoice24news.com/contact)",
+      BROWSER_UA,
+    ];
+    for (const userAgent of userAgents) {
+      const res = await fetchTimed(articleUrl, ARTICLE_FETCH_TIMEOUT_MS, { "User-Agent": userAgent });
+      if (!res || !res.ok) continue;
+      const html = await res.text();
+      const text = htmlToArticleText(html);
+      if (text.length >= FULL_TEXT_MIN_CHARS) return text.slice(0, 20_000);
+    }
+    return null;
   } catch {
     return null;
   }
@@ -196,6 +209,8 @@ export async function fetchArticlePageText(articleUrl: string): Promise<string |
 export async function resolveSourceText(raw: RawItem): Promise<string | null> {
   const page = await fetchArticlePageText(raw.link);
   if (page && page.length >= FULL_TEXT_MIN_CHARS) return page.slice(0, 20_000);
+  const rss = (raw.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (rss.length >= RICH_RSS_FALLBACK_MIN_CHARS) return rss.slice(0, 20_000);
   return null;
 }
 

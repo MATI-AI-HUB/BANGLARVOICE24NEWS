@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { rewrite, deterministicParaphrase } from "./rewriter.js";
+import { rewrite, deterministicParaphrase, robotsPathAllowed } from "./rewriter.js";
 import type { WorkerConfig } from "../config.js";
 import type { RawItem } from "./types.js";
 
@@ -81,6 +81,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("robotsPathAllowed", () => {
+  it("blocks only matching paths, not the whole origin", () => {
+    const txt = "User-agent: *\nDisallow: /premium/\nAllow: /news/";
+    expect(robotsPathAllowed(txt, "/premium/secret")).toBe(false);
+    expect(robotsPathAllowed(txt, "/news/world")).toBe(true);
+    expect(robotsPathAllowed(txt, "/sport")).toBe(true);
+  });
+});
+
 describe("rewrite", () => {
   it("marks fallback=true when no chat key is configured (why deterministicParaphrase is reached)", async () => {
     const out = await rewrite(cfg(""), raw);
@@ -97,6 +106,40 @@ describe("rewrite", () => {
     expect(out.fallback).toBe(true);
     expect(out.method).toBe("fallback");
     expect(out.reason).toMatch(/ai_rewrite_failed/);
+  });
+
+  it("uses rich RSS text when the article page cannot be fetched", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (url: string) => {
+        const href = String(url);
+        if (href.includes("robots.txt")) return { ok: true, text: async () => "User-agent: *\nAllow: /" };
+        if (href.includes("/chat/completions")) {
+          return {
+            ok: true,
+            json: async () => ({
+              choices: [
+                {
+                  message: {
+                    content:
+                      '{"title_bn":"নতুন শিরোনাম","content_bn":"মূল খবরের পুনর্লিখন এখানে।","excerpt_bn":"সারাংশ","image_keywords":"Dhaka rain","sensitive":false,"reasons":[]}',
+                  },
+                },
+              ],
+            }),
+          };
+        }
+        return { ok: false, status: 404, text: async () => "" };
+      }),
+    );
+    const longRaw = {
+      ...raw,
+      link: "https://rss-fallback.example.com/a",
+      description: "আজ ঢাকায় ভারী বৃষ্টি হয়েছে। মানুষ ঘরে থাকার পরামর্শ দিয়েছেন কর্মকর্তারা। ".repeat(8),
+    };
+    const out = await rewrite(cfg("sk-test"), longRaw);
+    expect(out.fallback).toBe(false);
+    expect(out.method).toBe("ai");
   });
 
   it("holds when the article page cannot be fetched", async () => {

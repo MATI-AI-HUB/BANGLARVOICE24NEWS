@@ -207,7 +207,7 @@ The following items cannot be fully automated from CI and need a one-time human 
    Supabase Dashboard → **Database → Webhooks → Create a new hook**
    - Table: `articles` · Events: `INSERT`, `UPDATE`
    - Type: HTTP Request · Method: `POST`
-   - URL: `https://automation-king.vercel.app/api/newsroom/revalidate`
+   - URL: `https://www.banglarvoice24news.com/api/newsroom/revalidate`
    - Header: `x-cron-secret: <CRON_SECRET>`
    Guard the condition with `status = 'published'` in the hook's row filter.
 3. **Extension relocation review** — if `maintenance.security_hardening_report` shows

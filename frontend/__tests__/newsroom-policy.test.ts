@@ -33,4 +33,15 @@ describe('newsroom policy', () => {
     expect(ranked.every((source) => isWorldClassFeed(source.feed_url, source.name))).toBe(true)
     expect(ranked[0].name).toBe('Al Jazeera')
   })
+
+  it('fills remaining slots from other enabled sources', () => {
+    const ranked = rankSourcesForRun(
+      [
+        { name: 'Local', feed_url: 'https://example.com/rss.xml', last_probe_at: '2026-10-09T00:00:00.000Z' },
+        { name: 'BBC World', feed_url: 'https://feeds.bbci.co.uk/news/world/rss.xml', last_probe_at: '2026-10-08T00:00:00.000Z' },
+      ],
+      2,
+    )
+    expect(ranked.map((source) => source.name)).toEqual(['BBC World', 'Local'])
+  })
 })

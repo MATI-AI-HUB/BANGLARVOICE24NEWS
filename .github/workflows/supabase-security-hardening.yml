@@ -30,7 +30,7 @@ jobs:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       REF: fqqdpngmftoddffvdukn
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      REVALIDATE_URL: https://automation-king.vercel.app/api/newsroom/revalidate
+      REVALIDATE_URL: https://www.banglarvoice24news.com/api/newsroom/revalidate
 
     steps:
       - name: Checkout

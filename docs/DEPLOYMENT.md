@@ -54,7 +54,7 @@ git push origin main
 
 ### Frontend — Vercel (সঠিক কনফিগারেশন)
 
-**রিপোজিটরি:** `github.com/banglarvoice33-byte/BANGLARVOICE-APPS` (monorepo — frontend একটি subfolder)
+**রিপোজিটরি:** `github.com/MATI-AI-HUB/automation-king-` (monorepo — frontend একটি subfolder)
 
 Vercel-এ import করার সময় **এই সেটিংস** ব্যবহার করো (Vercel ডিপ্লয় ত্রুটির ৯০% কারণ এখানে ভুল):
 
@@ -63,9 +63,9 @@ Vercel-এ import করার সময় **এই সেটিংস** ব্
 | **Root Directory** | `frontend` ⚠️ (সবচেয়ে গুরুত্বপূর্ণ — monorepo root নয়) |
 | **Framework Preset** | Next.js (auto-detect) |
 | **Node.js Version** | `22.x` (`.nvmrc` = `22` — Vercel auto-read করে) |
-| **Build Command** | `npm run build` (vercel.json-এ সেট) |
-| **Install Command** | `npm install --legacy-peer-deps` (vercel.json-এ সেট — vitest/vite peer conflict এড়াতে) |
-| **Output Directory** | `.next` (vercel.json-এ সেট) |
+| **Build Command** | `npm run build` (`frontend/vercel.json`) |
+| **Install Command** | `npm install --legacy-peer-deps` (`frontend/vercel.json`) |
+| **Output Directory** | Next.js default (`.next` — manually override করবেন না) |
 | **Include outside of Root** | **ON** ⭐ (monorepo-তে প্রয়োজন — root-এর .vercelignore/ফাইল পড়তে) |
 | **Skip deployments** | OFF |
 | **Ignored Build Step** | Automatic |
@@ -78,7 +78,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 ```
 
-> **নোট:** `vercel.json`-এ `framework: nextjs` + `buildCommand` + `installCommand` + `outputDirectory` স্পষ্টভাবে সেট করা আছে, এবং `next.config.js`-এ `output: 'standalone'` যোগ করা হয়েছে। Root Directory = `frontend` সেট করলেই Vercel এই ফাইলগুলো পড়বে।
+> **নোট:** `frontend/vercel.json`-এ `installCommand` (`npm install --legacy-peer-deps`) ও `buildCommand` সেট আছে। Root Directory = `frontend` রাখুন; Next.js output Vercel নিজেই হ্যান্ডেল করে।
 
 **Vercel ডিপ্লয় ত্রুটি হলে চেক করো:**
 1. Root Directory = `frontend` কিনা (সবচেয়ে সাধারণ ভুল — root-এ import করলে `frontend/package.json` পাওয়া যায় না)

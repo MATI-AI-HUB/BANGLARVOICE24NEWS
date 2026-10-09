@@ -9,6 +9,8 @@ verify_jwt = true
 [functions.news-pipeline]
 verify_jwt = false
 
-# Central AI routing is internal and additionally requires a service_role JWT.
+# Central AI routing authenticates service_role inside the function body.
+# Platform JWT verification is off so newer sb_secret_* keys are accepted,
+# then isServiceRole() still rejects anonymous callers.
 [functions.ai-gateway]
-verify_jwt = true
+verify_jwt = false

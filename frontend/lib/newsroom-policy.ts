@@ -51,8 +51,8 @@ export function rankSourcesForRun<T extends { feed_url: string; name?: string; l
   limit = MAX_SOURCES_PER_RUN,
 ): T[] {
   const worldClass = sources.filter((source) => isWorldClassFeed(source.feed_url, source.name || ''))
-  const pool = worldClass.length > 0 ? worldClass : sources
-  return [...pool]
-    .sort((a, b) => Date.parse(a.last_probe_at || '1970-01-01') - Date.parse(b.last_probe_at || '1970-01-01'))
-    .slice(0, Math.max(1, limit))
+  const others = sources.filter((source) => !isWorldClassFeed(source.feed_url, source.name || ''))
+  const byOldestProbe = (left: T, right: T) =>
+    Date.parse(left.last_probe_at || '1970-01-01') - Date.parse(right.last_probe_at || '1970-01-01')
+  return [...worldClass.sort(byOldestProbe), ...others.sort(byOldestProbe)].slice(0, Math.max(1, limit))
 }
