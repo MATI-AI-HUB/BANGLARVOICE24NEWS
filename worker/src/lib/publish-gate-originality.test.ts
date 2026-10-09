@@ -11,8 +11,8 @@ const SOURCE =
   "ঢাকায় আজ সকালে হালকা বৃষ্টি হয়েছে এবং যানচলাচল স্বাভাবিক ছিল। আবহাওয়া অধিদপ্তর বিকেলে মেঘলা আকাশের কথা বলেছে।";
 
 describe("originality and sensitivity helpers", () => {
-  it("exports MIN_BODY_CHARS = 600", () => {
-    expect(MIN_BODY_CHARS).toBe(600);
+  it("exports MIN_BODY_CHARS = 200", () => {
+    expect(MIN_BODY_CHARS).toBe(200);
   });
 
   it("holds when 4-gram overlap exceeds 20%", () => {

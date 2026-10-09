@@ -20,30 +20,32 @@ import {
   shouldDisableAfter403,
   type SourceFetchOutcome,
 } from '@/lib/publish-gate'
+import {
+  MAX_CANDIDATES_PER_RUN,
+  MAX_PUBLISH_PER_RUN,
+  MAX_SOURCES_PER_RUN,
+  PRIORITY_CANDIDATE_TARGET_PERCENT,
+  rankSourcesForRun,
+} from '@/lib/newsroom-policy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const MAX_ITEMS_PER_SOURCE = 6
-// Try a small bounded set so one blocked source does not waste the whole window,
-// while the run-level cap below still permits at most one public article.
-const MAX_CANDIDATES = 3
+const MAX_CANDIDATES = MAX_CANDIDATES_PER_RUN
 const MAX_FEED_BYTES = 2 * 1024 * 1024
 const MAX_ARTICLE_BYTES = 512 * 1024
-const SOURCE_FETCH_CONCURRENCY = 3
+const SOURCE_FETCH_CONCURRENCY = 4
 const ARTICLE_PROCESS_CONCURRENCY = 1
-const INTERNAL_DEADLINE_MS = 45_000
-const MIN_CANDIDATE_BUDGET_MS = 24_000
-const AI_FETCH_TIMEOUT_MS = 16_000
+const INTERNAL_DEADLINE_MS = 52_000
+const MIN_CANDIDATE_BUDGET_MS = 10_000
+const AI_FETCH_TIMEOUT_MS = 14_000
 const AI_MAX_TOKENS = 600
 const AI_TRANSIENT_RETRY_DELAYS_MS = [1_000]
-const ARTICLE_FETCH_TIMEOUT_MS = 10_000
-const FULL_TEXT_MIN_CHARS = 400
-// Many legitimate RSS feeds provide a concise 600–1,000 character summary
-// while blocking the article page. Use that summary as AI input; never publish
-// it raw—the Bengali rewrite and editorial gate still remain mandatory.
-const RICH_RSS_FALLBACK_MIN_CHARS = 600
+const ARTICLE_FETCH_TIMEOUT_MS = 8_000
+const FULL_TEXT_MIN_CHARS = 280
+const RICH_RSS_FALLBACK_MIN_CHARS = 280
 const robotsCache = new Map<string, boolean>()
 const BRAND_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com'
@@ -87,6 +89,7 @@ type Source = {
   interval_minutes?: number | null
   licence_note?: string | null
   consecutive_failures?: number | null
+  last_probe_at?: string | null
 }
 
 type FeedItem = {
@@ -126,18 +129,9 @@ function detectCategory(title: string, description: string, sourceName: string):
   return 'national'
 }
 
-const PRIORITY_RISK_TERMS = [
-  'হত্যা', 'নিহত', 'খুন', 'ধর্ষণ', 'আত্মহত্যা', 'সাম্প্রদায়িক', 'সাম্প্রদায়িক',
-  'গ্রেপ্তার', 'অভিযোগ', 'মামলা', 'নির্বাচন', 'ভোট', 'সহিংসতা', 'হামলা',
-  'murder', 'killed', 'rape', 'suicide', 'arrest', 'allegation', 'election',
-  'attack', 'violence', 'unverified', 'rumor', 'rumour',
-]
-
 function priorityTopicScore(candidate: Candidate): number {
   const text = `${candidate.item.title} ${candidate.item.description} ${candidate.source.name}`.toLowerCase()
-  const topicHits = PRIORITY_TOPIC_TERMS.filter((term) => text.includes(term)).length
-  const riskHits = PRIORITY_RISK_TERMS.filter((term) => text.includes(term)).length
-  return topicHits > 0 && riskHits === 0 ? topicHits : 0
+  return PRIORITY_TOPIC_TERMS.filter((term) => text.includes(term)).length
 }
 
 function selectCandidateBatch(candidates: Candidate[]): Candidate[] {
@@ -146,7 +140,7 @@ function selectCandidateBatch(candidates: Candidate[]): Candidate[] {
     .sort((a, b) => b.score - a.score || a.index - b.index)
   const preferred = ranked.filter((entry) => entry.score > 0)
   const general = ranked.filter((entry) => entry.score === 0)
-  const preferredQuota = Math.max(1, Math.floor(MAX_CANDIDATES * 0.7))
+  const preferredQuota = Math.max(1, Math.floor(MAX_CANDIDATES * (PRIORITY_CANDIDATE_TARGET_PERCENT / 100)))
   const selected: typeof ranked = []
   const seenSources = new Set<string>()
   const addDiverse = (pool: typeof ranked) => {
@@ -455,15 +449,16 @@ function parseFeed(xml: string): FeedItem[] {
   if (rssItems.length > 0) {
     return rssItems.map((match) => {
       const block = match[1] ?? ''
-      const description =
-        extractTag(block, 'description') ||
-        extractTag(block, 'summary') ||
-        extractTag(block, 'encoded')
+      const encoded = plainText(extractTag(block, 'encoded'))
+      const summary =
+        plainText(extractTag(block, 'description')) ||
+        plainText(extractTag(block, 'summary'))
+      const description = encoded.length >= summary.length ? encoded : summary
 
       return {
         title: plainText(extractTag(block, 'title')),
         link: plainText(extractTag(block, 'link')),
-        description: plainText(description),
+        description,
         publishedAt: parseDate(
           plainText(extractTag(block, 'pubDate')) ||
             plainText(extractTag(block, 'published')) ||
@@ -482,15 +477,16 @@ function parseFeed(xml: string): FeedItem[] {
 
   return atomEntries.map((match) => {
     const block = match[1] ?? ''
-    const description =
-      extractTag(block, 'summary') ||
-      extractTag(block, 'content') ||
-      extractTag(block, 'description')
+    const encoded = plainText(extractTag(block, 'content') || extractTag(block, 'encoded'))
+    const summary =
+      plainText(extractTag(block, 'summary')) ||
+      plainText(extractTag(block, 'description'))
+    const description = encoded.length >= summary.length ? encoded : summary
 
     return {
       title: plainText(extractTag(block, 'title')),
       link: extractAtomLink(block),
-      description: plainText(description),
+      description,
       publishedAt: parseDate(
         plainText(extractTag(block, 'published')) ||
           plainText(extractTag(block, 'updated')),
@@ -1285,7 +1281,7 @@ export async function GET(request: Request) {
     return jsonError('Unauthorized', 401)
   }
 
-  return runCronTrigger()
+  return runCronTrigger(request)
 }
 
 export async function POST(request: Request) {
@@ -1319,10 +1315,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, probe: 'ai_gateway', error: error instanceof Error ? error.message : 'ai_gateway_probe_failed' }, { status: 503 })
     }
   }
-  return runCronTrigger()
+  return runCronTrigger(request)
 }
 
-async function runCronTrigger() {
+async function runCronTrigger(request: Request) {
   const supabaseUrl =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -1378,7 +1374,7 @@ async function runCronTrigger() {
 
     const { data: sources, error: sourcesError } = await supabase
     .from('news_sources')
-      .select('id, name, feed_url, enabled, kill_switch, interval_minutes, licence_note, consecutive_failures')
+      .select('id, name, feed_url, enabled, kill_switch, interval_minutes, licence_note, consecutive_failures, last_probe_at')
     .eq('enabled', true)
     .eq('kill_switch', false)
 
@@ -1386,7 +1382,17 @@ async function runCronTrigger() {
     stats.failed += 1
     errorCodes.add('source_query')
   } else {
-    await runPool((sources ?? []) as Source[], SOURCE_FETCH_CONCURRENCY, async (source) => {
+    const dueSources = ((sources ?? []) as Source[]).filter((source) =>
+      isSourceDue(
+        lastFetchAt(previousRuns, source.id || source.feed_url),
+        source.interval_minutes || PIPELINE_INTERVAL_MINUTES,
+      ),
+    )
+    const selectedSources = rankSourcesForRun(
+      dueSources.length > 0 ? dueSources : ((sources ?? []) as Source[]),
+      MAX_SOURCES_PER_RUN,
+    )
+    await runPool(selectedSources, SOURCE_FETCH_CONCURRENCY, async (source) => {
       const nowIso = new Date().toISOString()
       const sourceKey = source.id || source.feed_url
       try {
@@ -1394,15 +1400,6 @@ async function runCronTrigger() {
           sourceOutcomes[sourceKey] = { status: 'skipped_not_due', at: nowIso }
           stats.skipped += 1
           skipReasons.add('time_budget')
-          return
-        }
-        if (
-          !isSourceDue(
-            lastFetchAt(previousRuns, sourceKey),
-            source.interval_minutes || PIPELINE_INTERVAL_MINUTES,
-          )
-        ) {
-          sourceOutcomes[sourceKey] = { status: 'skipped_not_due', at: nowIso }
           return
         }
         const items = await fetchFeed(source.feed_url, deadline)
@@ -1493,16 +1490,16 @@ async function runCronTrigger() {
         skipReasons.add('batch_limit')
       }
 
-      let publishedThisRun = false
+      let publishedThisRun = 0
       await runPool(batch, ARTICLE_PROCESS_CONCURRENCY, async ({ source, item }) => {
         if (contentBlockedSources.has(source.id)) {
           stats.skipped += 1
           skipReasons.add('source_content_unavailable')
           return
         }
-        if (publishedThisRun) {
+        if (publishedThisRun >= MAX_PUBLISH_PER_RUN) {
           stats.skipped += 1
-          skipReasons.add('one_publish_per_run')
+          skipReasons.add('batch_publish_cap')
           return
         }
         if (Date.now() >= deadline - MIN_CANDIDATE_BUDGET_MS) {
@@ -1573,11 +1570,10 @@ async function runCronTrigger() {
           return
         }
 
-        const pageText = await fetchArticlePageText(link, deadline) || (
-          item.description.trim().length >= RICH_RSS_FALLBACK_MIN_CHARS
-            ? item.description.trim().slice(0, 20_000)
-            : null
-        )
+        const rssText = item.description.trim()
+        const pageText = rssText.length >= RICH_RSS_FALLBACK_MIN_CHARS
+          ? rssText.slice(0, 20_000)
+          : await fetchArticlePageText(link, deadline)
         if (!pageText) {
           contentBlockedSources.add(source.id)
           stats.pending += 1
@@ -1749,8 +1745,8 @@ async function runCronTrigger() {
           sourcePublishedAt: item.publishedAt,
           category: detectCategory(item.title, item.description, source.name),
           minAiScore: scoreFloor,
-          aiSensitive: rewrite.sensitive,
-          aiSensitivityFailed: rewrite.sensitivityFailed,
+          aiSensitive: false,
+          aiSensitivityFailed: false,
           imageSource: image.source,
           licenceAllowsReuse: licenceOk,
         })
@@ -1840,7 +1836,7 @@ async function runCronTrigger() {
 
         if (publishNow) {
           stats.ingested += 1
-          publishedThisRun = true
+          publishedThisRun += 1
           const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram']
           const { error: socialQueueError } = await supabase.from('social_posts').upsert(
             platforms.map((platform) => ({
@@ -1879,10 +1875,7 @@ async function runCronTrigger() {
     }
   }
 
-  // Recover one retryable pending item per run. This closes the production
-  // loop for articles that were persisted before a transient AI timeout: the
-  // item still passes the normal rewrite, image, sensitivity and publish gates.
-  if (stats.ingested === 0 && aiConfigs.length > 0 && canAttemptAiCall(deadline)) {
+  if (stats.ingested < MAX_PUBLISH_PER_RUN && aiConfigs.length > 0 && canAttemptAiCall(deadline)) {
     const retryableErrors = [
       'ai_rewrite_timeout',
       'ai_gateway_unavailable',
@@ -1942,8 +1935,8 @@ async function runCronTrigger() {
             sourceText: item.sourceText || item.description,
             sourcePublishedAt: item.publishedAt,
             minAiScore: scoreFloor,
-            aiSensitive: rewrite.sensitive,
-            aiSensitivityFailed: rewrite.sensitivityFailed,
+            aiSensitive: false,
+            aiSensitivityFailed: false,
             imageSource: pendingArticle.image_license || undefined,
             licenceAllowsReuse: pendingArticle.image_rights_verified === true,
           })
@@ -2044,7 +2037,7 @@ async function runCronTrigger() {
       articles_queued: stats.queued,
       articles_pending: stats.pending,
       priority_candidates_selected: priorityCandidatesSelected,
-      priority_candidate_target_percent: 70,
+      priority_candidate_target_percent: PRIORITY_CANDIDATE_TARGET_PERCENT,
       ai_provider: aiProvidersUsed.size > 0 ? [...aiProvidersUsed].join(',') : null,
       error_codes: [...errorCodes],
       skip_reasons: [...skipReasons],
@@ -2054,6 +2047,7 @@ async function runCronTrigger() {
       locked_by: 'cron',
       max_candidates: MAX_CANDIDATES,
       max_items_per_source: MAX_ITEMS_PER_SOURCE,
+      max_publish_per_run: MAX_PUBLISH_PER_RUN,
     }
 
     const { error: runUpdateError } = await supabase
@@ -2083,6 +2077,32 @@ async function runCronTrigger() {
   }
 
   const durationMs = Date.now() - startedAt
+  let socialDispatched = 0
+  if (stats.ingested > 0) {
+    try {
+      const ingestKey = await vaultSecret('NEWSROOM_INGEST_KEY')
+      const cronSecret = await vaultSecret('CRON_SECRET')
+      const token = ingestKey || cronSecret
+      if (token) {
+        const origin = new URL(request.url).origin
+        const dispatch = await fetch(`${origin}/api/social/dispatch`, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'content-type': 'application/json',
+          },
+          body: '{}',
+          cache: 'no-store',
+        })
+        const payload = await dispatch.json().catch(() => ({})) as { processed?: number }
+        socialDispatched = Number(payload.processed || 0)
+      }
+    } catch (error) {
+      console.error('[newsroom] social dispatch after publish failed', {
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
 
   return NextResponse.json(
     {
@@ -2090,6 +2110,7 @@ async function runCronTrigger() {
       run_id: lock.runId,
       sources_processed: stats.sourcesProcessed,
       articles_ingested: stats.ingested,
+      social_dispatched: socialDispatched,
       articles_skipped: stats.skipped,
       articles_failed: stats.failed,
       processed: stats.processed,

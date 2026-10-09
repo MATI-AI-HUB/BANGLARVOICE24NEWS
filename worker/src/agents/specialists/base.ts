@@ -13,8 +13,8 @@
 // Decision gate:
 //   composite < 60             -> reject
 //   composite 60-84            -> review (editor)
-//   composite >= 85            -> auto_publish (only if not sensitive)
-//   sensitive + composite < 90 -> forced review
+//   composite >= 85            -> auto_publish
+//   quality score, not topic sensitivity, decides publish vs review
 // =============================================================================
 
 import type { WorkerConfig } from "../../config.js";
@@ -203,7 +203,6 @@ export abstract class BaseSpecialist {
       rewriterQuality.score * w.rewriterQuality;
     const compositeScore = Math.round(composite01 * 100);
 
-    const sensitive = this.isSensitive(draft);
     let decision: SpecialistVerdict["decision"];
     let decisionReason: string;
 
@@ -213,9 +212,6 @@ export abstract class BaseSpecialist {
     } else if (compositeScore < 60 && hasChatKey(cfg)) {
       decision = "reject";
       decisionReason = "composite " + compositeScore + " < 60";
-    } else if (sensitive && compositeScore < 90) {
-      decision = "review";
-      decisionReason = "sensitive gate (composite " + compositeScore + ")";
     } else if (compositeScore >= 85) {
       decision = "auto_publish";
       decisionReason = "composite " + compositeScore + " >= 85";

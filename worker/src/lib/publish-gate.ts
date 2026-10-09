@@ -117,7 +117,8 @@ export function minAiScore(env: NodeJS.ProcessEnv = process.env): number {
 }
 
 export function isAutoPublish(env: NodeJS.ProcessEnv = process.env): boolean {
-  return (env.AUTO_PUBLISH ?? '').toLowerCase() === 'true'
+  const raw = (env.AUTO_PUBLISH ?? 'true').toLowerCase()
+  return raw !== 'false' && raw !== '0' && raw !== 'off'
 }
 
 export function isRecentEnough(iso: string | null | undefined, now = Date.now()): boolean {
@@ -306,7 +307,7 @@ export function licenceNoteAllowsReuse(note?: string | null): boolean {
   const t = (note || '').toLowerCase()
   if (!t.trim()) return false
   if (/\b(forbidden|prohibited|all rights reserved|no reuse|do not reuse)\b/.test(t)) return false
-  return /\b(reuse|allowed|permitted|cc-?by|cc0|public domain|syndication|royalty-?free)\b/.test(t)
+  return /\b(reuse|allowed|permitted|cc-?by|cc0|public domain|public rss|syndication|royalty-?free)\b/.test(t)
 }
 
 export function imagePublishable(input: {
@@ -388,6 +389,9 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   if (!input.sourceEnabled || input.killSwitch) {
     return { action: 'reject', reason: input.killSwitch ? 'kill_switch' : 'source_disabled', riskLevel, score }
   }
+  if (!isRecentEnough(input.sourcePublishedAt, now)) {
+    return { action: 'reject', reason: 'older_than_48h', riskLevel, score }
+  }
   if (!isValidHttpsUrl(input.sourceUrl)) {
     return { action: 'hold', reason: 'missing_source_url', riskLevel, score }
   }
@@ -406,10 +410,6 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   if (!image.ok) {
     return { action: 'hold', reason: image.reason, riskLevel, score }
   }
-  // Editorial sensitivity/risk/score gates are intentionally not used here.
-  // The source-fact contract still requires source text and rejects newly
-  // invented numbers/years; the rewrite prompt preserves place, time and
-  // named entities. Image rights/relevance remain enforced above.
   if (!input.sourceText || input.sourceText.trim().length === 0) {
     return { action: 'hold', reason: 'source_text_missing', riskLevel, score }
   }

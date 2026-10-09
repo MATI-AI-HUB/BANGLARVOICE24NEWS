@@ -140,9 +140,17 @@ export async function POST(request: Request) {
     .order('created_at', { ascending: true })
     .limit(30);
   if (queueError) return NextResponse.json({ error: 'queue_read_failed' }, { status: 500 });
-  if (!queue?.length) return NextResponse.json({ ok: true, processed: 0 });
+  const retryable = await supabase
+    .from('social_posts')
+    .select('id, article_id, platform, attempt_count')
+    .eq('status', 'failed')
+    .lt('attempt_count', 5)
+    .order('updated_at', { ascending: true })
+    .limit(10);
+  const pendingRows = [...((queue || []) as QueueRow[]), ...((retryable.data || []) as QueueRow[])]
+  if (!pendingRows.length) return NextResponse.json({ ok: true, processed: 0 });
 
-  const articleIds = [...new Set((queue as QueueRow[]).map((row) => row.article_id))];
+  const articleIds = [...new Set(pendingRows.map((row) => row.article_id))];
   const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,thumbnail_url,featured_image,category_key,video_id').in('id', articleIds);
   const articleMap = new Map((articles as Article[] || []).map((article) => [article.id, article]));
   const videoIds = (articles as Article[] || []).map((article) => article.video_id).filter((id): id is string => Boolean(id));
@@ -150,7 +158,7 @@ export async function POST(request: Request) {
   const videoMap = new Map((videos || []).map((video) => [video.id, video.youtube_id]));
   const results: Array<{ platform: string; status: string; article_id: string; error?: string }> = [];
 
-  for (const row of queue as QueueRow[]) {
+  for (const row of pendingRows) {
     const article = articleMap.get(row.article_id);
     if (!article) {
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: 'article_not_found' });

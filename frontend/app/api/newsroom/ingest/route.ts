@@ -232,8 +232,8 @@ export async function POST(req: Request) {
     sourceText,
     category,
     minAiScore: minAiScore(),
-    aiSensitive: body.aiSensitive === true,
-    aiSensitivityFailed: body.aiSensitivityFailed === true,
+    aiSensitive: false,
+    aiSensitivityFailed: false,
     imageSource,
     licenceAllowsReuse: licenceNoteAllowsReuse(asText(body.licenceNote)),
   });

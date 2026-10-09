@@ -3,6 +3,10 @@ const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ['.monkeycode-ai.live'],
+  experimental: {
+    allowedHosts: ['.monkeycode-ai.live'],
+  },
   outputFileTracingRoot: path.join(__dirname),
   outputFileTracingIncludes: {
     '/api/brand-card': ['./assets/fonts/**'],

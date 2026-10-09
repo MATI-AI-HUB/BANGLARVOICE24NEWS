@@ -196,7 +196,7 @@ export async function runPipeline(cfg: WorkerConfig): Promise<{
       };
       (draft as { imageRepresentational?: boolean }).imageRepresentational = isRepresentationalMedia(chosen);
       (draft as { sourceText?: string }).sourceText = rewritten.sourceText;
-      (draft as { aiSensitive?: boolean }).aiSensitive = rewritten.sensitive === true;
+      (draft as { aiSensitive?: boolean }).aiSensitive = false;
       (draft as { aiSensitivityFailed?: boolean }).aiSensitivityFailed = rewritten.sensitivityFailed === true;
       (draft as { licenceAllowsReuse?: boolean }).licenceAllowsReuse = licenceOk;
       (draft as { licenceNote?: string }).licenceNote = raw.licenceNote;

@@ -61,8 +61,8 @@ export async function decide(cfg: WorkerConfig, draft: DraftArticle): Promise<Su
     sourcePublishedAt: draft.raw.publishedAt,
     category: draft.raw.sourceCategory,
     minAiScore: minAiScore(),
-    aiSensitive: extra.aiSensitive === true,
-    aiSensitivityFailed: extra.aiSensitivityFailed === true,
+    aiSensitive: false,
+    aiSensitivityFailed: false,
     imageSource: draft.imageSource,
     licenceAllowsReuse: extra.licenceAllowsReuse === true || draft.imageSource === "pexels",
   });

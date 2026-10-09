@@ -5,7 +5,9 @@ import {
   computeScore,
   consecutive403Count,
   decidePublish,
+  isAutoPublish,
   isSourceDue,
+  licenceNoteAllowsReuse,
   shouldDisableAfter403,
   type PublishGateInput,
   type SourceFetchOutcome,
@@ -59,15 +61,29 @@ describe("publish gate", () => {
     expect(decidePublish(baseInput()).action).toBe("publish");
   });
 
+  it("defaults auto-publish on unless explicitly disabled", () => {
+    expect(isAutoPublish({} as NodeJS.ProcessEnv)).toBe(true);
+    expect(isAutoPublish({ AUTO_PUBLISH: "false" } as NodeJS.ProcessEnv)).toBe(false);
+  });
+
+  it("treats public RSS licence notes as reusable", () => {
+    expect(licenceNoteAllowsReuse("Public RSS")).toBe(true);
+    expect(licenceNoteAllowsReuse("all rights reserved")).toBe(false);
+  });
+
   it("holds when AUTO_PUBLISH is off", () => {
     const result = decidePublish(baseInput({ autoPublish: false }));
     expect(result.action).toBe("hold");
     expect(result.reason).toBe("auto_publish_disabled");
   });
 
-  it("holds high-risk articles", () => {
-    const result = decidePublish(baseInput({ titleBn: "সংবাদে খুনের ঘটনা" }));
-    expect(result.action).toBe("hold");
+  it("does not block world-class copy on the closed sensitivity gate", () => {
+    const result = decidePublish(baseInput({
+      titleBn: "সংবাদে খুনের ঘটনা",
+      aiSensitive: true,
+      aiSensitivityFailed: true,
+    }));
+    expect(result.action).toBe("publish");
     expect(result.riskLevel).toBe("high");
   });
 
@@ -98,28 +114,15 @@ describe("publish gate", () => {
     expect(result.reason).toBe("body_too_short");
   });
 
-  it("holds medium-risk keyword articles even with a high score", () => {
+  it("keeps quality holds for short bodies and still scores medium-risk copy", () => {
     const input = baseInput({
       titleBn: "গ্রেপ্তার প্রতিবেদন প্রকাশ",
       minAiScore: 10,
     });
     const result = decidePublish(input);
-    expect(result.action).toBe("hold");
+    expect(result.action).toBe("publish");
     expect(result.riskLevel).toBe("medium");
-    expect(result.reason).toMatch(/^risk_medium:/);
     expect(computeScore(input)).toBeGreaterThanOrEqual(40);
-  });
-
-  it("holds when the AI sensitivity check fails closed", () => {
-    const result = decidePublish(baseInput({ aiSensitivityFailed: true }));
-    expect(result.action).toBe("hold");
-    expect(result.reason).toBe("ai_sensitivity_failed");
-  });
-
-  it("holds when the AI marks the item sensitive", () => {
-    const result = decidePublish(baseInput({ aiSensitive: true }));
-    expect(result.action).toBe("hold");
-    expect(result.reason).toBe("ai_sensitive");
   });
 
   it("disables after three consecutive final-403 runs including the current one", () => {

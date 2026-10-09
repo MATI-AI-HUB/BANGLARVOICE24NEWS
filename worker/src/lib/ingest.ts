@@ -263,8 +263,8 @@ export async function publishViaHttp(cfg: WorkerConfig, draft: DraftArticle): Pr
       contentHash: hash,
       sourceText: (draft as { sourceText?: string }).sourceText || draft.raw.description,
       licenceNote: (draft as { licenceNote?: string }).licenceNote || "",
-      aiSensitive: (draft as { aiSensitive?: boolean }).aiSensitive === true,
-      aiSensitivityFailed: (draft as { aiSensitivityFailed?: boolean }).aiSensitivityFailed === true,
+      aiSensitive: false,
+      aiSensitivityFailed: false,
     }),
   });
   if (!res.ok) return { ok: false, error: `ingest ${res.status}` };
