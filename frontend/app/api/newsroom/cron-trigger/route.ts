@@ -42,10 +42,10 @@ const AI_MAX_TOKENS = 600
 const AI_TRANSIENT_RETRY_DELAYS_MS: number[] = []
 const ARTICLE_FETCH_TIMEOUT_MS = 10_000
 const FULL_TEXT_MIN_CHARS = 400
-// Many legitimate RSS feeds provide a concise summary
+// Many legitimate RSS feeds provide a concise 600–1,000 character summary
 // while blocking the article page. Use that summary as AI input; never publish
 // it raw—the Bengali rewrite and editorial gate still remain mandatory.
-const RICH_RSS_FALLBACK_MIN_CHARS = 80
+const RICH_RSS_FALLBACK_MIN_CHARS = 600
 const robotsCache = new Map<string, boolean>()
 const BRAND_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com'
@@ -1365,6 +1365,7 @@ async function runCronTrigger() {
 
   const sourceOutcomes: Record<string, SourceFetchOutcome> = {}
   const disabledSources: string[] = []
+  const contentBlockedSources = new Set<string>()
   let finalStatus: 'success' | 'partial' | 'failed' = 'failed'
   let aiConfigs: AIConfig[] = []
 
@@ -1486,6 +1487,11 @@ async function runCronTrigger() {
 
       let publishedThisRun = false
       await runPool(batch, ARTICLE_PROCESS_CONCURRENCY, async ({ source, item }) => {
+        if (contentBlockedSources.has(source.id)) {
+          stats.skipped += 1
+          skipReasons.add('source_content_unavailable')
+          return
+        }
         if (publishedThisRun) {
           stats.skipped += 1
           skipReasons.add('one_publish_per_run')
@@ -1565,6 +1571,7 @@ async function runCronTrigger() {
             : null
         )
         if (!pageText) {
+          contentBlockedSources.add(source.id)
           stats.pending += 1
           stats.queued += 1
           skipReasons.add('source_fetch_failed')
