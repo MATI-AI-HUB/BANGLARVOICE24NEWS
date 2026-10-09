@@ -118,7 +118,7 @@ async function callProvider(row: KeyRow, key: string, model: string, messages: C
   const base = row.base_url || DEFAULT_BASE_URLS[row.provider] || "";
   const headers: Record<string, string> = { "content-type": "application/json", authorization: `Bearer ${key}` };
   if (row.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://YOUR_DOMAIN";
+    headers["HTTP-Referer"] = "https://www.banglarvoice24news.com";
     headers["X-Title"] = "Banglar Voice AI Gateway";
   }
   const endpoint = `${base.replace(/\/$/, "")}/chat/completions`;

@@ -135,7 +135,7 @@ async function tryOpenRouter(orKey: string, systemPrompt: string, userPrompt: st
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer " + orKey,
-        "HTTP-Referer": "https://YOUR_DOMAIN",
+        "HTTP-Referer": "https://banglarvoice24news.com",
         "X-Title": "Banglar Voice",
       },
       body: JSON.stringify({

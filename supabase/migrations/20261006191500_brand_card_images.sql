@@ -4,9 +4,9 @@
 -- The percent-encoding keeps the Bengali headline URL-safe for every client.
 UPDATE public.articles
 SET
-  featured_image = 'https://YOUR_DOMAIN/api/brand-card?title=' ||
+  featured_image = 'https://www.banglarvoice24news.com/api/brand-card?title=' ||
     upper(regexp_replace(encode(convert_to(title_bn, 'UTF8'), 'hex'), '..', '%\&', 'g')),
-  thumbnail_url = 'https://YOUR_DOMAIN/api/brand-card?title=' ||
+  thumbnail_url = 'https://www.banglarvoice24news.com/api/brand-card?title=' ||
     upper(regexp_replace(encode(convert_to(title_bn, 'UTF8'), 'hex'), '..', '%\&', 'g')),
   image_credit = 'বাংলার ভয়েস',
   image_license = 'brand',

@@ -83,7 +83,7 @@ where exists (select 1 from cron.job where jobname = 'newsroom-failed-retry');
 
 select cron.schedule('newsroom-failed-retry', '7-59/15 * * * *', $$
   select net.http_post(
-    url := 'https://YOUR_DOMAIN/api/newsroom/cron-trigger',
+    url := 'https://www.banglarvoice24news.com/api/newsroom/cron-trigger',
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || coalesce((

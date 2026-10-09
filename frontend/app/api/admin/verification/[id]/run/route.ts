@@ -40,7 +40,7 @@ export async function POST(
   // Dispatch GitHub Actions (production) OR run inline (dev)
   if (process.env.GITHUB_DISPATCH_TOKEN) {
     // Production: trigger GitHub Actions
-    const repo = 'OWNER/REPO';
+    const repo = 'banglarvoice33-byte/BANGLARVOICE-APPS';
     await fetch(`https://api.github.com/repos/${repo}/actions/workflows/verify-single.yml/dispatches`, {
       method: 'POST',
       headers: {
