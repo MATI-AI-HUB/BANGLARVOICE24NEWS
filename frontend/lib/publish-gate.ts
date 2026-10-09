@@ -6,7 +6,8 @@ export const PIPELINE_CRON = '*/14 * * * *'
 export const ITEM_MAX_AGE_MS = 48 * 60 * 60 * 1000
 export const FEED_403_DISABLE_THRESHOLD = 3
 export const STALE_LOCK_MS = 10 * 60 * 1000
-export const MIN_BODY_CHARS = 600
+// Accept concise 60–300-word news items while retaining all other gates.
+export const MIN_BODY_CHARS = 200
 export const DEFAULT_MIN_AI_SCORE = 40
 export const COPY_SIMILARITY_MAX = 0.85
 export const SOURCE_DUE_GRACE_MINUTES = 2
@@ -404,10 +405,13 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   if (input.aiSensitivityFailed) {
     return { action: 'hold', reason: 'ai_sensitivity_failed', riskLevel, score }
   }
-  if (input.aiSensitive) {
-    return { action: 'hold', reason: 'ai_sensitive', riskLevel: riskLevel === 'low' ? 'medium' : riskLevel, score }
+  if (input.aiSensitive && riskLevel === 'high') {
+    return { action: 'hold', reason: 'ai_sensitive', riskLevel, score }
   }
-  if (riskLevel !== 'low') {
+  // Medium keyword matches alone are not enough to block a rewritten item;
+  // this avoids false positives for ordinary election, health, arrest and
+  // allegation reports. High-risk terms remain held for editorial review.
+  if (riskLevel === 'high') {
     return {
       action: 'hold',
       reason: riskLevel === 'high' ? `risk_high:${risk.matched ?? 'keyword'}` : `risk_medium:${risk.matched ?? 'keyword'}`,
