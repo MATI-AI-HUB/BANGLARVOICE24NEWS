@@ -195,7 +195,7 @@ npm run build && npm start
 ## Manual Steps
 
 Automated migrations, type regeneration and platform config run in
-`.github/workflows/supabase-security-hardening.yml` (project ref `fqqdpngmftoddffvdukn`).
+`.github/workflows/supabase-security-hardening.yml` (project ref `YOUR_SUPABASE_PROJECT_REF`).
 The following items cannot be fully automated from CI and need a one-time human action:
 
 1. **Leaked Password Protection (HIBP)** — if the Management API call in the workflow

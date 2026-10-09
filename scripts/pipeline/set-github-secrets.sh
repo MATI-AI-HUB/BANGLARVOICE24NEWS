@@ -15,7 +15,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # ─── Config ───
-REPO="banglarvoice33-byte/BANGLARVOICE-APPS"
+REPO="OWNER/REPO"
 ENV_FILE="frontend/.env.local"
 
 # ─── Check gh CLI ───

@@ -23,7 +23,7 @@ export async function chat(opts: ChatOptions): Promise<string> {
   };
   // OpenRouter requires/recommends these
   if (opts.baseUrl.includes("openrouter.ai")) {
-    headers["HTTP-Referer"] = "https://banglarvoice24news.com";
+    headers["HTTP-Referer"] = "https://YOUR_DOMAIN";
     headers["X-Title"] = "Banglar Voice";
   }
   const timeoutMs = opts.timeoutMs ?? 20000;

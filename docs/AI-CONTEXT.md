@@ -3,7 +3,7 @@
 ## Project
 Bangladeshi news portal — Next.js 15 frontend + Supabase backend + AI news pipeline + Termux dev environment.
 Live: https://www.banglarvoice24news.com
-Repo: https://github.com/banglarvoice33-byte/BANGLARVOICE-APPS
+Repo: https://github.com/OWNER/REPO
 
 ## Critical environment facts
 - Termux on Android (no /tmp writable — use $HOME or repo for scripts)

@@ -9,35 +9,35 @@ select cron.unschedule('epaper-daily') where exists (select 1 from cron.job wher
 
 select cron.schedule('news-ingest-daytime', '*/15 0-17 * * *', $$
   select net.http_post(
-    url := 'https://www.banglarvoice24news.com/api/newsroom/cron-trigger',
+    url := 'https://YOUR_DOMAIN/api/newsroom/cron-trigger',
     headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' || coalesce((select ds.decrypted_secret from vault.decrypted_secrets ds join public.api_vault v on v.key_encrypted=ds.id where v.service_name='NEWSROOM_INGEST_KEY' and v.environment='prod' and v.is_active=true limit 1),'')),
     body := '{}'::jsonb, timeout_milliseconds := 90000
   );
 $$);
 select cron.schedule('news-ingest-overnight', '0 18-23 * * *', $$
   select net.http_post(
-    url := 'https://www.banglarvoice24news.com/api/newsroom/cron-trigger',
+    url := 'https://YOUR_DOMAIN/api/newsroom/cron-trigger',
     headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' || coalesce((select ds.decrypted_secret from vault.decrypted_secrets ds join public.api_vault v on v.key_encrypted=ds.id where v.service_name='NEWSROOM_INGEST_KEY' and v.environment='prod' and v.is_active=true limit 1),'')),
     body := '{}'::jsonb, timeout_milliseconds := 90000
   );
 $$);
 select cron.schedule('social-dispatch-daytime', '5-59/15 0-17 * * *', $$
   select net.http_post(
-    url := 'https://www.banglarvoice24news.com/api/social/dispatch',
+    url := 'https://YOUR_DOMAIN/api/social/dispatch',
     headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' || coalesce((select ds.decrypted_secret from vault.decrypted_secrets ds join public.api_vault v on v.key_encrypted=ds.id where v.service_name='NEWSROOM_INGEST_KEY' and v.environment='prod' and v.is_active=true limit 1),'')),
     body := '{}'::jsonb, timeout_milliseconds := 90000
   );
 $$);
 select cron.schedule('social-dispatch-overnight', '5 18-23 * * *', $$
   select net.http_post(
-    url := 'https://www.banglarvoice24news.com/api/social/dispatch',
+    url := 'https://YOUR_DOMAIN/api/social/dispatch',
     headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer ' || coalesce((select ds.decrypted_secret from vault.decrypted_secrets ds join public.api_vault v on v.key_encrypted=ds.id where v.service_name='NEWSROOM_INGEST_KEY' and v.environment='prod' and v.is_active=true limit 1),'')),
     body := '{}'::jsonb, timeout_milliseconds := 90000
   );
 $$);
 select cron.schedule('epaper-daily', '30 17 * * *', $$
   select net.http_post(
-    url := 'https://www.banglarvoice24news.com/api/newsroom/epaper',
+    url := 'https://YOUR_DOMAIN/api/newsroom/epaper',
     headers := jsonb_build_object('Content-Type','application/json','x-ingest-key',coalesce((select ds.decrypted_secret from vault.decrypted_secrets ds join public.api_vault v on v.key_encrypted=ds.id where v.service_name='NEWSROOM_INGEST_KEY' and v.environment='prod' and v.is_active=true limit 1),'')),
     body := '{}'::jsonb, timeout_milliseconds := 90000
   );
