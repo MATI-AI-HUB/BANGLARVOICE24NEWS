@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           if [ -z "$SUPABASE_DB_URL" ]; then
             echo "SUPABASE_DB_URL is not configured as a repository Actions secret." >&2
-            echo "Add it at Settings > Secrets and variables > Actions for MATI-AI-HUB/automation-king-." >&2
+            echo "Add it at Settings > Secrets and variables > Actions for this repository." >&2
             exit 1
           fi
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then

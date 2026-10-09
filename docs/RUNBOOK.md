@@ -33,7 +33,7 @@
 
 Health JSON booleans + counts only. Ingest writes Supabase directly when `SUPABASE_URL` + service role exist, so a Vercel deploy is not required for content. Custom domain `banglarvoice24news.com` must map to a live Vercel (or other) deployment before Reader/TV APKs work. Production SQL in `supabase/migrations/20260929_platform_contract.sql` is **not applied** until you confirm.
 
-Identity for new commits: local `user.email=matiailearninghub@gmail.com`, `user.name=MATI-AI-HUB`. Push needs an owner-account PAT in the environment; none is present in this session.
+Identity for new commits: local `user.email=YOUR_EMAIL`, `user.name=YOUR_NAME`. Push needs an owner-account PAT in the environment; none is present in this session.
 
 ### Rollback
 1. Git: `git revert <sha>` on `main` (no force-push). Worker-only revert skips Vercel via `frontend/scripts/vercel-ignore.sh`.

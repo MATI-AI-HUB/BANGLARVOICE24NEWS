@@ -19,7 +19,7 @@ jobs:
 
       - name: Reject unauthorized authors/committers
         env:
-          AUTHORIZED_EMAIL: matiailearninghub@gmail.com
+          AUTHORIZED_EMAIL: ${{ vars.AUTHORIZED_EMAIL }}
           EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}

@@ -217,8 +217,8 @@ jobs:
       - name: Commit report and regenerated types
         run: |
           set -euo pipefail
-          git config user.name "MATI-AI-HUB"
-          git config user.email "matiailearninghub@gmail.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/security-hardening-report.json frontend/types 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "nothing to commit"

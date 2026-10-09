@@ -149,7 +149,7 @@ jobs:
           fi
           curl -fsS -m 15 -X POST "$BV_ALERT_WEBHOOK" \
             -H 'content-type: application/json' \
-            --data '{"event":"apk_build_failed","repository":"MATI-AI-HUB/automation-king-","run":"'"$GITHUB_RUN_ID"'"}'
+            --data '{"event":"apk_build_failed","repository":"'"$GITHUB_REPOSITORY"'","run":"'"$GITHUB_RUN_ID"'"}'
 
   release:
     name: Publish GitHub Release
