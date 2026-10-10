@@ -271,9 +271,15 @@ function normalizeNumberText(text: string): string {
     .replace(/[,.٬]/g, '')
 }
 
+function stripSourceLine(text: string): string {
+  return text
+    .replace(/সূত্র\s*:.*$/gm, '')
+    .replace(/https?:\/\/\S+/g, '')
+}
+
 export function missingSourceNumbers(output: string, source: string): string[] {
   const src = normalizeNumberText(source)
-  return numbersAndYears(normalizeNumberText(output)).filter((n) => !src.includes(n))
+  return numbersAndYears(normalizeNumberText(stripSourceLine(output))).filter((n) => !src.includes(n))
 }
 
 export function originalityHoldReason(output: string, source: string | undefined): string | null {
