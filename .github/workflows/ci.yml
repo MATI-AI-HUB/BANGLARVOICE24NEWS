@@ -60,19 +60,7 @@ jobs:
           fi
           echo 'No JWT blob in tracked non-doc files.'
 
-  backend:
-    name: Backend (go build)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: archive/backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: archive/backend/go.mod
-          cache-dependency-path: archive/backend/go.sum
-      - run: go build ./...  gitleaks:
+  gitleaks:
     name: Gitleaks (history)
     runs-on: ubuntu-latest
     steps:
