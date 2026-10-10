@@ -1,196 +1,28 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, handleCors, json } from "../_shared/cors.ts";
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-const DEFAULT_BASE_URLS: Record<string, string> = {
-  openrouter: "https://openrouter.ai/api/v1",
-  groq: "https://api.groq.com/openai/v1",
-};
-const PROVIDER_ORDER = ["openrouter", "groq", "ollama"] as const;
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
+const PROVIDER_ORDER = ["openrouter", "gemini", "groq", "ollama"] as const;
 type Provider = (typeof PROVIDER_ORDER)[number];
-type KeyRow = {
-  api_vault_id: string;
-  provider: Provider;
-  account_label: string;
-  priority: number;
-  model: string | null;
-  base_url: string | null;
-  is_enabled: boolean;
-  state: string;
-  failure_count: number;
-  cooldown_until: string | null;
-  key_encrypted: string | null;
-};
-type Policy = {
-  max_tokens: number;
-  max_prompt_chars: number;
-  daily_request_limit: number | null;
-};
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
-
-function requestId(): string {
-  return crypto.randomUUID();
-}
-function safeTask(value: unknown): string {
-  return typeof value === "string" && /^[a-z][a-z0-9_-]{1,40}$/.test(value) ? value : "default";
-}
-function isServiceRole(req: Request): boolean {
-  const auth = req.headers.get("authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return false;
-  // Supabase projects may use the newer sb_secret_* server key format, which
-  // is not a JWT. It is still safe here because this is an internal function
-  // and the comparison is against the function's own server-side secret.
-  if (SERVICE_ROLE && token === SERVICE_ROLE) return true;
-  try {
-    const part = token.split(".")[1];
-    if (!part) return false;
-    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
-    return payload?.role === "service_role";
-  } catch {
-    return false;
-  }
-}
-function clampInt(value: unknown, fallback: number, min: number, max: number): number {
-  const n = Number(value);
-  return Number.isInteger(n) ? Math.max(min, Math.min(max, n)) : fallback;
-}
-function classifyStatus(status: number): string {
-  if (status === 401 || status === 403) return "provider_invalid_key";
-  if (status === 402) return "provider_credit_or_budget";
-  if (status === 429) return "provider_rate_limited";
-  if (status >= 500) return "provider_5xx";
-  return `provider_http_${status}`;
-}
-function isDue(row: KeyRow): boolean {
-  return !row.cooldown_until || new Date(row.cooldown_until).getTime() <= Date.now();
-}
-async function decrypt(secretId: string): Promise<string | null> {
-  const { data, error } = await admin.rpc("decrypt_vault_secret", { p_secret_id: secretId });
-  if (error || typeof data !== "string" || !data) return null;
-  return data;
-}
-async function loadPolicy(task: string): Promise<Policy> {
-  const { data } = await admin.from("ai_gateway_policies").select("max_tokens,max_prompt_chars,daily_request_limit").eq("task", task).maybeSingle();
-  return data ?? { max_tokens: 1000, max_prompt_chars: 16000, daily_request_limit: 5000 };
-}
-async function loadKeys(): Promise<KeyRow[]> {
-  const { data, error } = await admin
-    .from("ai_gateway_key_state")
-    .select("api_vault_id,provider,account_label,priority,model,base_url,is_enabled,state,failure_count,cooldown_until,api_vault!inner(key_encrypted,is_active,service_name)")
-    .eq("is_enabled", true)
-    .in("state", ["healthy", "degraded"])
-    .eq("api_vault.is_active", true)
-    .in("provider", PROVIDER_ORDER)
-    .order("priority", { ascending: true });
-  if (error) throw error;
-  return ((data ?? []) as unknown[]).map((value) => {
-    const row = value as KeyRow & { api_vault: { key_encrypted: string | null } };
-    return { ...row, key_encrypted: row.api_vault?.key_encrypted ?? null };
-  }).filter((row) => row.key_encrypted && isDue(row));
-}
-async function markFailure(row: KeyRow, code: string): Promise<void> {
-  const quarantine = code === "provider_invalid_key";
-  const cooldownMinutes = quarantine ? 1440 : code === "provider_credit_or_budget" ? 60 : 5;
-  await admin.from("ai_gateway_key_state").update({
-    state: quarantine ? "quarantined" : "degraded",
-    failure_count: row.failure_count + 1,
-    cooldown_until: new Date(Date.now() + cooldownMinutes * 60_000).toISOString(),
-    last_failure_code: code,
-    updated_at: new Date().toISOString(),
-  }).eq("api_vault_id", row.api_vault_id);
-}
-async function markSuccess(row: KeyRow): Promise<void> {
-  await admin.from("ai_gateway_key_state").update({
-    state: "healthy", failure_count: 0, cooldown_until: null,
-    last_success_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-  }).eq("api_vault_id", row.api_vault_id);
-}
-async function audit(input: Record<string, unknown>): Promise<void> {
-  await admin.from("ai_gateway_usage_events").insert(input);
-}
-async function callProvider(row: KeyRow, key: string, model: string, messages: ChatMessage[], temperature: number, maxTokens: number, jsonMode: boolean): Promise<{ status: number; text: string; outputChars: number }> {
-  const base = row.base_url || DEFAULT_BASE_URLS[row.provider] || "";
-  const headers: Record<string, string> = { "content-type": "application/json", authorization: `Bearer ${key}` };
-  if (row.provider === "openrouter") {
-    headers["HTTP-Referer"] = "https://www.banglarvoice24news.com";
-    headers["X-Title"] = "Banglar Voice AI Gateway";
-  }
-  const endpoint = `${base.replace(/\/$/, "")}/chat/completions`;
-  const requestBody = (includeJsonFormat: boolean) => JSON.stringify({
-    model,
-    messages,
-    temperature,
-    max_tokens: maxTokens,
-    ...(includeJsonFormat ? { response_format: { type: "json_object" } } : {}),
-  });
-  let response = await fetch(endpoint, {
-    method: "POST", headers, signal: AbortSignal.timeout(14_000),
-    body: requestBody(jsonMode),
-  });
-  // Some OpenAI-compatible providers/models reject response_format even though
-  // they support normal chat completions. Retry without it; the newsroom prompt
-  // still requires a JSON object and the application parser validates the result.
-  if (jsonMode && response.status === 400) {
-    response = await fetch(endpoint, {
-      method: "POST", headers, signal: AbortSignal.timeout(3_000),
-      body: requestBody(false),
-    });
-  }
-  const body = await response.text();
-  if (!response.ok) throw Object.assign(new Error(classifyStatus(response.status)), { status: response.status, body: body.slice(0, 200) });
-  let parsed: { choices?: Array<{ message?: { content?: string } }> } = {};
-  try { parsed = JSON.parse(body); } catch { throw Object.assign(new Error("provider_invalid_json"), { status: response.status }); }
-  const text = parsed.choices?.[0]?.message?.content?.trim() ?? "";
-  if (!text) throw Object.assign(new Error("provider_empty_response"), { status: response.status });
-  return { status: response.status, text, outputChars: text.length };
-}
-
-Deno.serve(async (req: Request) => {
-  const cors = handleCors(req);
-  if (cors) return cors;
-  const id = requestId();
-  const started = Date.now();
-  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed", request_id: id }, 405);
-  if (!isServiceRole(req)) return json({ ok: false, error: "service_role_required", request_id: id }, 403);
-  try {
-    const body = await req.json() as { task?: unknown; messages?: unknown; model?: unknown; temperature?: unknown; max_tokens?: unknown; tenant_id?: unknown; metadata?: unknown };
-    const task = safeTask(body.task);
-    const policy = await loadPolicy(task);
-    const messages = Array.isArray(body.messages) ? body.messages.filter((m): m is ChatMessage => !!m && typeof m === "object" && ["system", "user", "assistant"].includes((m as ChatMessage).role) && typeof (m as ChatMessage).content === "string").map((m) => ({ ...m, content: m.content.slice(0, policy.max_prompt_chars) })) : [];
-    if (!messages.length) return json({ ok: false, error: "messages_required", request_id: id }, 400);
-    const maxTokens = clampInt(body.max_tokens, policy.max_tokens, 64, policy.max_tokens);
-    const temperature = Math.max(0, Math.min(1, Number(body.temperature ?? 0.2)));
-    const requestedModel = typeof body.model === "string" && body.model.length < 160 ? body.model : "";
-    const metadata = typeof body.metadata === "object" && body.metadata ? body.metadata as Record<string, unknown> : {};
-    const jsonMode = metadata.json_mode === true;
-    const keys = (await loadKeys()).sort((a, b) => PROVIDER_ORDER.indexOf(a.provider) - PROVIDER_ORDER.indexOf(b.provider) || a.priority - b.priority);
-    if (!keys.length) return json({ ok: false, error: "no_healthy_provider", request_id: id }, 503);
-    const inputChars = messages.reduce((sum, m) => sum + m.content.length, 0);
-    for (const row of keys) {
-      const key = await decrypt(row.key_encrypted!);
-      if (!key) { await markFailure(row, "vault_decrypt_failed"); continue; }
-      const model = requestedModel || row.model || (row.provider === "groq" ? "openai/gpt-oss-120b" : "meta-llama/llama-3.1-8b-instruct");
-      try {
-        const result = await callProvider(row, key, model, messages, temperature, maxTokens, jsonMode);
-        await markSuccess(row);
-        await audit({ request_id: id, task, provider: row.provider, api_vault_id: row.api_vault_id, account_label: row.account_label, model, status_code: result.status, outcome: "success", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: result.outputChars, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata });
-        return json({ ok: true, request_id: id, provider: row.provider, model, answer: result.text });
-      } catch (error) {
-        const code = error instanceof Error ? error.message : "provider_error";
-        const status = typeof (error as { status?: unknown }).status === "number" ? (error as { status: number }).status : 0;
-        await markFailure(row, code);
-        await audit({ request_id: id, task, provider: row.provider, api_vault_id: row.api_vault_id, account_label: row.account_label, model, status_code: status, outcome: code === "provider_invalid_key" ? "rejected" : code === "provider_rate_limited" ? "provider_error" : "provider_error", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: 0, error_code: code, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata: {} });
-      }
-    }
-    return json({ ok: false, error: "all_providers_failed", request_id: id }, 503);
-  } catch (error) {
-    console.error("ai-gateway", id, error instanceof Error ? error.message : String(error));
-    return json({ ok: false, error: "gateway_internal_error", request_id: id }, 500);
-  }
-});
+type KeyRow = { api_vault_id: string; provider: Provider; account_label: string; priority: number; model: string | null; base_url: string | null; is_enabled: boolean; state: string; failure_count: number; cooldown_until: string | null; key_encrypted: string | null };
+type Policy = { max_tokens: number; max_prompt_chars: number; daily_request_limit: number | null };
+type ProviderResult = { status: number; text: string; outputChars: number; retryCount: number };
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const requestId = () => crypto.randomUUID();
+const isDue = (row: KeyRow) => !row.cooldown_until || new Date(row.cooldown_until).getTime() <= Date.now();
+const clampInt = (value: unknown, fallback: number, min: number, max: number) => { const n = Number(value); return Number.isInteger(n) ? Math.max(min, Math.min(max, n)) : fallback; };
+const classifyStatus = (status: number) => status === 401 || status === 403 ? "provider_invalid_key" : status === 402 ? "provider_credit_or_budget" : status === 429 ? "provider_rate_limited" : status >= 500 ? "provider_5xx" : `provider_http_${status}`;
+const transient = (code: string, status: number) => status === 408 || status === 429 || status >= 500 || ["provider_timeout", "provider_empty_response", "provider_invalid_json"].includes(code);
+const safeTask = (value: unknown) => typeof value === "string" && /^[a-z][a-z0-9_-]{1,40}$/.test(value) ? value : "default";
+function isServiceRole(req: Request): boolean { const auth = req.headers.get("authorization") ?? ""; const token = auth.startsWith("Bearer ") ? auth.slice(7) : ""; if (!token) return false; if (SERVICE_ROLE && token === SERVICE_ROLE) return true; try { const part = token.split(".")[1]; const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/"))); return payload?.role === "service_role"; } catch { return false; } }
+async function decrypt(secretId: string): Promise<string | null> { const { data, error } = await admin.rpc("decrypt_vault_secret", { p_secret_id: secretId }); return error || typeof data !== "string" || !data ? null : data; }
+async function loadPolicy(task: string): Promise<Policy> { const { data } = await admin.from("ai_gateway_policies").select("max_tokens,max_prompt_chars,daily_request_limit").eq("task", task).maybeSingle(); return data ?? { max_tokens: 1000, max_prompt_chars: 16000, daily_request_limit: 5000 }; }
+async function loadKeys(): Promise<KeyRow[]> { const { data, error } = await admin.from("ai_gateway_key_state").select("api_vault_id,provider,account_label,priority,model,base_url,is_enabled,state,failure_count,cooldown_until,api_vault!inner(key_encrypted,is_active)").eq("is_enabled", true).in("state", ["healthy", "degraded"]).eq("api_vault.is_active", true).in("provider", [...PROVIDER_ORDER]).order("priority", { ascending: true }); if (error) throw error; return ((data ?? []) as unknown[]).map((value) => { const row = value as KeyRow & { api_vault: { key_encrypted: string | null } }; return { ...row, key_encrypted: row.api_vault?.key_encrypted ?? null }; }).filter((row) => row.key_encrypted && isDue(row)); }
+async function markFailure(row: KeyRow, code: string): Promise<void> { const quarantine = code === "provider_invalid_key"; const cooldownMinutes = quarantine ? 1440 : code === "provider_credit_or_budget" ? 60 : 5; await admin.from("ai_gateway_key_state").update({ state: quarantine ? "quarantined" : "degraded", failure_count: row.failure_count + 1, cooldown_until: new Date(Date.now() + cooldownMinutes * 60_000).toISOString(), last_failure_code: code, updated_at: new Date().toISOString() }).eq("api_vault_id", row.api_vault_id); }
+async function markSuccess(row: KeyRow): Promise<void> { await admin.from("ai_gateway_key_state").update({ state: "healthy", failure_count: 0, cooldown_until: null, last_success_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("api_vault_id", row.api_vault_id); }
+async function audit(input: Record<string, unknown>): Promise<void> { await admin.from("ai_gateway_usage_events").insert(input); }
+function validateJson(text: string, schema: unknown): void { if (!schema) return; let value: unknown; try { value = JSON.parse(text); } catch { throw new Error("provider_invalid_json"); } if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("provider_schema_invalid"); if (schema && typeof schema === "object" && Array.isArray((schema as { required?: unknown }).required)) for (const field of (schema as { required: unknown[] }).required) if (typeof field === "string" && !(field in (value as Record<string, unknown>))) throw new Error("provider_schema_invalid"); }
+async function callProvider(row: KeyRow, key: string, model: string, messages: ChatMessage[], temperature: number, maxTokens: number, jsonMode: boolean, schema: unknown): Promise<ProviderResult> { let lastError: Error & { status?: number } = Object.assign(new Error("provider_error"), { status: 0 }); for (let retryCount = 0; retryCount <= 1; retryCount++) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 10_000); try { let response: Response; if (row.provider === "gemini") { const base = (row.base_url || "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, ""); const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n"); const contents = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })); const body = { ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}), contents, generationConfig: { temperature, maxOutputTokens: maxTokens, ...(jsonMode ? { responseMimeType: "application/json" } : {}) } }; response = await fetch(`${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: "POST", headers: { "content-type": "application/json" }, signal: controller.signal, body: JSON.stringify(body) }); } else { const base = (row.base_url || (row.provider === "groq" ? "https://api.groq.com/openai/v1" : "https://openrouter.ai/api/v1")).replace(/\/$/, ""); const headers: Record<string, string> = { "content-type": "application/json", authorization: `Bearer ${key}` }; if (row.provider === "openrouter") { headers["HTTP-Referer"] = "https://www.banglarvoice24news.com"; headers["X-Title"] = "Banglar Voice AI Gateway"; } response = await fetch(`${base}/chat/completions`, { method: "POST", headers, signal: controller.signal, body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens, ...(jsonMode ? { response_format: { type: "json_object" } } : {}) }) }); } const body = await response.text(); if (!response.ok) throw Object.assign(new Error(classifyStatus(response.status)), { status: response.status }); let parsed: Record<string, unknown>; try { parsed = JSON.parse(body); } catch { throw Object.assign(new Error("provider_invalid_json"), { status: response.status }); } let text = ""; if (row.provider === "gemini") text = (((parsed.candidates as Array<{ content?: { parts?: Array<{ text?: string }> } }> | undefined)?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join(" ")).trim(); else text = String(((parsed.choices as Array<{ message?: { content?: string } }> | undefined)?.[0]?.message?.content ?? "")).trim(); if (!text) throw Object.assign(new Error("provider_empty_response"), { status: response.status }); validateJson(text, schema); return { status: response.status, text, outputChars: text.length, retryCount }; } catch (error) { const code = error instanceof Error ? error.message : "provider_error"; lastError = Object.assign(new Error(code), { status: typeof (error as { status?: unknown }).status === "number" ? (error as { status: number }).status : 0 }); if (retryCount === 1 || !transient(code, lastError.status ?? 0)) throw Object.assign(lastError, { retryCount }); } finally { clearTimeout(timer); } } throw Object.assign(lastError, { retryCount: 1 }); }
+Deno.serve(async (req: Request) => { if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders }); const id = requestId(); if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed", request_id: id }, 405); if (!isServiceRole(req)) return json({ ok: false, error: "service_role_required", request_id: id }, 403); const started = Date.now(); try { const body = await req.json() as { task?: unknown; messages?: unknown; model?: unknown; temperature?: unknown; max_tokens?: unknown; tenant_id?: unknown; metadata?: unknown }; const task = safeTask(body.task); const policy = await loadPolicy(task); const messages = Array.isArray(body.messages) ? body.messages.filter((m): m is ChatMessage => !!m && typeof m === "object" && ["system", "user", "assistant"].includes((m as ChatMessage).role) && typeof (m as ChatMessage).content === "string").map((m) => ({ ...m, content: m.content.slice(0, policy.max_prompt_chars) })) : []; if (!messages.length) return json({ ok: false, error: "messages_required", request_id: id }, 400); const maxTokens = clampInt(body.max_tokens, policy.max_tokens, 64, policy.max_tokens); const temperature = Math.max(0, Math.min(1, Number(body.temperature ?? 0.2))); const requestedModel = typeof body.model === "string" && body.model.length < 160 ? body.model : ""; const metadata = typeof body.metadata === "object" && body.metadata ? body.metadata as Record<string, unknown> : {}; const jsonMode = metadata.json_mode === true; const schema = metadata.json_schema; const keys = (await loadKeys()).sort((a, b) => PROVIDER_ORDER.indexOf(a.provider) - PROVIDER_ORDER.indexOf(b.provider) || a.priority - b.priority); if (!keys.length) return json({ ok: false, error: "no_healthy_provider", request_id: id }, 503); const inputChars = messages.reduce((sum, m) => sum + m.content.length, 0); let finalError = "all_providers_failed"; let totalRetryCount = 0; for (const row of keys) { const key = await decrypt(row.key_encrypted!); if (!key) { finalError = "vault_decrypt_failed"; await markFailure(row, finalError); continue; } const model = requestedModel || row.model || (row.provider === "gemini" ? "gemini-2.5-flash" : row.provider === "groq" ? "openai/gpt-oss-120b" : "meta-llama/llama-3.1-8b-instruct"); try { const result = await callProvider(row, key, model, messages, temperature, maxTokens, jsonMode, schema); totalRetryCount += result.retryCount; await markSuccess(row); await audit({ request_id: id, task, provider: row.provider, api_vault_id: row.api_vault_id, account_label: row.account_label, model, status_code: result.status, outcome: "success", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: result.outputChars, retry_count: result.retryCount, final_error_code: null, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata }); return json({ ok: true, request_id: id, provider: row.provider, model, retry_count: totalRetryCount, answer: result.text }); } catch (error) { const code = error instanceof Error ? error.message : "provider_error"; finalError = code; const status = typeof (error as { status?: unknown }).status === "number" ? (error as { status: number }).status : 0; const retryCount = typeof (error as { retryCount?: unknown }).retryCount === "number" ? (error as { retryCount: number }).retryCount : 0; totalRetryCount += retryCount; await markFailure(row, code); await audit({ request_id: id, task, provider: row.provider, api_vault_id: row.api_vault_id, account_label: row.account_label, model, status_code: status, outcome: status === 0 && code === "provider_timeout" ? "timeout" : "provider_error", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: 0, error_code: code, retry_count: retryCount, final_error_code: null, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata: {} }); } } await audit({ request_id: id, task, provider: "gateway", api_vault_id: null, account_label: null, model: null, status_code: 503, outcome: "provider_error", latency_ms: Date.now() - started, input_chars: inputChars, output_chars: 0, error_code: "ai_gateway_unavailable", retry_count: totalRetryCount, final_error_code: finalError, tenant_id: typeof body.tenant_id === "string" ? body.tenant_id : null, metadata: {} }); return json({ ok: false, error: "ai_gateway_unavailable", final_error: finalError, retry_count: totalRetryCount, request_id: id }, 503); } catch (error) { console.error("ai-gateway", id, error instanceof Error ? error.message : String(error)); return json({ ok: false, error: "gateway_internal_error", request_id: id }, 500); } });
