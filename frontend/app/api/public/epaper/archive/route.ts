@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
-function db() { const url = process.env.NEXT_PUBLIC_SUPABASE_URL; const key = process.env.SUPABASE_SERVICE_ROLE_KEY; if (!url || !key) throw new Error('Supabase not configured'); return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }); }
-export async function GET(request: Request) { try { const limit = Math.min(Math.max(Number(new URL(request.url).searchParams.get('limit') || 30), 1), 100); const { data, error } = await db().from('epaper_editions').select('edition_date,title,article_count').order('edition_date', { ascending: false }).limit(limit); if (error) throw error; return NextResponse.json({ editions: (data || []).map((row) => ({ date: row.edition_date, label: row.title, articleCount: row.article_count })) }); } catch { return NextResponse.json({ editions: [], error: 'epaper_unavailable' }, { status: 503 }); } }
+export async function GET() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url ||!anon) return NextResponse.json({ editions: [] });
+  const supa = createClient(url, anon);
+  const { data } = await supa.from('articles').select('created_at').order('created_at', { ascending: false }).limit(30);
+  const editions = (data || []).map((r: any) => {
+    const d = new Date(r.created_at).toISOString().split('T')[0];
+    return { date: d, label: new Date(r.created_at).toLocaleDateString('bn-BD', { dateStyle: 'long' }) };
+  });
+  const uniq = Array.from(new Map(editions.map(e => [e.date, e])).values());
+  return NextResponse.json({ editions: uniq });
+}
