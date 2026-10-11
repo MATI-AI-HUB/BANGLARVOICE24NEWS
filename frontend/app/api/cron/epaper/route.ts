@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createPublicSupabase, fetchPublishedArticlesFeed } from '../../../../lib/supabase/published-articles';
+import { createPublicSupabase, fetchPublishedArticlesFeed } from '../../../lib/supabase/published-articles';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(){
