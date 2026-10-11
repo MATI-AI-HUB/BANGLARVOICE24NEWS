@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { fetchPublishedArticlesFeed } from '../../../../lib/supabase/published-articles';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function getClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url ||!anon) return null;
-  return createClient(url, anon);
-}
-
-function buildFromRealNews(articles: any[]) {
+function toEdition(articles: any[]) {
   if (!articles || articles.length === 0) return null;
   const now = new Date();
+  const sorted = [...articles].sort((a,b) => new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime());
   return {
     editionDate: now.toISOString().split('T')[0],
     editionLabel: now.toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -24,37 +18,55 @@ function buildFromRealNews(articles: any[]) {
         number: 1,
         section: 'প্রথম পাতা',
         layout: 'front',
-        lead: articles[0]? { id: articles[0].id, headline: articles[0].title || articles[0].headline, body: (articles[0].excerpt || articles[0].content || '').slice(0, 500), attribution: articles[0].author || 'বাংলার ভয়েস', category: articles[0].category } : undefined,
-        articles: articles.slice(1, 5).map((a: any) => ({ id: a.id, headline: a.title || a.headline, body: (a.excerpt || a.content || '').slice(0, 350), attribution: a.author, category: a.category })),
-        briefs: articles.slice(5, 12).map((a: any) => a.title || a.headline),
+        lead: {
+          id: sorted[0].id,
+          headline: sorted[0].title,
+          body: (sorted[0].excerpt || sorted[0].content || sorted[0].description || '').slice(0, 600),
+          attribution: sorted[0].author || 'বাংলার ভয়েস',
+          category: sorted[0].category || 'প্রধান',
+        },
+        articles: sorted.slice(1, 6).map((a: any) => ({
+          id: a.id,
+          headline: a.title,
+          body: (a.excerpt || a.content || '').slice(0, 400),
+          attribution: a.author || 'ডেস্ক',
+          category: a.category,
+        })),
+        briefs: sorted.slice(6, 13).map((a: any) => a.title),
       },
       {
         number: 2,
         section: 'জাতীয়',
         layout: 'two-column',
-        articles: articles.slice(5, 10).map((a: any) => ({ id: a.id, headline: a.title || a.headline, body: (a.excerpt || a.content || '').slice(0, 350), attribution: a.author })),
+        articles: sorted.slice(6, 12).map((a: any) => ({
+          id: a.id,
+          headline: a.title,
+          body: (a.excerpt || a.content || '').slice(0, 350),
+          attribution: a.author,
+        })),
+      },
+      {
+        number: 3,
+        section: 'খেলা ও বিনোদন',
+        layout: 'grid',
+        articles: sorted.slice(12, 18).map((a: any) => ({
+          id: a.id,
+          headline: a.title,
+          body: (a.excerpt || a.content || '').slice(0, 300),
+          attribution: a.author,
+        })),
       },
     ],
   };
 }
 
 export async function GET() {
-  const supabase = getClient();
-  if (!supabase) {
-    return NextResponse.json({ edition: null }, { status: 200 });
+  try {
+    const articles = await fetchPublishedArticlesFeed(30);
+    const edition = toEdition(articles);
+    if (!edition) return NextResponse.json({ edition: null, reason: 'no published articles' }, { status: 200 });
+    return NextResponse.json({ edition });
+  } catch (e: any) {
+    return NextResponse.json({ edition: null, error: e.message }, { status: 200 });
   }
-
-  // Try all possible table names - your real news is in one of these
-  const tables = ['news', 'articles', 'posts', 'contents'];
-  for (const table of tables) {
-    try {
-      const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(15);
-      if (!error && data && data.length > 0) {
-        const edition = buildFromRealNews(data);
-        return NextResponse.json({ edition });
-      }
-    } catch {}
-  }
-
-  return NextResponse.json({ edition: null });
 }
