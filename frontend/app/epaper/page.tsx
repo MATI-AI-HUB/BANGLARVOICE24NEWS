@@ -1,10 +1,19 @@
 import EPaperViewer from '../../components/epaper/EPaperViewer';
-import { fetchPublishedArticlesFeed } from '../../lib/supabase/published-articles';
+import { createPublicSupabase, fetchPublishedArticlesFeed } from '../../lib/supabase/published-articles';
 export const dynamic = 'force-dynamic';
 export default async function EpaperPage() {
-  const rows:any[] = await fetchPublishedArticlesFeed(20);
+  let rows:any[] = [];
+  try {
+    const supabase = createPublicSupabase();
+    // @ts-ignore
+    rows = await (fetchPublishedArticlesFeed as any)(supabase, 20);
+    if (!Array.isArray(rows)) rows = await (fetchPublishedArticlesFeed as any)(20);
+  } catch {
+    // @ts-ignore
+    rows = await (fetchPublishedArticlesFeed as any)(20);
+  }
   const now = new Date();
-  if(!rows.length) return <div className="p-10 text-center bg-[#f4f1ea]">Admin → Articles → published করুন</div>;
+  if(!rows.length) return <div className="p-10 text-center bg-[#f4f1ea]">কোনো প্রকাশিত সংবাদ নেই</div>;
   const edition = {
     editionDate: now.toISOString().split('T')[0],
     editionLabel: now.toLocaleDateString('bn-BD', { year:'numeric', month:'long', day:'numeric' }),
