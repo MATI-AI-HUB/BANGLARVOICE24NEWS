@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createPublicSupabase, fetchPublishedArticlesFeed } from '../../../../lib/supabase/published-articles';
+import { createPublicSupabase, fetchPublishedArticlesFeed } from '@/lib/supabase/published-articles';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export async function GET(){
@@ -13,7 +13,7 @@ export async function GET(){
   }
   try{
     const pub=createPublicSupabase();
-    let rows:any[]=[]; try{ rows=await (fetchPublishedArticlesFeed as any)(pub,20); if(!Array.isArray(rows)) rows=await (fetchPublishedArticlesFeed as any)(20);}catch{ rows=await (fetchPublishedArticlesFeed as any)(20);}
+    const rows:any[] = await fetchPublishedArticlesFeed(pub,20);
     if(!rows.length) return NextResponse.json({edition:null});
     return NextResponse.json({ edition:{ editionDate:today, editionLabel:new Date().toLocaleDateString('bn-BD',{dateStyle:'long'}), volume:'১', issue:1, pages:[{ number:1, section:'প্রথম পাতা', layout:'front', lead:{ id:rows[0].id, headline:rows[0].title_bn||rows[0].title_en, body:(rows[0].excerpt_bn||rows[0].content_bn||'').slice(0,600), image:rows[0].thumbnail_url||rows[0].featured_image||null }, articles:rows.slice(1,7).map((a:any)=>({ id:a.id, headline:a.title_bn||a.title_en, body:(a.excerpt_bn||a.content_bn||'').slice(0,400), image:a.thumbnail_url||a.featured_image||null })), briefs:rows.slice(7,14).map((a:any)=>a.title_bn||a.title_en) }] }});
   }catch(e:any){ return NextResponse.json({edition:null, error:e.message}); }

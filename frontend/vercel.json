@@ -1,4 +1,1 @@
-{
-  "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "npm run build"
-}
+{ "crons": [{ "path": "/api/cron/epaper", "schedule": "30 17 * * *" }] }
