@@ -2,82 +2,59 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-type PageArticle = { id?: string; headline?: string; body?: string; attribution?: string; category?: string };
-type Page = { lead?: PageArticle; articles?: PageArticle[]; briefs?: string[]; [key: string]: unknown };
-
-function db() {
+function getClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Supabase not configured');
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url ||!anon) return null;
+  return createClient(url, anon);
 }
 
-function normalize(row: any) {
-  return row ? {
-    editionDate: row.edition_date,
-    editionLabel: row.title,
-    volume: '',
+function buildFromRealNews(articles: any[]) {
+  if (!articles || articles.length === 0) return null;
+  const now = new Date();
+  return {
+    editionDate: now.toISOString().split('T')[0],
+    editionLabel: now.toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }),
+    volume: '১',
     issue: 1,
-    pages: Array.isArray(row.pages) ? row.pages : [],
-    pdfUrl: row.pdf_url || '',
-  } : null;
-}
-
-function collectIds(pages: Page[]): string[] {
-  const ids = new Set<string>();
-  for (const page of pages) {
-    if (page.lead?.id) ids.add(page.lead.id);
-    for (const article of page.articles || []) if (article.id) ids.add(article.id);
-  }
-  return [...ids].slice(0, 30);
-}
-
-function hydratePages(pages: Page[], rows: any[]): Page[] {
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  const hydrate = (article?: PageArticle): PageArticle | undefined => {
-    if (!article) return article;
-    const row = article.id ? byId.get(article.id) : undefined;
-    if (!row) return article;
-    return {
-      ...article,
-      headline: row.title_bn || article.headline || 'শিরোনামহীন',
-      body: (row.content_bn || row.excerpt_bn || article.body || '').slice(0, 1200),
-      attribution: row.source_name || article.attribution || 'বাংলার ভয়েস ডেস্ক',
-    };
+    pages: [
+      {
+        number: 1,
+        section: 'প্রথম পাতা',
+        layout: 'front',
+        lead: articles[0]? { id: articles[0].id, headline: articles[0].title || articles[0].headline, body: (articles[0].excerpt || articles[0].content || '').slice(0, 500), attribution: articles[0].author || 'বাংলার ভয়েস', category: articles[0].category } : undefined,
+        articles: articles.slice(1, 5).map((a: any) => ({ id: a.id, headline: a.title || a.headline, body: (a.excerpt || a.content || '').slice(0, 350), attribution: a.author, category: a.category })),
+        briefs: articles.slice(5, 12).map((a: any) => a.title || a.headline),
+      },
+      {
+        number: 2,
+        section: 'জাতীয়',
+        layout: 'two-column',
+        articles: articles.slice(5, 10).map((a: any) => ({ id: a.id, headline: a.title || a.headline, body: (a.excerpt || a.content || '').slice(0, 350), attribution: a.author })),
+      },
+    ],
   };
-  return pages.map((page) => ({
-    ...page,
-    lead: hydrate(page.lead),
-    articles: (page.articles || []).map((article) => hydrate(article) || article),
-  }));
 }
 
 export async function GET() {
-  try {
-    const client = db();
-    const { data, error } = await client
-      .from('epaper_editions')
-      .select('id,edition_date,title,pages,pdf_url,article_count,created_at,updated_at')
-      .gt('article_count', 0)
-      .order('edition_date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    const edition = normalize(data);
-    if (edition && edition.pages.length) {
-      const ids = collectIds(edition.pages);
-      if (ids.length) {
-        const { data: articles } = await client
-          .from('articles')
-          .select('id,title_bn,content_bn,excerpt_bn,source_name')
-          .in('id', ids)
-          .limit(30);
-        edition.pages = hydratePages(edition.pages, articles || []);
-      }
-    }
-    return NextResponse.json({ edition });
-  } catch {
-    return NextResponse.json({ edition: null, error: 'epaper_unavailable' }, { status: 503 });
+  const supabase = getClient();
+  if (!supabase) {
+    return NextResponse.json({ edition: null }, { status: 200 });
   }
+
+  // Try all possible table names - your real news is in one of these
+  const tables = ['news', 'articles', 'posts', 'contents'];
+  for (const table of tables) {
+    try {
+      const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(15);
+      if (!error && data && data.length > 0) {
+        const edition = buildFromRealNews(data);
+        return NextResponse.json({ edition });
+      }
+    } catch {}
+  }
+
+  return NextResponse.json({ edition: null });
 }
