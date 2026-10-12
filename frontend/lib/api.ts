@@ -260,9 +260,6 @@ export const api = {
   },
 
   async article(slug: string): Promise<Record<string, unknown>> {
-    if (!UUID_RE.test(slug)) {
-      return {};
-    }
     if (!supabase) {
       return {};
     }
