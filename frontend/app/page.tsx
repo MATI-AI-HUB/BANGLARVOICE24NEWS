@@ -81,8 +81,43 @@ export default async function HomePage() {
   const videos: VideoItem[] =
     videoItems.length > 0 ? videoItems : (demoMode ? mockVideoItems : []);
 
+  // VideoObject structured data — helps Google index the video hub for video
+  // rich results. Only emitted for entries with a real YouTube ID.
+  const videoGraph = videos
+    .filter((v) => v.youtube_id)
+    .slice(0, 5)
+    .map((v) => {
+      const id = v.youtube_id as string;
+      const duration = v.duration_sec && v.duration_sec > 0
+        ? `PT${Math.floor(v.duration_sec / 60)}M${v.duration_sec % 60}S`
+        : undefined;
+      return {
+        '@type': 'VideoObject',
+        name: v.title_bn || 'ভিডিও',
+        description: v.description || v.title_bn || '',
+        thumbnailUrl:
+          v.thumbnail_url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        uploadDate: v.published_at || new Date(0).toISOString(),
+        embedUrl: `https://www.youtube-nocookie.com/embed/${id}`,
+        contentUrl: `https://www.youtube.com/watch?v=${id}`,
+        ...(duration ? { duration } : {}),
+      };
+    });
+  const videoJsonLd =
+    videoGraph.length > 0
+      ? { '@context': 'https://schema.org', '@graph': videoGraph }
+      : null;
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 pb-28">
+      {videoJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(videoJsonLd).replace(/</g, '\\u003c'),
+          }}
+        />
+      )}
       <section className="mb-10 text-center">
               <div className="mb-4 inline-flex items-center gap-3 rounded-full border border-border bg-gradient-to-r from-paper via-paper to-muted px-5 py-2 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-800">
         <span

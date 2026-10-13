@@ -6,6 +6,7 @@ export type VideoItem = {
   id?: string;
   title_bn?: string;
   title_en?: string;
+  description?: string;
   category?: string;
   thumbnail_url?: string;
   video_url?: string;
@@ -40,37 +41,61 @@ function Thumb({ src, alt }: { src?: string; alt: string }) {
   );
 }
 
-/** Real YouTube / iframe player with fallback to thumbnail. */
+/** Privacy-friendly, click-to-play YouTube (nocookie) / iframe player. */
 function Player({ video }: { video?: VideoItem }) {
+  const [playing, setPlaying] = useState(false);
+
   if (!video) {
     return (
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-neutral-900" />
     );
   }
 
-  const src =
-    video.embed_url ||
-    (video.youtube_id ? `https://www.youtube.com/embed/${video.youtube_id}?autoplay=0&rel=0` : null);
+  // Prefer the privacy-enhanced nocookie domain for real YouTube IDs; only
+  // fall back to a stored embed_url (e.g. Facebook/Vimeo) when we have no ID.
+  const src = video.youtube_id
+    ? `https://www.youtube-nocookie.com/embed/${video.youtube_id}?autoplay=1&rel=0`
+    : video.embed_url || null;
 
-  if (src) {
+  if (!src) {
     return (
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
-        <iframe
-          key={video.id || src}
-          src={src}
-          title={video.title_bn || 'ভিডিও'}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          loading="lazy"
-          className="h-full w-full"
-        />
+      <div className="relative overflow-hidden rounded-2xl border border-white/10">
+        <Thumb src={video.thumbnail_url} alt={video.title_bn || 'ভিডিও'} />
       </div>
     );
   }
 
+  if (!playing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setPlaying(true)}
+        aria-label={video.title_bn ? `${video.title_bn} — ভিডিও চালান` : 'ভিডিও চালান'}
+        className="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
+      >
+        <Thumb src={video.thumbnail_url} alt={video.title_bn || 'ভিডিও'} />
+        <span className="absolute inset-0 grid place-items-center bg-black/20 transition-colors group-hover:bg-black/40">
+          <span className="grid h-16 w-16 place-items-center rounded-full bg-black/60 text-white shadow-lg ring-2 ring-white/70 transition-transform group-hover:scale-110 group-hover:bg-[#CC0000]">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        </span>
+      </button>
+    );
+  }
+
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/10">
-      <Thumb src={video.thumbnail_url} alt={video.title_bn || 'ভিডিও'} />
+    <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black">
+      <iframe
+        key={video.id || src}
+        src={src}
+        title={video.title_bn || 'ভিডিও'}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        loading="lazy"
+        className="h-full w-full"
+      />
     </div>
   );
 }
@@ -111,7 +136,7 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
         {/* Feature player */}
         <div className="lg:col-span-3">
           <div className="relative">
-            <Player video={feature} />
+            <Player key={feature?.id ?? feature?.youtube_id ?? 'feature'} video={feature} />
             {feature?.is_live && (
               <span className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded bg-[#CC0000] px-2 py-1 text-[10px] font-extrabold uppercase tracking-widest">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" aria-hidden />

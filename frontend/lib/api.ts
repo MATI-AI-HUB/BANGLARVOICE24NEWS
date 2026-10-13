@@ -299,7 +299,7 @@ export const api = {
     try {
       const { data, error } = await supabase
         .from('videos')
-        .select('id, title_bn, title_en, category_key, thumbnail_url, video_url, embed_url, youtube_id, duration_sec, is_live, view_count, published_at')
+        .select('id, title_bn, title_en, description_bn, category_key, thumbnail_url, video_url, embed_url, youtube_id, duration_sec, is_live, view_count, published_at')
         .in('status', ['published', 'live'])
         .order('is_live', { ascending: false })
         .order('published_at', { ascending: false })
@@ -309,10 +309,17 @@ export const api = {
         videos: (data || []).map((v) => ({
           id: v.id,
           title_bn: v.title_bn,
+          title_en: v.title_en || undefined,
+          description: v.description_bn || '',
           category: v.category_key || '',
           thumbnail_url: v.thumbnail_url || null,
+          video_url: v.video_url || undefined,
           embed_url: v.embed_url || null,
+          youtube_id: v.youtube_id || undefined,
+          duration_sec: typeof v.duration_sec === 'number' ? v.duration_sec : 0,
           is_live: Boolean(v.is_live),
+          view_count: typeof v.view_count === 'number' ? v.view_count : 0,
+          published_at: v.published_at || undefined,
         })),
       };
     } catch (e) {
