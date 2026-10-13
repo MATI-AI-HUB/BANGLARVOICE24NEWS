@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { dhakaDayStartIso, fetchReadiness, type PlatformLimit } from '../../../../lib/social-platforms';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const BASE_URL = 'https://www.banglarvoice24news.com';
-type Platform = 'facebook' | 'instagram' | 'x' | 'linkedin' | 'telegram';
+type Platform = 'facebook' | 'instagram' | 'x' | 'linkedin' | 'telegram' | 'tiktok';
 
 type QueueRow = {
   id: string;
@@ -24,8 +25,16 @@ type Article = {
   video_id: string | null;
 };
 
-function admin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+type PublishResult = {
+  status: 'published' | 'failed' | 'skipped';
+  external_post_id?: string;
+  error?: string;
+};
+
+function admin(): SupabaseClient {
+  // Server-only credentials. SUPABASE_URL is the canonical server variable;
+  // NEXT_PUBLIC_SUPABASE_URL is only a fallback for older deployments.
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Supabase admin credentials are not configured');
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -41,8 +50,9 @@ async function vaultSecret(serviceName: string): Promise<string | null> {
   const { data: plain } = await client.rpc('decrypt_vault_secret', { p_secret_id: row.key_encrypted });
   return typeof plain === 'string' && plain.length > 0 ? plain : null;
 }
+
 async function authorized(request: Request): Promise<boolean> {
-  const secret = await vaultSecret('CRON_SECRET') || await vaultSecret('NEWSROOM_INGEST_KEY');
+  const secret = (await vaultSecret('CRON_SECRET')) || (await vaultSecret('NEWSROOM_INGEST_KEY'));
   if (!secret) return false;
   const header = request.headers.get('authorization') || '';
   return header === `Bearer ${secret}` || request.headers.get('x-cron-secret') === secret;
@@ -58,31 +68,53 @@ async function graph(path: string, body: Record<string, string>) {
   return { response, data };
 }
 
-function articleText(article: Article, articleUrl: string, youtubeId?: string) {
-  const video = youtubeId ? `\n\nভিডিও: https://www.youtube.com/watch?v=${youtubeId}` : '';
-  return `${article.title_bn}\n\nবিস্তারিত সংবাদ: ${articleUrl}${video}`;
+function articleUrl(article: Article): string {
+  return `${BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
 }
 
-async function publish(platform: Platform, article: Article, youtubeId?: string) {
-  const articleUrl = `${BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
+function videoSuffix(youtubeId?: string): string {
+  return youtubeId ? `\n\nভিডিও: https://www.youtube.com/watch?v=${youtubeId}` : '';
+}
+
+// Facebook suppresses reach on posts that carry an outbound link, so the post
+// body stays link-free and the URL is added as the first comment instead.
+function facebookCaption(article: Article): string {
+  return article.title_bn.slice(0, 450);
+}
+
+// Instagram captions cannot carry clickable links; point readers to the bio and
+// stay within the 2200 character limit.
+function instagramCaption(article: Article): string {
+  const suffix = '\n\nবিস্তারিত লিংক বায়োতে।';
+  return `${article.title_bn.slice(0, Math.max(0, 2200 - suffix.length))}${suffix}`;
+}
+
+async function publish(platform: Platform, article: Article, youtubeId?: string): Promise<PublishResult> {
+  const url = articleUrl(article);
   const cardUrl = `${BASE_URL}/api/social-card/${article.id}`;
-  const text = articleText(article, articleUrl, youtubeId);
-  const imageUrl = article.featured_image || article.thumbnail_url || cardUrl;
 
   if (platform === 'facebook') {
     const [pageId, token] = await Promise.all([vaultSecret('SOCIAL_FACEBOOK_PAGE_ID'), vaultSecret('SOCIAL_FACEBOOK_PAGE_TOKEN')]);
     if (!pageId || !token) return { status: 'skipped', error: 'missing Facebook credentials' };
-    const { response, data } = await graph(`${pageId}/feed`, { message: text, link: articleUrl, access_token: token });
-    return response.ok && data?.id ? { status: 'published', external_post_id: data.id } : { status: 'failed', error: data?.error?.message || 'Facebook publish failed' };
+    const post = await graph(`${pageId}/feed`, { message: facebookCaption(article), access_token: token });
+    if (!post.response.ok || !post.data?.id) return { status: 'failed', error: post.data?.error?.message || 'Facebook publish failed' };
+    // Link goes in the first comment. A comment failure must not fail the post.
+    const comment = await graph(`${post.data.id}/comments`, { message: url, access_token: token });
+    if (!comment.response.ok) console.error('[social] facebook first-comment failed', { article_id: article.id });
+    return { status: 'published', external_post_id: post.data.id };
   }
 
   if (platform === 'instagram') {
     const [accountId, token] = await Promise.all([vaultSecret('SOCIAL_INSTAGRAM_BUSINESS_ACCOUNT_ID'), vaultSecret('SOCIAL_INSTAGRAM_ACCESS_TOKEN')]);
     if (!accountId || !token) return { status: 'skipped', error: 'missing Instagram credentials' };
-    const created = await graph(`${accountId}/media`, { image_url: imageUrl, caption: text.slice(0, 2200), access_token: token });
+    const imageUrl = article.featured_image || article.thumbnail_url || cardUrl;
+    if (!/^https:\/\//i.test(imageUrl)) return { status: 'skipped', error: 'instagram_requires_public_https_image' };
+    const created = await graph(`${accountId}/media`, { image_url: imageUrl, caption: instagramCaption(article), access_token: token });
     if (!created.response.ok || !created.data?.id) return { status: 'failed', error: created.data?.error?.message || 'Instagram media creation failed' };
     const published = await graph(`${accountId}/media_publish`, { creation_id: created.data.id, access_token: token });
-    return published.response.ok && published.data?.id ? { status: 'published', external_post_id: published.data.id } : { status: 'failed', error: published.data?.error?.message || 'Instagram publish failed' };
+    return published.response.ok && published.data?.id
+      ? { status: 'published', external_post_id: published.data.id }
+      : { status: 'failed', error: published.data?.error?.message || 'Instagram publish failed' };
   }
 
   if (platform === 'x') {
@@ -91,10 +123,12 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
     const response = await fetch('https://api.x.com/2/tweets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ text: text.slice(0, 280) }),
+      body: JSON.stringify({ text: `${article.title_bn}\n${url}${videoSuffix(youtubeId)}`.slice(0, 280) }),
     });
     const data = await response.json().catch(() => ({}));
-    return response.ok && data?.data?.id ? { status: 'published', external_post_id: data.data.id } : { status: 'failed', error: data?.detail || data?.title || 'X publish failed' };
+    return response.ok && data?.data?.id
+      ? { status: 'published', external_post_id: data.data.id }
+      : { status: 'failed', error: data?.detail || data?.title || 'X publish failed' };
   }
 
   if (platform === 'linkedin') {
@@ -106,12 +140,20 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
       body: JSON.stringify({
         author: `urn:li:organization:${organizationId}`,
         lifecycleState: 'PUBLISHED',
-        specificContent: { 'com.linkedin.ugc.ShareContent': { shareCommentary: { text }, shareMediaCategory: 'ARTICLE', media: [{ status: 'READY', originalUrl: articleUrl, title: { text: article.title_bn } }] } },
+        specificContent: { 'com.linkedin.ugc.ShareContent': { shareCommentary: { text: `${article.title_bn}\n\n${url}` }, shareMediaCategory: 'ARTICLE', media: [{ status: 'READY', originalUrl: url, title: { text: article.title_bn } }] } },
         visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
       }),
     });
     const data = await response.json().catch(() => ({}));
-    return response.ok && data?.id ? { status: 'published', external_post_id: data.id } : { status: 'failed', error: data?.message || 'LinkedIn publish failed' };
+    return response.ok && data?.id
+      ? { status: 'published', external_post_id: data.id }
+      : { status: 'failed', error: data?.message || 'LinkedIn publish failed' };
+  }
+
+  if (platform === 'tiktok') {
+    // Phase 1 stub: TikTok stays disabled in the readiness registry and is
+    // never enqueued. Kept here so a manual row cannot silently publish.
+    return { status: 'skipped', error: 'tiktok_not_configured' };
   }
 
   const [bot, channel] = await Promise.all([vaultSecret('SOCIAL_TELEGRAM_BOT_TOKEN'), vaultSecret('SOCIAL_TELEGRAM_CHANNEL_ID')]);
@@ -119,43 +161,105 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
   const response = await fetch(`https://api.telegram.org/bot${bot}/sendPhoto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: channel, photo: cardUrl, caption: text.slice(0, 1024) }),
+    body: JSON.stringify({ chat_id: channel, photo: cardUrl, caption: `${article.title_bn}\n\nবিস্তারিত সংবাদ: ${url}${videoSuffix(youtubeId)}`.slice(0, 1024) }),
   });
   const data = await response.json().catch(() => ({}));
-  return data?.ok ? { status: 'published', external_post_id: String(data.result?.message_id || '') } : { status: 'failed', error: data?.description || 'Telegram publish failed' };
+  return data?.ok
+    ? { status: 'published', external_post_id: String(data.result?.message_id || '') }
+    : { status: 'failed', error: data?.description || 'Telegram publish failed' };
+}
+
+/** Reason a ready platform must wait this run, or null when it may publish. */
+function rateLimitReason(
+  platform: string,
+  limits: Record<string, PlatformLimit>,
+  dailyCount: Map<string, number>,
+  lastPosted: Map<string, number>,
+): string | null {
+  const limit = limits[platform];
+  if (!limit) return null;
+  if (limit.daily !== null && (dailyCount.get(platform) || 0) >= limit.daily) return 'daily_post_limit';
+  if (limit.minGapMinutes > 0) {
+    const last = lastPosted.get(platform);
+    if (last && Date.now() - last < limit.minGapMinutes * 60_000) return 'min_gap_minutes';
+  }
+  return null;
 }
 
 export async function POST(request: Request) {
   if (!(await authorized(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
   // Social dispatch is enabled by default; an explicit false is the only kill switch.
-  // Platform credentials remain Vault-backed, so missing credentials are skipped safely.
   if (process.env.SOCIAL_AUTOMATION_ENABLED === 'false') {
     return NextResponse.json({ ok: true, processed: 0, disabled: true });
   }
+
   const supabase = admin();
-  const { data: queue, error: queueError } = await supabase
+
+  // Phase 1 readiness gate. Fails closed: only platforms that are enabled,
+  // name-verified and fully credentialled are read from or written to.
+  const { ready, limits, degraded } = await fetchReadiness(supabase);
+  if (degraded) console.error('[social] readiness registry unavailable; no platforms dispatched');
+  if (!ready.length) {
+    return NextResponse.json({ ok: true, processed: 0, ready: 0, degraded });
+  }
+
+  const queue = await supabase
     .from('social_posts')
     .select('id, article_id, platform, attempt_count')
     .eq('status', 'pending')
+    .in('platform', ready)
     .order('created_at', { ascending: true })
     .limit(30);
-  if (queueError) return NextResponse.json({ error: 'queue_read_failed' }, { status: 500 });
+  if (queue.error) return NextResponse.json({ error: 'queue_read_failed' }, { status: 500 });
+
   const retryable = await supabase
     .from('social_posts')
     .select('id, article_id, platform, attempt_count')
     .eq('status', 'failed')
+    .in('platform', ready)
     .lt('attempt_count', 5)
     .order('updated_at', { ascending: true })
     .limit(10);
-  const pendingRows = [...((queue || []) as QueueRow[]), ...((retryable.data || []) as QueueRow[])]
-  if (!pendingRows.length) return NextResponse.json({ ok: true, processed: 0 });
+
+  const pendingRows = [...((queue.data || []) as QueueRow[]), ...((retryable.data || []) as QueueRow[])];
+  if (!pendingRows.length) return NextResponse.json({ ok: true, processed: 0, ready: ready.length });
 
   const articleIds = [...new Set(pendingRows.map((row) => row.article_id))];
   const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,thumbnail_url,featured_image,category_key,video_id').in('id', articleIds);
-  const articleMap = new Map((articles as Article[] || []).map((article) => [article.id, article]));
-  const videoIds = (articles as Article[] || []).map((article) => article.video_id).filter((id): id is string => Boolean(id));
+  const articleMap = new Map(((articles as Article[]) || []).map((article) => [article.id, article]));
+  const videoIds = ((articles as Article[]) || []).map((article) => article.video_id).filter((id): id is string => Boolean(id));
   const { data: videos } = videoIds.length ? await supabase.from('videos').select('id,youtube_id').in('id', videoIds) : { data: [] };
-  const videoMap = new Map((videos || []).map((video) => [video.id, video.youtube_id]));
+  const videoMap = new Map(((videos as Array<{ id: string; youtube_id: string }>) || []).map((video) => [video.id, video.youtube_id]));
+
+  // Safety rails: per-platform publish budget for the current Dhaka day and the
+  // most recent publish time, used to space posts out.
+  const { data: publishedToday } = await supabase
+    .from('social_posts')
+    .select('platform')
+    .eq('status', 'published')
+    .in('platform', ready)
+    .gte('posted_at', dhakaDayStartIso());
+  const dailyCount = new Map<string, number>();
+  for (const row of (publishedToday || []) as Array<{ platform?: string }>) {
+    if (row.platform) dailyCount.set(row.platform, (dailyCount.get(row.platform) || 0) + 1);
+  }
+
+  const { data: recent } = await supabase
+    .from('social_posts')
+    .select('platform,posted_at')
+    .eq('status', 'published')
+    .in('platform', ready)
+    .not('posted_at', 'is', null)
+    .order('posted_at', { ascending: false })
+    .limit(100);
+  const lastPosted = new Map<string, number>();
+  for (const row of (recent || []) as Array<{ platform?: string; posted_at?: string | null }>) {
+    if (row.platform && row.posted_at && !lastPosted.has(row.platform)) {
+      lastPosted.set(row.platform, new Date(row.posted_at).getTime());
+    }
+  }
+
   const results: Array<{ platform: string; status: string; article_id: string; error?: string }> = [];
 
   for (const row of pendingRows) {
@@ -164,6 +268,14 @@ export async function POST(request: Request) {
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: 'article_not_found' });
       continue;
     }
+
+    const reason = rateLimitReason(row.platform, limits, dailyCount, lastPosted);
+    if (reason) {
+      // Left pending on purpose so it is retried once the window clears.
+      results.push({ platform: row.platform, status: 'deferred', article_id: row.article_id, error: reason });
+      continue;
+    }
+
     try {
       const result = await publish(row.platform, article, article.video_id ? videoMap.get(article.video_id) : undefined);
       const now = new Date().toISOString();
@@ -175,6 +287,10 @@ export async function POST(request: Request) {
         updated_at: now,
         posted_at: result.status === 'published' ? now : null,
       }).eq('id', row.id);
+      if (result.status === 'published') {
+        dailyCount.set(row.platform, (dailyCount.get(row.platform) || 0) + 1);
+        lastPosted.set(row.platform, Date.now());
+      }
       results.push({ platform: row.platform, status: result.status, article_id: row.article_id, error: result.error });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown publish error';
@@ -182,5 +298,6 @@ export async function POST(request: Request) {
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: message });
     }
   }
-  return NextResponse.json({ ok: true, processed: results.length, results });
+
+  return NextResponse.json({ ok: true, processed: results.length, ready: ready.length, results });
 }
