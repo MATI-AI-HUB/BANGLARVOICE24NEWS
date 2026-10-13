@@ -14,6 +14,7 @@ import {
   licenceNoteAllowsReuse,
   minAiScore,
 } from '../../../../lib/publish-gate';
+import { fetchReadiness } from '../../../../lib/social-platforms';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -320,18 +321,22 @@ export async function POST(req: Request) {
 
   if (!data) return json({ error: 'storage_failed', detail: 'insert failed' }, 500);
   if (data.status === 'published') {
-    const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram'];
-    const { error: queueError } = await supabase.from('social_posts').upsert(
-      platforms.map((platform) => ({
-        article_id: data.id,
-        platform,
-        status: 'pending',
-        payload: { title: title.slice(0, 250), image_url: imageUrl },
-        updated_at: now,
-      })),
-      { onConflict: 'article_id,platform' },
-    );
-    if (queueError) return json({ error: 'social_queue_failed', detail: queueError.message }, 500);
+    // Phase 1: enqueue only to platforms that are enabled, name-verified and
+    // fully credentialled. Fails closed, so an unreadable registry enqueues nothing.
+    const { ready } = await fetchReadiness(supabase);
+    if (ready.length) {
+      const { error: queueError } = await supabase.from('social_posts').upsert(
+        ready.map((platform) => ({
+          article_id: data.id,
+          platform,
+          status: 'pending',
+          payload: { title: title.slice(0, 250), image_url: imageUrl },
+          updated_at: now,
+        })),
+        { onConflict: 'article_id,platform' },
+      );
+      if (queueError) return json({ error: 'social_queue_failed', detail: queueError.message }, 500);
+    }
   }
   return json({ ok: true, id: data.id, status: data.status });
 }

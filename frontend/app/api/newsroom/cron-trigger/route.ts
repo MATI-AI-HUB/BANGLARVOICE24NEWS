@@ -3,6 +3,7 @@ import { isIP } from 'node:net'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { callAiGateway } from '@/lib/ai-gateway'
+import { fetchReadiness } from '@/lib/social-platforms'
 import {
   FEED_403_DISABLE_THRESHOLD,
   PIPELINE_INTERVAL_MINUTES,
@@ -1377,6 +1378,15 @@ async function runCronTrigger(request: Request) {
   let finalStatus: 'success' | 'partial' | 'failed' = 'failed'
   let aiConfigs: AIConfig[] = []
 
+  // Phase 1 readiness gate: only enqueue to platforms that are enabled,
+  // name-verified and fully credentialled. Fails closed, so an unreadable
+  // registry enqueues nothing rather than guessing with a hardcoded list.
+  const socialReadiness = await fetchReadiness(supabase)
+  const socialPlatforms = socialReadiness.ready
+  if (socialReadiness.degraded) {
+    console.error('[newsroom] social readiness registry unavailable; no platforms enqueued')
+  }
+
   try {
     const previousRuns = await recentSourceRuns(supabase)
     const autoPublish = isAutoPublish()
@@ -1842,20 +1852,21 @@ async function runCronTrigger(request: Request) {
         if (publishNow) {
           stats.ingested += 1
           publishedThisRun += 1
-          const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram']
-          const { error: socialQueueError } = await supabase.from('social_posts').upsert(
-            platforms.map((platform) => ({
-              article_id: inserted?.id,
-              platform,
-              status: 'pending',
-              payload: { title: rewrite.title_bn.slice(0, 250), image_url: image.url },
-              updated_at: new Date().toISOString(),
-            })),
-            { onConflict: 'article_id,platform' },
-          )
-          if (socialQueueError) {
-            errorCodes.add('social_queue_failed')
-            console.error('[newsroom] social queue failed', { article_id: inserted?.id, message: socialQueueError.message })
+          if (socialPlatforms.length) {
+            const { error: socialQueueError } = await supabase.from('social_posts').upsert(
+              socialPlatforms.map((platform) => ({
+                article_id: inserted?.id,
+                platform,
+                status: 'pending',
+                payload: { title: rewrite.title_bn.slice(0, 250), image_url: image.url },
+                updated_at: new Date().toISOString(),
+              })),
+              { onConflict: 'article_id,platform' },
+            )
+            if (socialQueueError) {
+              errorCodes.add('social_queue_failed')
+              console.error('[newsroom] social queue failed', { article_id: inserted?.id, message: socialQueueError.message })
+            }
           }
         } else {
           stats.pending += 1
@@ -1978,17 +1989,18 @@ async function runCronTrigger(request: Request) {
           stats.processed += 1
           if (publishNow) {
             stats.ingested += 1
-            const platforms = ['facebook', 'instagram', 'x', 'linkedin', 'telegram']
-            await supabase.from('social_posts').upsert(
-              platforms.map((platform) => ({
-                article_id: pendingArticle.id,
-                platform,
-                status: 'pending',
-                payload: { title: rewrite.title_bn.slice(0, 250), image_url: imageUrl },
-                updated_at: new Date().toISOString(),
-              })),
-              { onConflict: 'article_id,platform' },
-            )
+            if (socialPlatforms.length) {
+              await supabase.from('social_posts').upsert(
+                socialPlatforms.map((platform) => ({
+                  article_id: pendingArticle.id,
+                  platform,
+                  status: 'pending',
+                  payload: { title: rewrite.title_bn.slice(0, 250), image_url: imageUrl },
+                  updated_at: new Date().toISOString(),
+                })),
+                { onConflict: 'article_id,platform' },
+              )
+            }
           } else {
             stats.pending += 1
             stats.queued += 1
