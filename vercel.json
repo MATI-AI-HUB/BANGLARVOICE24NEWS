@@ -1,6 +1,0 @@
-{
-  "crons": [
-    { "path": "/api/cron/epaper", "schedule": "30 17 * * *" },
-    { "path": "/api/newsroom/cron-trigger", "schedule": "0 6 * * *" }
-  ]
-}
