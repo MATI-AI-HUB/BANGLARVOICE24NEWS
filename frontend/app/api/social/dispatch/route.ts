@@ -12,6 +12,7 @@ type QueueRow = {
   article_id: string;
   platform: Platform;
   attempt_count: number;
+  payload?: { caption?: string | null } | null;
 };
 
 type Article = {
@@ -58,15 +59,16 @@ async function graph(path: string, body: Record<string, string>) {
   return { response, data };
 }
 
-function articleText(article: Article, articleUrl: string, youtubeId?: string) {
+function articleText(article: Article, articleUrl: string, youtubeId?: string, caption?: string | null) {
   const video = youtubeId ? `\n\nভিডিও: https://www.youtube.com/watch?v=${youtubeId}` : '';
+  if (caption && caption.trim()) return `${caption.trim()}\n\nবিস্তারিত: ${articleUrl}${video}`;
   return `${article.title_bn}\n\nবিস্তারিত সংবাদ: ${articleUrl}${video}`;
 }
 
-async function publish(platform: Platform, article: Article, youtubeId?: string) {
+async function publish(platform: Platform, article: Article, youtubeId?: string, caption?: string | null) {
   const articleUrl = `${BASE_URL}/article/${encodeURIComponent(article.slug || article.id)}`;
   const cardUrl = `${BASE_URL}/api/social-card/${article.id}`;
-  const text = articleText(article, articleUrl, youtubeId);
+  const text = articleText(article, articleUrl, youtubeId, caption);
   const imageUrl = article.featured_image || article.thumbnail_url || cardUrl;
 
   if (platform === 'facebook') {
@@ -135,14 +137,14 @@ export async function POST(request: Request) {
   const supabase = admin();
   const { data: queue, error: queueError } = await supabase
     .from('social_posts')
-    .select('id, article_id, platform, attempt_count')
+    .select('id, article_id, platform, attempt_count, payload')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
     .limit(30);
   if (queueError) return NextResponse.json({ error: 'queue_read_failed' }, { status: 500 });
   const retryable = await supabase
     .from('social_posts')
-    .select('id, article_id, platform, attempt_count')
+    .select('id, article_id, platform, attempt_count, payload')
     .eq('status', 'failed')
     .lt('attempt_count', 5)
     .order('updated_at', { ascending: true })
@@ -165,7 +167,7 @@ export async function POST(request: Request) {
       continue;
     }
     try {
-      const result = await publish(row.platform, article, article.video_id ? videoMap.get(article.video_id) : undefined);
+      const result = await publish(row.platform, article, article.video_id ? videoMap.get(article.video_id) : undefined, row.payload?.caption);
       const now = new Date().toISOString();
       await supabase.from('social_posts').update({
         status: result.status,
