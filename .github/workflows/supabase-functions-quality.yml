@@ -7,12 +7,6 @@ on:
       - 'supabase/functions/**'
       - 'supabase/config.toml'
       - '.github/workflows/supabase-functions-quality.yml'
-  push:
-    branches: ['feat/**', 'fix/**', 'chore/**']
-    paths:
-      - 'supabase/functions/**'
-      - 'supabase/config.toml'
-      - '.github/workflows/supabase-functions-quality.yml'
 
 permissions:
   contents: read

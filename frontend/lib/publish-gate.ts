@@ -407,6 +407,9 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   if (input.bodyBn.trim().length < MIN_BODY_CHARS) {
     return { action: 'hold', reason: 'body_too_short', riskLevel, score }
   }
+  if (bengaliRatio(input.bodyBn) < 0.6 || bengaliRatio(input.titleBn) < 0.3) {
+    return { action: 'hold', reason: 'bengali_quality', riskLevel, score }
+  }
   const image = imagePublishable({
     imageUrl: input.imageUrl,
     isFallback: input.isFallback,
@@ -418,6 +421,10 @@ export function decidePublish(input: PublishGateInput): PublishGateResult {
   }
   if (!input.sourceText || input.sourceText.trim().length === 0) {
     return { action: 'hold', reason: 'source_text_missing', riskLevel, score }
+  }
+  const originality = originalityHoldReason(input.bodyBn, input.sourceText)
+  if (originality && originality !== 'source_text_missing') {
+    return { action: 'hold', reason: originality, riskLevel, score }
   }
   if (missingSourceNumbers(input.bodyBn, input.sourceText).length > 0) {
     return { action: 'hold', reason: 'number_not_in_source', riskLevel, score }

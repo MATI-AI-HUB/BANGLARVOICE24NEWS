@@ -19,7 +19,9 @@ export async function GET(){
       articles: rows.slice(1,8).map((a:any)=>({ id:a.id, headline:a.title_bn||a.title_en, body:(a.excerpt_bn||a.content_bn||a.content_en||'').slice(0,350), image: a.thumbnail_url || a.featured_image || null })),
       briefs: rows.slice(8,15).map((a:any)=>a.title_bn||a.title_en)
     }];
-    const payload:any = { edition_date:today, title:`${new Date().toLocaleDateString('bn-BD',{dateStyle:'long'})} সংস্করণ`, pages, is_published:true, html: `<h1>${pages[0].lead.headline}</h1>` };
+    const site=(process.env.NEXT_PUBLIC_SITE_URL||'https://www.banglarvoice24news.com').replace(/\/+$/,'');
+    const html=`<h1>${pages[0].lead.headline}</h1>`;
+    const payload:any = { edition_date:today, title:`${new Date().toLocaleDateString('bn-BD',{dateStyle:'long'})} সংস্করণ`, pages, is_published:true, html, pdf_url:`${site}/api/public/epaper/${today}/print` };
     const {error}=await admin.from('epaper_editions').upsert(payload, {onConflict:'edition_date'});
     if(error) throw new Error(error.message);
     return NextResponse.json({ok:true, date:today, count:rows.length});

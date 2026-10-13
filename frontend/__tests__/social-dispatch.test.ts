@@ -61,13 +61,14 @@ describe('POST /api/social/dispatch', () => {
     expect(await res.json()).toEqual({ ok: true, processed: 0, disabled: true });
   });
 
-  it('dispatches nothing and reports degraded when readiness is unreadable', async () => {
+  it('falls back to vault credentials when readiness is unreadable', async () => {
     maybeSingle.mockResolvedValue({ data: { key_encrypted: 'vault-ref' } });
     rpc.mockResolvedValue({ data: 'test-secret' });
-    // The mocked client returns a non-array from the readiness select, so the
-    // helper fails closed.
     const res = await post({ Authorization: 'Bearer test-secret' });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, processed: 0, ready: 0, degraded: true });
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.processed).toBe(0);
+    expect(body.ready).toBeGreaterThan(0);
   });
 });

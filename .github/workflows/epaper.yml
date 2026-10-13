@@ -1,9 +1,6 @@
 name: Daily e-paper
 
 on:
-  schedule:
-    # 23:30 Asia/Dhaka = 17:30 UTC
-    - cron: '30 17 * * *'
   workflow_dispatch:
 
 jobs:

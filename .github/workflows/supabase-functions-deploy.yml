@@ -1,14 +1,6 @@
 name: Deploy Supabase Edge Functions
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'supabase/functions/**'
-      - 'supabase/config.toml'
-      - '.github/workflows/supabase-functions-deploy.yml'
-
   workflow_dispatch:
 
 permissions:

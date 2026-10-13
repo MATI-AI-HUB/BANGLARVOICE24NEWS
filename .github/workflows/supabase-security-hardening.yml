@@ -6,12 +6,6 @@ name: Supabase Security Hardening
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/migrations/20261002000000_public_article_views.sql'
-      - 'supabase/migrations/2026100700000*.sql'
-      - '.github/workflows/supabase-security-hardening.yml'
 
 permissions:
   contents: write

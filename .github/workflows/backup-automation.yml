@@ -1,8 +1,6 @@
 name: Automated DB & Storage Backup
 on:
-  schedule:
-    - cron: '0 2 * * 0' # প্রতি রবিবার সকাল ৮টা ঢাকা সময় (UTC 2:00 AM)
-  workflow_dispatch: # ম্যানুয়াল ট্রিগারও সুবিধা
+  workflow_dispatch:
 
 jobs:
   backup-db:

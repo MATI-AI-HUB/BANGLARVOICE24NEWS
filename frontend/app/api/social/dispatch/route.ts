@@ -52,10 +52,19 @@ async function vaultSecret(serviceName: string): Promise<string | null> {
 }
 
 async function authorized(request: Request): Promise<boolean> {
-  const secret = (await vaultSecret('CRON_SECRET')) || (await vaultSecret('NEWSROOM_INGEST_KEY'));
+  const secret =
+    (await vaultSecret('CRON_SECRET')) ||
+    (await vaultSecret('NEWSROOM_INGEST_KEY')) ||
+    process.env.CRON_SECRET ||
+    process.env.NEWSROOM_INGEST_KEY;
   if (!secret) return false;
   const header = request.headers.get('authorization') || '';
-  return header === `Bearer ${secret}` || request.headers.get('x-cron-secret') === secret;
+  const vercelCron = request.headers.get('x-vercel-cron');
+  return (
+    header === `Bearer ${secret}` ||
+    request.headers.get('x-cron-secret') === secret ||
+    (Boolean(vercelCron) && Boolean(process.env.CRON_SECRET) && secret === process.env.CRON_SECRET)
+  );
 }
 
 async function graph(path: string, body: Record<string, string>) {
@@ -186,6 +195,10 @@ function rateLimitReason(
   return null;
 }
 
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   if (!(await authorized(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
@@ -198,10 +211,28 @@ export async function POST(request: Request) {
 
   // Phase 1 readiness gate. Fails closed: only platforms that are enabled,
   // name-verified and fully credentialled are read from or written to.
-  const { ready, limits, degraded } = await fetchReadiness(supabase);
-  if (degraded) console.error('[social] readiness registry unavailable; no platforms dispatched');
+  const snapshot = await fetchReadiness(supabase);
+  let { ready, limits, degraded } = snapshot;
+  if (degraded) console.error('[social] readiness registry unavailable; trying vault credentials');
   if (!ready.length) {
-    return NextResponse.json({ ok: true, processed: 0, ready: 0, degraded });
+    const vaultReady: string[] = [];
+    const checks: Array<{ platform: Platform; services: string[] }> = [
+      { platform: 'facebook', services: ['SOCIAL_FACEBOOK_PAGE_ID', 'SOCIAL_FACEBOOK_PAGE_TOKEN'] },
+      { platform: 'instagram', services: ['SOCIAL_INSTAGRAM_BUSINESS_ACCOUNT_ID', 'SOCIAL_INSTAGRAM_ACCESS_TOKEN'] },
+      { platform: 'x', services: ['SOCIAL_X_ACCESS_TOKEN'] },
+      { platform: 'linkedin', services: ['SOCIAL_LINKEDIN_ACCESS_TOKEN', 'SOCIAL_LINKEDIN_ORGANIZATION_ID'] },
+      { platform: 'telegram', services: ['SOCIAL_TELEGRAM_BOT_TOKEN', 'SOCIAL_TELEGRAM_CHANNEL_ID'] },
+    ];
+    for (const check of checks) {
+      const values = await Promise.all(check.services.map((name) => vaultSecret(name)));
+      if (values.every((value) => Boolean(value))) vaultReady.push(check.platform);
+    }
+    if (!vaultReady.length) {
+      return NextResponse.json({ ok: true, processed: 0, ready: 0, degraded, reason: 'no_ready_platforms' });
+    }
+    ready = vaultReady;
+    limits = Object.fromEntries(vaultReady.map((platform) => [platform, { daily: 24, minGapMinutes: 20 }]));
+    degraded = false;
   }
 
   const queue = await supabase

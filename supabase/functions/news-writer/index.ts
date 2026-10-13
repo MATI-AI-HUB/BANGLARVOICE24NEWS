@@ -201,7 +201,7 @@ async function rewriteOnce(groqKey: string, item: QueueItem): Promise<Rewrite> {
 1. শুধু প্রদত্ত উৎসের শিরোনাম ও বিবরণে থাকা তথ্য ব্যবহার করবে।
 2. কোনো নতুন নাম, সংখ্যা, স্থান, সময়, অভিযোগ বা কারণ যোগ করবে না।
 3. অনিশ্চিত তথ্যকে নিশ্চিত হিসেবে লিখবে না।
-4. content_bn 80-140 শব্দের সংক্ষিপ্ত বাংলা সংবাদ।
+4. content_bn 180-400 শব্দের পূর্ণ বাংলা সংবাদ; লিড ও আরও ৩-৫ অনুচ্ছেদ; কমপক্ষে ৪৫০ বাংলা অক্ষর।
 5. title_bn 8-14 শব্দ; ক্লিকবেট নয়।
 6. excerpt_bn 20-40 শব্দের সারাংশ; নতুন তথ্য যোগ করবে না।
 7. শেষে শুধু এই বাক্য থাকবে: "সূত্র: ${item.source_name}"
@@ -233,7 +233,7 @@ JSON:
       body: JSON.stringify({
         model: AI_MODEL,
         temperature: 0.2,
-        max_tokens: 900,
+        max_tokens: 1600,
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -248,7 +248,7 @@ JSON:
                 },
                 content_bn: {
                   type: "string",
-                  description: "Complete Bangla news article body, 80-140 words",
+                  description: "Complete Bangla news article body, 180-400 words",
                 },
                 excerpt_bn: {
                   type: "string",
@@ -328,7 +328,7 @@ JSON:
   if (
     !parsed.title_bn ||
     !parsed.content_bn ||
-    parsed.content_bn.length < 180
+    parsed.content_bn.length < 450
   ) {
     throw new TransientAiError("AI output is incomplete");
   }
@@ -672,7 +672,8 @@ Deno.serve(async () => {
 
           status: publishDecision.status,
           editorial_status: publishDecision.editorial_status,
-          verification_status: "pending",
+          verification_status:
+            publishDecision.status === "published" ? "auto_verified" : "pending",
           human_verified: false,
           risk_level: publishDecision.risk_level,
           review_reason: publishDecision.review_reason,

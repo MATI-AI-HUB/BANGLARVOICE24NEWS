@@ -76,18 +76,34 @@ export async function POST(request: Request) {
     }
     const supabase = admin();
     const now = new Date().toISOString();
+    const html = buildHtml(requestedDate, articles);
+    const site = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com').replace(/\/+$/, '');
+    const printUrl = `${site}/api/public/epaper/${requestedDate}/print`;
+    let pdfUrl = printUrl;
+    try {
+      await supabase.storage.createBucket('epaper', { public: true }).catch(() => undefined);
+      const uploaded = await supabase.storage
+        .from('epaper')
+        .upload(`${requestedDate}.html`, html, { contentType: 'text/html; charset=utf-8', upsert: true });
+      if (!uploaded.error) {
+        const { data: pub } = supabase.storage.from('epaper').getPublicUrl(`${requestedDate}.html`);
+        if (pub?.publicUrl) pdfUrl = pub.publicUrl;
+      }
+    } catch {
+      pdfUrl = printUrl;
+    }
     const payload = {
       edition_date: requestedDate,
       title: `বাংলার ভয়েস ই-পেপার — ${dateLabel(requestedDate)}`,
-      html: buildHtml(requestedDate, articles),
+      html,
       pages: buildPages(articles),
-      pdf_url: '',
+      pdf_url: pdfUrl,
       article_count: articles.length,
       updated_at: now,
     };
-    const { data, error } = await supabase.from('epaper_editions').upsert(payload, { onConflict: 'edition_date' }).select('id,edition_date,article_count').single();
+    const { data, error } = await supabase.from('epaper_editions').upsert(payload, { onConflict: 'edition_date' }).select('id,edition_date,article_count,pdf_url').single();
     if (error) throw error;
-    return NextResponse.json({ ok: true, edition: data, used_daily_articles: daily.length > 0 });
+    return NextResponse.json({ ok: true, edition: data, used_daily_articles: daily.length > 0, pdf_url: pdfUrl });
   } catch (error) {
     return NextResponse.json({ error: 'epaper_generation_failed', detail: error instanceof Error ? error.message : 'unknown error' }, { status: 500 });
   }

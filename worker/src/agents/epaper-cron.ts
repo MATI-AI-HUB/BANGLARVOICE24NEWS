@@ -102,14 +102,20 @@ export async function archiveEpaper(cfg: WorkerConfig, edition: EPaperEdition): 
 /** Run one e-paper generation cycle. */
 export async function runEpaperCycle(cfg: WorkerConfig): Promise<{ edition: EPaperEdition; archived: boolean }> {
   const now = new Date();
-  const date = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
   const articles = await fetchTopArticles(cfg, date);
   const html = buildEpaperHtml(date, articles);
+  const printUrl = `${cfg.bvBaseUrl.replace(/\/+$/, "")}/api/public/epaper/${date}/print`;
   const edition: EPaperEdition = {
     edition_date: date,
     title: `বাংলার ভয়েস ই-পেপার — ${date}`,
     html,
-    pdf_url: "",
+    pdf_url: printUrl,
     article_count: articles.length,
     created_at: now.toISOString(),
   };

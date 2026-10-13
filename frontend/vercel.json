@@ -1,1 +1,7 @@
-{ "crons": [{ "path": "/api/cron/epaper", "schedule": "30 17 * * *" }] }
+{
+  "crons": [
+    { "path": "/api/newsroom/cron-trigger", "schedule": "*/15 * * * *" },
+    { "path": "/api/social/dispatch", "schedule": "5,20,35,50 * * * *" },
+    { "path": "/api/cron/epaper", "schedule": "30 17 * * *" }
+  ]
+}

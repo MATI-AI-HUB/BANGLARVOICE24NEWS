@@ -21,10 +21,7 @@ export function Footer({ locale = 'bn' as Locale }: { locale?: Locale } = {}) {
   ];
 
   const appLinks = [
-    { href: '/download', label: isEn ? 'Download App' : 'অ্যাপ ডাউনলোড' },
-    { href: '/download#arm64', label: 'Android (arm64)' },
-    { href: '/download#armv7', label: 'Android (armv7)' },
-    { href: '/download#x86_64', label: 'Android (x86_64)' },
+    { href: '/download', label: isEn ? 'Download Reader App' : 'পাঠক অ্যাপ ডাউনলোড' },
   ];
 
   return (

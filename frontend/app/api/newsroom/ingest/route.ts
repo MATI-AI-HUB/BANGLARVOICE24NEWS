@@ -255,7 +255,7 @@ export async function POST(req: Request) {
       category_key: category,
       status: mapped.status,
       editorial_status: mapped.editorial_status,
-      verification_status: 'pending',
+      verification_status: mapped.status === 'published' ? 'auto_verified' : 'pending',
       human_verified: false,
       source_type: 'syndicated',
       source_language: 'bn',

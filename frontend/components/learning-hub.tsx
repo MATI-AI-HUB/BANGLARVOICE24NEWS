@@ -59,8 +59,8 @@ export function answer(question: string): string {
   }
   if (/(অ্যাপ|app|ডাউনলোড|android|apk)/.test(q)) {
     return (
-      'আমাদের Android অ্যাপটি /download পেজ থেকে ডাউনলোড করতে পারবেন — ' +
-      'সেখানে APK ফাইল, SHA-256 চেকসাম ও ইনস্টল ধাপ দেওয়া আছে।'
+      'আমাদের পাঠক অ্যাপটি /download পেজ থেকে ডাউনলোড করতে পারবেন — ' +
+      'সেখানে শুধু পাঠক APK ও ইনস্টল ধাপ দেওয়া আছে।'
     );
   }
   if (/(নিউজলেটার|সাবস্ক্রাইব|subscribe|ইমেইল)/.test(q)) {
