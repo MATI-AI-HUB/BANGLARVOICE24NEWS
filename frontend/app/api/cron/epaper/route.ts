@@ -1,29 +1,85 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createPublicSupabase, fetchPublishedArticlesFeed } from '@/lib/supabase/published-articles';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function GET(){
-  try{
-    const url=process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const anon=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const service=process.env.SUPABASE_SERVICE_ROLE_KEY||anon;
-    const pub=createPublicSupabase();
-    const rows:any[] = await fetchPublishedArticlesFeed(pub,30);
-    if(!rows.length) return NextResponse.json({ok:false, msg:'no published'});
-    const today=new Date().toISOString().split('T')[0];
-    const admin=createClient(url,service);
-    const pages=[{
-      number:1, section:'প্রথম পাতা', layout:'front',
-      lead:{ id:rows[0].id, headline:rows[0].title_bn||rows[0].title_en, body:(rows[0].excerpt_bn||rows[0].content_bn||rows[0].content_en||'বিস্তারিত ভেতরে').slice(0,600), image: rows[0].thumbnail_url || rows[0].featured_image || null },
-      articles: rows.slice(1,8).map((a:any)=>({ id:a.id, headline:a.title_bn||a.title_en, body:(a.excerpt_bn||a.content_bn||a.content_en||'').slice(0,350), image: a.thumbnail_url || a.featured_image || null })),
-      briefs: rows.slice(8,15).map((a:any)=>a.title_bn||a.title_en)
-    }];
-    const site=(process.env.NEXT_PUBLIC_SITE_URL||'https://www.banglarvoice24news.com').replace(/\/+$/,'');
-    const html=`<h1>${pages[0].lead.headline}</h1>`;
-    const payload:any = { edition_date:today, title:`${new Date().toLocaleDateString('bn-BD',{dateStyle:'long'})} সংস্করণ`, pages, is_published:true, html, pdf_url:`${site}/api/public/epaper/${today}/print` };
-    const {error}=await admin.from('epaper_editions').upsert(payload, {onConflict:'edition_date'});
-    if(error) throw new Error(error.message);
-    return NextResponse.json({ok:true, date:today, count:rows.length});
-  }catch(e:any){ return NextResponse.json({ok:false, error:e.message},{status:500}); }
+
+function admin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('Supabase admin credentials are not configured');
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+function authorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  return request.headers.get('authorization') === `Bearer ${secret}`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
+}
+
+function dhakaDate(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
+function dateLabel(date: string): string {
+  return new Intl.DateTimeFormat('bn-BD', { timeZone: 'Asia/Dhaka', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${date}T00:00:00+06:00`));
+}
+
+type Article = { id: string; title_bn?: string; title_en?: string; content_bn?: string; excerpt_bn?: string; source_name?: string; source_url?: string; thumbnail_url?: string | null; featured_image?: string | null };
+
+function buildPages(rows: Article[]) {
+  const items = rows.map((article) => ({
+    id: article.id,
+    headline: article.title_bn || article.title_en || 'শিরোনামহীন',
+    body: (article.excerpt_bn || article.content_bn || '').slice(0, 1200),
+    attribution: article.source_name || 'বাংলার ভয়েস ডেস্ক',
+    image: article.thumbnail_url || article.featured_image || null,
+  }));
+  return Array.from({ length: Math.max(1, Math.ceil(items.length / 12)) }, (_, index) => ({
+    number: index + 1,
+    section: index === 0 ? 'প্রথম পাতা' : 'সংবাদ',
+    layout: index === 0 ? 'front' : 'two-column',
+    lead: index === 0 ? items[0] : undefined,
+    articles: index === 0 ? items.slice(1, 8) : items.slice(index * 12, index * 12 + 12),
+    briefs: index === 0 ? items.slice(8, 12).map((item) => item.headline) : [],
+  }));
+}
+
+function buildHtml(date: string, rows: Article[]): string {
+  const items = rows.map((article) => `<article class="item"><h2>${escapeHtml(article.title_bn || article.title_en || 'শিরোনামহীন')}</h2><p class="meta">${escapeHtml(article.source_name || 'বাংলার ভয়েস ডেস্ক')}</p><p>${escapeHtml((article.excerpt_bn || article.content_bn || 'বিস্তারিত সংবাদটি ওয়েবসাইটে পড়ুন।').slice(0, 1600))}</p>${article.source_url ? `<p class="source">সূত্র: <a href="${escapeHtml(article.source_url)}">${escapeHtml(article.source_url)}</a></p>` : ''}</article>`).join('\n');
+  return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>বাংলার ভয়েস — ই-পেপার ${escapeHtml(date)}</title><style>body{font-family:system-ui,serif;max-width:960px;margin:auto;padding:32px;color:#111;background:#fffdf8}header{border-bottom:4px solid #b91c1c;margin-bottom:24px}h1{color:#b91c1c}.item{border-bottom:1px solid #ddd;padding:0 0 18px;margin:0 0 18px}.item h2{font-size:22px;margin:0 0 6px}.item p{line-height:1.8}.meta,.source{font-size:12px;color:#8b1e1e}.source a{color:#555}</style></head><body><header><h1>বাংলার ভয়েস</h1><p>দৈনিক ই-পেপার — ${escapeHtml(dateLabel(date))}</p></header>${items}</body></html>`;
+}
+
+export async function GET(request: Request) {
+  if (!authorized(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  try {
+    const date = dhakaDate();
+    const rows = (await fetchPublishedArticlesFeed(createPublicSupabase(), 30)) as Article[];
+    if (!rows.length) return NextResponse.json({ ok: false, error: 'no_published_articles' }, { status: 503 });
+    const pages = buildPages(rows);
+    const html = buildHtml(date, rows);
+    if (html.length < 1000 || pages.flatMap((page) => page.articles || []).length < 1) {
+      return NextResponse.json({ ok: false, error: 'epaper_quality_gate_failed' }, { status: 503 });
+    }
+    const site = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com').replace(/\/+$/, '');
+    const { data, error } = await admin().from('epaper_editions').upsert({
+      edition_date: date,
+      title: `বাংলার ভয়েস ই-পেপার — ${dateLabel(date)}`,
+      pages,
+      html,
+      pdf_url: `${site}/api/public/epaper/${date}/print`,
+      article_count: rows.length,
+      is_published: true,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'edition_date' }).select('id,edition_date,article_count,pdf_url').single();
+    if (error) throw error;
+    return NextResponse.json({ ok: true, edition: data });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'epaper_failed' }, { status: 500 });
+  }
 }

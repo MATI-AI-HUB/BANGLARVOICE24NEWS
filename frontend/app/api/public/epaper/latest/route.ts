@@ -1,20 +1,47 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createPublicSupabase, fetchPublishedArticlesFeed } from '@/lib/supabase/published-articles';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export async function GET(){
-  const url=process.env.NEXT_PUBLIC_SUPABASE_URL!, anon=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const supabase=createClient(url,anon);
-  const today=new Date().toISOString().split('T')[0];
-  const {data:autoEdition}=await supabase.from('epaper_editions').select('*').eq('edition_date',today).eq('is_published',true).single();
-  if(autoEdition){
-    return NextResponse.json({ edition:{ editionDate:autoEdition.edition_date, editionLabel:new Date(autoEdition.edition_date).toLocaleDateString('bn-BD',{dateStyle:'long'}), volume:'১', issue:1, pages:autoEdition.pages }});
+
+function db() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase not configured');
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+type Article = { id?: string; headline?: string; body?: string; attribution?: string; image?: string | null };
+type Page = { lead?: Article; articles?: Article[]; briefs?: string[]; [key: string]: unknown };
+
+function hydrate(pages: Page[], rows: any[]): Page[] {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const mapArticle = (article?: Article) => {
+    if (!article) return article;
+    const row = article.id ? byId.get(article.id) : undefined;
+    if (!row) return article;
+    return { ...article, headline: row.title_bn || row.title_en || article.headline, body: (row.excerpt_bn || row.content_bn || article.body || '').slice(0, 1200), attribution: row.source_name || article.attribution || 'বাংলার ভয়েস ডেস্ক', image: row.thumbnail_url || row.featured_image || article.image || null };
+  };
+  return pages.map((page) => ({ ...page, lead: mapArticle(page.lead), articles: (page.articles || []).map((article) => mapArticle(article) || article) }));
+}
+
+export async function GET() {
+  try {
+    const client = db();
+    const { data, error } = await client.from('epaper_editions')
+      .select('id,edition_date,title,pages,pdf_url,article_count,created_at,updated_at')
+      .eq('is_published', true)
+      .gt('article_count', 0)
+      .order('edition_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return NextResponse.json({ edition: null });
+    const pages = Array.isArray(data.pages) ? data.pages as Page[] : [];
+    const ids = pages.flatMap((page) => [page.lead?.id, ...(page.articles || []).map((article) => article.id)]).filter((id): id is string => Boolean(id)).slice(0, 40);
+    const { data: articles } = ids.length ? await client.from('articles').select('id,title_bn,title_en,content_bn,excerpt_bn,source_name,thumbnail_url,featured_image').in('id', ids).limit(40) : { data: [] };
+    return NextResponse.json({ edition: { editionDate: data.edition_date, editionLabel: data.title, volume: '১', issue: 1, pages: hydrate(pages, articles || []), pdfUrl: data.pdf_url || '' } });
+  } catch {
+    return NextResponse.json({ edition: null, error: 'epaper_unavailable' }, { status: 503 });
   }
-  try{
-    const pub=createPublicSupabase();
-    const rows:any[] = await fetchPublishedArticlesFeed(pub,20);
-    if(!rows.length) return NextResponse.json({edition:null});
-    return NextResponse.json({ edition:{ editionDate:today, editionLabel:new Date().toLocaleDateString('bn-BD',{dateStyle:'long'}), volume:'১', issue:1, pages:[{ number:1, section:'প্রথম পাতা', layout:'front', lead:{ id:rows[0].id, headline:rows[0].title_bn||rows[0].title_en, body:(rows[0].excerpt_bn||rows[0].content_bn||'').slice(0,600), image:rows[0].thumbnail_url||rows[0].featured_image||null }, articles:rows.slice(1,7).map((a:any)=>({ id:a.id, headline:a.title_bn||a.title_en, body:(a.excerpt_bn||a.content_bn||'').slice(0,400), image:a.thumbnail_url||a.featured_image||null })), briefs:rows.slice(7,14).map((a:any)=>a.title_bn||a.title_en) }] }});
-  }catch(e:any){ return NextResponse.json({edition:null, error:e.message}); }
 }

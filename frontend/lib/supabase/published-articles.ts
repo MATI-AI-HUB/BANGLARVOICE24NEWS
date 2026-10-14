@@ -3,7 +3,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export const PUBLISHED_ARTICLE_COLUMNS = 'id, slug, title_bn, title_en, content_bn, content_en, excerpt_bn, thumbnail_url, featured_image, category, status, published_at, source_name, source_url, canonical_url, created_at';
 
 export function createPublicSupabase(){
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase public credentials are not configured');
+  return createClient(url, key);
 }
 
 export async function fetchPublishedArticlesFeed(supabase?: SupabaseClient | number, limit = 30): Promise<any[]> {
