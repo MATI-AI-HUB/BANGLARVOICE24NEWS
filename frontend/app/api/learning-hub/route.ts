@@ -27,6 +27,13 @@ function decodeUrl(value: string): string {
   }
 }
 
+const STOP_WORDS = new Set([
+  'এবং', 'এই', 'ওই', 'যে', 'কি', 'কী', 'কীভাবে', 'করা', 'করার', 'হয়', 'হয়',
+  'হবে', 'হতে', 'জন্য', 'থেকে', 'সাথে', 'কেন', 'কোন', 'কোনো', 'যায়', 'যায়',
+  'বাংলাদেশে', 'what', 'is', 'are', 'the', 'how', 'why', 'does', 'can', 'for',
+  'with', 'from', 'this', 'that',
+]);
+
 async function webSearch(question: string): Promise<Source[]> {
   try {
     const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(question)}`, {
@@ -57,11 +64,17 @@ export async function POST(request: Request) {
   if (question.length < 2) return NextResponse.json({ error: 'question_required' }, { status: 400 });
 
   const [rows, web] = await Promise.all([fetchPublishedArticlesFeed().catch(() => []), webSearch(question)]);
-  const terms: string[] = question.toLowerCase().split(/\s+/).filter((term: string) => term.length > 2);
+  const terms: string[] = question
+    .toLowerCase()
+    .replace(/[?!.،,;:()\[\]{}]/g, ' ')
+    .split(/\s+/)
+    .filter((term: string) => term.length > 2 && !STOP_WORDS.has(term));
   const site: Source[] = rows
     .filter((row) => {
       const text = `${row.title_bn || ''} ${row.excerpt_bn || ''}`.toLowerCase();
-      return terms.some((term: string) => text.includes(term));
+      const matchedTerms = terms.filter((term: string) => text.includes(term));
+      const minimumMatches = terms.length >= 2 ? 2 : 1;
+      return matchedTerms.length >= minimumMatches;
     })
     .slice(0, 5)
     .map((row) => ({
