@@ -9,6 +9,11 @@ verify_jwt = true
 [functions.news-pipeline]
 verify_jwt = false
 
+# Vault decryption is an authenticated admin/chief-editor operation. Platform
+# JWT validation runs before the handler's profile-role authorization check.
+[functions.getApiKey]
+verify_jwt = true
+
 # Central AI routing authenticates service_role inside the function body.
 # Platform JWT verification is off so newer sb_secret_* keys are accepted,
 # then isServiceRole() still rejects anonymous callers.

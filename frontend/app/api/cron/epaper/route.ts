@@ -15,7 +15,8 @@ function admin() {
 function authorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  return request.headers.get('authorization') === `Bearer ${secret}`;
+  const authorization = request.headers.get('authorization') || '';
+  return authorization === `Bearer ${secret}` || request.headers.get('x-cron-secret') === secret;
 }
 
 function escapeHtml(value: string): string {
