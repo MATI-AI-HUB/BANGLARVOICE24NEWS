@@ -12,9 +12,18 @@ function admin() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET || process.env.NEWSROOM_INGEST_KEY;
-  if (!secret) return false;
+async function authorized(request: Request): Promise<boolean> {
+  const client = admin();
+  const { data: row } = await client
+    .from('api_vault')
+    .select('key_encrypted')
+    .eq('service_name', 'NEWSROOM_INGEST_KEY')
+    .eq('environment', 'prod')
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!row?.key_encrypted) return false;
+  const { data: secret } = await client.rpc('decrypt_vault_secret', { p_secret_id: row.key_encrypted });
+  if (typeof secret !== 'string' || !secret) return false;
   const authorization = request.headers.get('authorization') || '';
   return authorization === `Bearer ${secret}` || request.headers.get('x-cron-secret') === secret;
 }
@@ -57,7 +66,7 @@ function buildHtml(date: string, rows: Article[]): string {
 }
 
 export async function GET(request: Request) {
-  if (!authorized(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!(await authorized(request))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
     const dryRun = new URL(request.url).searchParams.get('dry_run') === '1';
     const date = dhakaDate();
