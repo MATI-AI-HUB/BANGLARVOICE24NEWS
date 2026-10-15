@@ -1,9 +1,8 @@
 // =============================================================================
 // getApiKey — client helper (Next.js server-side + Flutter equivalent below)
 // -----------------------------------------------------------------------------
-// All 3 Flutter apps + the admin console MUST call this edge function to fetch
-// third-party keys at runtime. NEVER put OPENAI_API_KEY / etc. in a frontend
-// build. Rotating a key in the admin console then requires NO app rebuild.
+// Clients may call this edge function for readiness metadata, but it never
+// returns third-party plaintext keys. Provider calls stay server-side.
 // =============================================================================
 
 import { supabase } from "./supabase"; // see breaking-ticker.ts for the client
@@ -11,8 +10,9 @@ import { supabase } from "./supabase"; // see breaking-ticker.ts for the client
 export type VaultKey = {
   service_name: string;
   environment: "prod" | "staging";
-  key: string;
+  key_available: boolean;
   usage_percent: number;
+  last_tested: string | null;
 };
 
 // Next.js (server-only! never call from a browser bundle)
@@ -36,7 +36,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class VaultService {
   /// Call before using any AI / push / TTS feature.
-  /// Returns the plaintext key or null when not configured.
+  /// Returns readiness metadata; plaintext keys are never returned to clients.
   static Future<String?> getApiKey(String serviceName,
       {String environment = 'prod'}) async {
     final res = await Supabase.instance.client.functions.invoke(
@@ -45,7 +45,7 @@ class VaultService {
     );
     final data = res.data as Map<String, dynamic>?;
     if (res.status != 200 || data == null) return null;
-    return data['key'] as String?;
+    return data['key_available'] == true ? serviceName : null;
   }
 
   /// Example: reader app audio mode (DW-style TTS) fetches its ElevenLabs key:

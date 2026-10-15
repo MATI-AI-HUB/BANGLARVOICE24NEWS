@@ -5,16 +5,15 @@
 // admin console) may obtain third-party keys. Frontends NEVER hardcode keys;
 // the admin console stores/rotates them in the api_vault without rebuilds.
 //
-// Authorization: only admin / chief_editor users, or service-role signed calls
-// (edge-to-edge workers). ai-process-report reads the same vault server-side
-// without exposing keys to any caller.
+// Authorization: only admin / chief_editor users. Provider calls must remain
+// server-side through the AI gateway or purpose-specific worker functions.
 //
 // Usage (client):
 //   const { data } = await supabase.functions.invoke("getApiKey", {
 //     body: { service_name: "OPENAI_API_KEY", environment: "prod" },
 //   });
-//   data.key            // e.g. "sk-..."
-//   data.usage_percent  // 0-100
+//   data.key_available   // true/false; plaintext is never returned
+//   data.usage_percent   // 0-100
 // =============================================================================
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -65,22 +64,15 @@ Deno.serve(async (req: Request) => {
       return json({ error: "key_not_found", hint: "add it in the admin console API Vault" }, 404);
     }
 
-    // ---- decrypt via pgsodium-backed RPC (schema.sql) ----------------------
-    const { data: plain, error: decryptErr } = await admin.rpc("decrypt_vault_secret", {
-      p_secret_id: row.key_encrypted,
-    });
-    if (decryptErr || !plain) {
-      return json({ error: "decrypt_failed", hint: "check vault key is mounted" }, 500);
-    }
-
-    // ---- update last_tested timestamp --------------------------------------
-    await admin.from("api_vault").update({ last_tested: new Date().toISOString() }).eq("id", row.id);
-
+    // The function is an authenticated metadata/readiness endpoint only.
+    // Decryption is deliberately confined to server-side gateway/worker paths;
+    // returning plaintext to a browser or mobile client is not SaaS-safe.
     return json({
       service_name: row.service_name,
       environment: row.environment,
-      key: plain,
+      key_available: Boolean(row.key_encrypted),
       usage_percent: row.usage_percent,
+      last_tested: row.last_tested,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

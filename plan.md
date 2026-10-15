@@ -6,14 +6,14 @@
 - News ingest is publishing and source probes are healthy for the enabled registry.
 - Learning Hub reaches the Vault-backed AI Gateway; Groq is currently the verified healthy provider.
 - E-paper generation code has a full HTML/pages quality gate, but the GitHub Actions e-paper workflow fails before runner steps and therefore is not a reliable execution dependency.
-- `getApiKey` has handler-level admin/chief-editor authorization but production edge JWT enforcement is disabled.
+- `getApiKey` has handler-level admin/chief-editor authorization and production edge JWT enforcement; it now returns readiness metadata only.
 - Social configuration has a readiness registry, but TikTok dispatch is intentionally a stub; overdue calendar rows and pending ledger rows require controlled reconciliation, not bulk deletion.
 - `videos` has no production rows, so YouTube player readiness cannot be claimed until content is synchronized.
 
 ## Implementation decisions
 
 1. **Scheduler resilience:** Vercel Cron is the primary e-paper scheduler; GitHub Actions remains a manual diagnostic/fallback workflow. E-paper requests require a secret bearer token and must never trust a spoofable public cron header.
-2. **Secret boundary:** `getApiKey` becomes edge-JWT protected. Its existing role authorization remains mandatory. No plaintext key is read, logged, or changed during deployment.
+2. **Secret boundary:** `getApiKey` is edge-JWT protected and retains role authorization. It returns readiness metadata only; plaintext keys remain confined to server-side gateway/worker paths.
 3. **AI quality:** add a benchmark harness and quality telemetry before changing model priority. Compare headline fidelity, entity/number preservation, unsupported-claim rate, Bengali style, and structured-output validity on a fixed redacted fixture set.
 4. **Social delivery:** preserve every ledger row; reconcile overdue calendar records through idempotent state transitions. Add versioned Facebook payload/comment evidence before enabling or replaying backlog.
 5. **TikTok:** keep the platform fail-closed until the exact TikTok Content Posting API product, OAuth scopes, account identity, and video asset contract are verified. Do not treat a Vault key name as proof of publish permission.
