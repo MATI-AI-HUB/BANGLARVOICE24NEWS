@@ -7,6 +7,8 @@ export const maxDuration = 60;
 const FEED_URL = 'https://www.youtube.com/feeds/videos.xml?playlist_id=UUH2pdJM-Rsv51WOtcfDcLQA';
 const CHANNEL_ID = 'UCH2pdJM-Rsv51WOtcfDcLQA';
 const UPLOADS_URL = 'https://www.youtube.com/playlist?list=UUH2pdJM-Rsv51WOtcfDcLQA';
+const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+const INSTRUCTION_RE = /(?:ignore\s+(?:all\s+)?previous|system\s+prompt|developer\s+message|reveal\s+(?:the\s+)?secret|execute\s+(?:this|the)\s+command|run\s+(?:this|the)\s+command|do\s+not\s+follow|override\s+(?:the\s+)?instructions)/i;
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,6 +29,15 @@ async function authorized(request: Request): Promise<boolean> {
 
 function decodeXml(value: string): string {
   return value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+}
+
+function plainText(value: string, maxLength: number): string {
+  return decodeXml(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
 }
 
 function tag(entry: string, name: string): string {
@@ -56,11 +67,35 @@ export async function POST(request: Request) {
     if (!entries.length) return NextResponse.json({ ok: false, error: 'youtube_feed_empty' }, { status: 503 });
 
     const rows = [];
-    for (const entry of entries) {
+    for (const entry of entries.slice(0, 15)) {
       const youtubeId = tag(entry, 'yt:videoId');
-      const title = tag(entry, 'title');
+      if (!VIDEO_ID_RE.test(youtubeId)) continue;
+      const title = plainText(tag(entry, 'title'), 200);
       const publishedAt = tag(entry, 'published');
       if (!youtubeId || !title || !publishedAt) continue;
+      const quarantineReason = INSTRUCTION_RE.test(title) ? 'feed_title_instruction_like_content' : null;
+      if (quarantineReason) {
+        rows.push({
+          title_bn: title,
+          title_en: '',
+          description_bn: '',
+          category_key: 'national',
+          thumbnail_url: `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+          video_url: `https://www.youtube.com/watch?v=${youtubeId}`,
+          embed_url: `https://www.youtube-nocookie.com/embed/${youtubeId}`,
+          youtube_id: youtubeId,
+          channel_id: CHANNEL_ID,
+          source_url: UPLOADS_URL,
+          duration_sec: null,
+          is_live: false,
+          view_count: 0,
+          status: 'quarantined',
+          audit_reason: quarantineReason,
+          published_at: publishedAt,
+          updated_at: new Date().toISOString(),
+        });
+        continue;
+      }
       let embeddable = false;
       try {
         const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${youtubeId}`)}&format=json`, { signal: AbortSignal.timeout(10000) });
@@ -84,6 +119,7 @@ export async function POST(request: Request) {
         is_live: false,
         view_count: 0,
         status: 'needs_enrichment',
+        audit_reason: null,
         published_at: publishedAt,
         updated_at: new Date().toISOString(),
       });
@@ -110,7 +146,7 @@ export async function POST(request: Request) {
         inserted_count += 1;
       }
     }
-    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, synced_count: rows.length, inserted_count, updated_count, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
+    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, processed_count: Math.min(entries.length, 15), synced_count: rows.length, inserted_count, updated_count, quarantined_count: rows.filter((row) => row.status === 'quarantined').length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'youtube_sync_failed' }, { status: 500 });
   }
