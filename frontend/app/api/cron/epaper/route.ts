@@ -13,7 +13,7 @@ function admin() {
 }
 
 function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET || process.env.NEWSROOM_INGEST_KEY;
   if (!secret) return false;
   const authorization = request.headers.get('authorization') || '';
   return authorization === `Bearer ${secret}` || request.headers.get('x-cron-secret') === secret;
