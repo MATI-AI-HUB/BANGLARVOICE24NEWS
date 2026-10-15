@@ -59,6 +59,7 @@ function buildHtml(date: string, rows: Article[]): string {
 export async function GET(request: Request) {
   if (!authorized(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
+    const dryRun = new URL(request.url).searchParams.get('dry_run') === '1';
     const date = dhakaDate();
     const rows = (await fetchPublishedArticlesFeed(createPublicSupabase(), 30)) as Article[];
     if (!rows.length) return NextResponse.json({ ok: false, error: 'no_published_articles' }, { status: 503 });
@@ -66,6 +67,18 @@ export async function GET(request: Request) {
     const html = buildHtml(date, rows);
     if (html.length < 1000 || pages.flatMap((page) => page.articles || []).length < 1) {
       return NextResponse.json({ ok: false, error: 'epaper_quality_gate_failed' }, { status: 503 });
+    }
+    if (dryRun) {
+      return NextResponse.json({
+        ok: true,
+        dry_run: true,
+        http_status: 200,
+        would_create: { edition_date: date },
+        edition_date: date,
+        html_length: html.length,
+        page_count: pages.length,
+        article_count: rows.length,
+      });
     }
     const site = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.banglarvoice24news.com').replace(/\/+$/, '');
     const { data, error } = await admin().from('epaper_editions').upsert({
