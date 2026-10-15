@@ -61,8 +61,14 @@ export async function POST(request: Request) {
       const title = tag(entry, 'title');
       const publishedAt = tag(entry, 'published');
       if (!youtubeId || !title || !publishedAt) continue;
-      const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${youtubeId}`)}&format=json`, { signal: AbortSignal.timeout(10000) });
-      if (!oembed.ok) continue;
+      let embeddable = false;
+      try {
+        const oembed = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${youtubeId}`)}&format=json`, { signal: AbortSignal.timeout(10000) });
+        embeddable = oembed.ok;
+      } catch {
+        embeddable = false;
+      }
+      if (!embeddable) continue;
       rows.push({
         title_bn: title,
         title_en: '',
@@ -85,7 +91,7 @@ export async function POST(request: Request) {
     if (!rows.length) return NextResponse.json({ ok: false, error: 'youtube_feed_not_embeddable' }, { status: 503 });
 
     const { error } = await admin().from('videos').upsert(rows, { onConflict: 'youtube_id' });
-    if (error) throw error;
+    if (error) return NextResponse.json({ ok: false, error: 'youtube_sync_database_error', synced_count: 0 }, { status: 500 });
     return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, synced_count: rows.length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'youtube_sync_failed' }, { status: 500 });
