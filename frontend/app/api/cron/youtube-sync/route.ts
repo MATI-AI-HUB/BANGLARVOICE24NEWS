@@ -10,6 +10,26 @@ const UPLOADS_URL = 'https://www.youtube.com/playlist?list=UUH2pdJM-Rsv51WOtcfDc
 const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 const INSTRUCTION_RE = /(?:ignore\s+(?:all\s+)?previous|system\s+prompt|developer\s+message|reveal\s+(?:the\s+)?secret|execute\s+(?:this|the)\s+command|run\s+(?:this|the)\s+command|do\s+not\s+follow|override\s+(?:the\s+)?instructions)/i;
 
+type VideoInventoryRow = {
+  title_bn: string;
+  title_en: string;
+  description_bn: string;
+  category_key: string;
+  thumbnail_url: string;
+  video_url: string;
+  embed_url: string;
+  youtube_id: string;
+  channel_id: string;
+  source_url: string;
+  duration_sec: number | null;
+  is_live: boolean;
+  view_count: number;
+  status: 'needs_enrichment' | 'quarantined';
+  audit_reason: string | null;
+  published_at: string;
+  updated_at: string;
+};
+
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -66,7 +86,7 @@ export async function POST(request: Request) {
     const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((match) => match[1]);
     if (!entries.length) return NextResponse.json({ ok: false, error: 'youtube_feed_empty' }, { status: 503 });
 
-    const rows = [];
+    const rows: VideoInventoryRow[] = [];
     for (const entry of entries.slice(0, 15)) {
       const youtubeId = tag(entry, 'yt:videoId');
       if (!VIDEO_ID_RE.test(youtubeId)) continue;
