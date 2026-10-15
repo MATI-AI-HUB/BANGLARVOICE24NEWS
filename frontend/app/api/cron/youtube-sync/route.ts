@@ -90,9 +90,27 @@ export async function POST(request: Request) {
     }
     if (!rows.length) return NextResponse.json({ ok: false, error: 'youtube_feed_not_embeddable' }, { status: 503 });
 
-    const { error } = await admin().from('videos').upsert(rows, { onConflict: 'youtube_id' });
-    if (error) return NextResponse.json({ ok: false, error: 'youtube_sync_database_error', synced_count: 0 }, { status: 500 });
-    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, synced_count: rows.length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
+    const client = admin();
+    let inserted_count = 0;
+    let updated_count = 0;
+    for (const row of rows) {
+      const { data: existing, error: lookupError } = await client
+        .from('videos')
+        .select('id')
+        .eq('youtube_id', row.youtube_id)
+        .maybeSingle();
+      if (lookupError) return NextResponse.json({ ok: false, error: 'youtube_sync_database_error', synced_count: 0 }, { status: 500 });
+      if (existing?.id) {
+        const { error } = await client.from('videos').update(row).eq('id', existing.id);
+        if (error) return NextResponse.json({ ok: false, error: 'youtube_sync_database_error', synced_count: 0 }, { status: 500 });
+        updated_count += 1;
+      } else {
+        const { error } = await client.from('videos').insert(row);
+        if (error) return NextResponse.json({ ok: false, error: 'youtube_sync_database_error', synced_count: 0 }, { status: 500 });
+        inserted_count += 1;
+      }
+    }
+    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, synced_count: rows.length, inserted_count, updated_count, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'youtube_sync_failed' }, { status: 500 });
   }
