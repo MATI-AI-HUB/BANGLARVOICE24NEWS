@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const { data: videos, error } = await supabase
       .from('videos')
       .select('id, title_bn, title_en, description_bn, category_key, thumbnail_url, video_url, embed_url, youtube_id, duration_sec, is_live, view_count, published_at')
-      .in('status', ['published', 'live'])
+      .in('status', ['published', 'live', 'needs_enrichment'])
       .order('is_live', { ascending: false })
       .order('published_at', { ascending: false })
       .limit(limit);
