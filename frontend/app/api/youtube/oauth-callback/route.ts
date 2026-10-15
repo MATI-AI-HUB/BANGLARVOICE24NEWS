@@ -71,7 +71,7 @@ export async function GET(req: Request) {
 
   if (!tokens.refresh_token) {
     return new Response(
-      `No refresh_token:\n${JSON.stringify(tokens, null, 2)}`,
+      'OAuth token exchange did not return a refresh token',
       { status: 500, headers: { 'Content-Type': 'text/plain' } }
     );
   }
@@ -96,7 +96,7 @@ export async function GET(req: Request) {
 
   if (rpcErr) return new Response(`Vault save failed: ${rpcErr.message}`, { status: 500 });
 
-  const html = `<!DOCTYPE html><html><body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 24px;"><h1 style="color: #16a34a;">✅ YouTube Refresh Token Saved!</h1><p><b>Length:</b> ${tokens.refresh_token.length} chars</p><p><b>Prefix:</b> <code>${tokens.refresh_token.slice(0, 18)}...</code></p><p><b>Scope:</b> <code>${tokens.scope || 'N/A'}</code></p><p style="margin-top: 30px;"><a href="/admin/control" style="background: #CC0000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">← Back to Control Center</a></p></body></html>`;
+  const html = `<!DOCTYPE html><html><body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 24px;"><h1 style="color: #16a34a;">YouTube refresh authorization saved</h1><p>The refresh credential was stored server-side in the API Vault. No credential value or derived token metadata is displayed.</p><p style="margin-top: 30px;"><a href="/admin/control" style="background: #CC0000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Back to Control Center</a></p></body></html>`;
 
   return new Response(html, { headers: { 'Content-Type': 'text/html' } });
 }

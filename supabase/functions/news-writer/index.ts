@@ -7,6 +7,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const AI_MODEL = "openai/gpt-oss-120b";
 const AI_GATEWAY = `${SUPABASE_URL}/functions/v1/ai-gateway`;
 
 type CategoryKey =
@@ -67,10 +68,10 @@ function isRetryableError(error: unknown): boolean {
     return true;
   }
 
-  if (/AI HTTP 429\b/.test(message)) return true;
-  if (/AI HTTP 5\d\d\b/.test(message)) return true;
+  if (/AI (?:HTTP|gateway HTTP) 429\b/.test(message)) return true;
+  if (/AI (?:HTTP|gateway HTTP) 5\d\d\b/.test(message)) return true;
   if (
-    /AI HTTP 400\b/.test(message) &&
+    /AI (?:HTTP|gateway HTTP) 400\b/.test(message) &&
     /json|schema|validat|failed_generation|response_format/i.test(message)
   ) {
     return true;
@@ -231,15 +232,12 @@ JSON:
       },
       body: JSON.stringify({
         task: "news_rewrite",
-        model: "openai/gpt-oss-120b",
+        model: AI_MODEL,
         temperature: 0.2,
         max_tokens: 1600,
         metadata: {
           json_mode: true,
           json_schema: {
-            name: "bangla_news_rewrite",
-            strict: true,
-            schema: {
               type: "object",
               properties: {
                 title_bn: {
@@ -274,7 +272,6 @@ JSON:
               additionalProperties: false,
             },
           },
-        },
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -317,7 +314,7 @@ JSON:
   try {
     parsed = JSON.parse(raw) as Rewrite;
   } catch (error) {
-    const finishReason = String(data?.finish_reason || "unknown");
+    const finishReason = String(data?.error || "unknown");
     throw new TransientAiError(
       `AI gateway returned invalid JSON (finish_reason=${finishReason}, chars=${raw.length}): ${
         error instanceof Error ? error.message : String(error)
@@ -727,7 +724,7 @@ Deno.serve(async () => {
         .eq("id", queueItem.id);
 
       await supabase.from("ai_audit_log").insert({
-        model: "openai/gpt-oss-120b",
+        model: AI_MODEL,
         provider: "ai-gateway",
         input_tokens: 0,
         output_tokens: 0,

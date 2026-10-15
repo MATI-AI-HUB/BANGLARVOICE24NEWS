@@ -19,8 +19,12 @@ type Article = {
   id: string;
   slug?: string | null;
   title_bn: string;
+  status?: string | null;
+  created_at?: string | null;
+  published_at?: string | null;
   thumbnail_url: string | null;
   featured_image: string | null;
+  image_rights_verified?: boolean | null;
   category_key: string | null;
   video_id: string | null;
 };
@@ -83,6 +87,15 @@ function articleUrl(article: Article): string {
 
 function videoSuffix(youtubeId?: string): string {
   return youtubeId ? `\n\nভিডিও: https://www.youtube.com/watch?v=${youtubeId}` : '';
+}
+
+function ineligibleReason(article: Article): string | null {
+  if (article.status !== 'published') return 'stale_or_ineligible';
+  const publishedAt = article.published_at || article.created_at;
+  if (!publishedAt || Date.now() - Date.parse(publishedAt) > 24 * 60 * 60 * 1000) return 'stale_or_ineligible';
+  const imageUrl = article.featured_image || article.thumbnail_url;
+  if (!article.image_rights_verified || !imageUrl || !/^https:\/\//i.test(imageUrl)) return 'stale_or_ineligible';
+  return null;
 }
 
 // Facebook suppresses reach on posts that carry an outbound link, so the post
@@ -257,7 +270,7 @@ export async function POST(request: Request) {
   if (!pendingRows.length) return NextResponse.json({ ok: true, processed: 0, ready: ready.length });
 
   const articleIds = [...new Set(pendingRows.map((row) => row.article_id))];
-  const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,thumbnail_url,featured_image,category_key,video_id').in('id', articleIds);
+  const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,status,created_at,published_at,thumbnail_url,featured_image,image_rights_verified,category_key,video_id').in('id', articleIds);
   const articleMap = new Map(((articles as Article[]) || []).map((article) => [article.id, article]));
   const videoIds = ((articles as Article[]) || []).map((article) => article.video_id).filter((id): id is string => Boolean(id));
   const { data: videos } = videoIds.length ? await supabase.from('videos').select('id,youtube_id').in('id', videoIds) : { data: [] };
@@ -297,6 +310,22 @@ export async function POST(request: Request) {
     const article = articleMap.get(row.article_id);
     if (!article) {
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: 'article_not_found' });
+      continue;
+    }
+
+    const eligibility = ineligibleReason(article);
+    if (eligibility) {
+      const now = new Date().toISOString();
+      await supabase.from('social_posts').update({
+        status: 'skipped',
+        error_message: eligibility,
+        reconciliation_class: 'stale_or_ineligible',
+        reconciliation_reason: eligibility,
+        reconciled_at: now,
+        reconciled_by: 'social-dispatch-eligibility-guard',
+        updated_at: now,
+      }).eq('id', row.id).eq('status', 'pending');
+      results.push({ platform: row.platform, status: 'skipped', article_id: row.article_id, error: eligibility });
       continue;
     }
 
