@@ -7,8 +7,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const AI_MODEL = "openai/gpt-oss-120b";
-const AI_BASE = "https://api.groq.com/openai/v1";
+const AI_GATEWAY = `${SUPABASE_URL}/functions/v1/ai-gateway`;
 
 type CategoryKey =
   | "national"
@@ -194,7 +193,7 @@ async function vaultKey(serviceName: string): Promise<string | null> {
   return typeof data === "string" && data.length > 0 ? data : null;
 }
 
-async function rewriteOnce(groqKey: string, item: QueueItem): Promise<Rewrite> {
+async function rewriteOnce(item: QueueItem): Promise<Rewrite> {
   const system = `তুমি বাংলার ভয়েসের সংবাদ সহকারী।
 
 কঠোর নিয়ম:
@@ -224,18 +223,19 @@ JSON:
 
   let response: Response;
   try {
-    response = await fetch(`${AI_BASE}/chat/completions`, {
+    response = await fetch(AI_GATEWAY, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${groqKey}`,
+        Authorization: `Bearer ${SERVICE_ROLE}`,
       },
       body: JSON.stringify({
-        model: AI_MODEL,
+        task: "news_rewrite",
+        model: "openai/gpt-oss-120b",
         temperature: 0.2,
         max_tokens: 1600,
-        response_format: {
-          type: "json_schema",
+        metadata: {
+          json_mode: true,
           json_schema: {
             name: "bangla_news_rewrite",
             strict: true,
@@ -296,7 +296,7 @@ JSON:
   if (!response.ok) {
     const errorBody = (await response.text()).slice(0, 800);
     const message =
-      `AI HTTP ${response.status} at ${AI_BASE}/chat/completions: ${errorBody}`;
+      `AI gateway HTTP ${response.status}: ${errorBody}`;
     const retryableStatus =
       response.status === 429 ||
       response.status >= 500 ||
@@ -309,7 +309,7 @@ JSON:
   }
 
   const data = await response.json();
-  const raw = String(data?.choices?.[0]?.message?.content || "")
+  const raw = String(data?.answer || "")
     .replace(/```json\s*|\s*```/g, "")
     .trim();
 
@@ -317,9 +317,9 @@ JSON:
   try {
     parsed = JSON.parse(raw) as Rewrite;
   } catch (error) {
-    const finishReason = String(data?.choices?.[0]?.finish_reason || "unknown");
+    const finishReason = String(data?.finish_reason || "unknown");
     throw new TransientAiError(
-      `AI returned invalid JSON (finish_reason=${finishReason}, chars=${raw.length}): ${
+      `AI gateway returned invalid JSON (finish_reason=${finishReason}, chars=${raw.length}): ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
@@ -347,12 +347,12 @@ JSON:
   return parsed;
 }
 
-async function rewrite(groqKey: string, item: QueueItem): Promise<Rewrite> {
+async function rewrite(item: QueueItem): Promise<Rewrite> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_AI_ATTEMPTS; attempt += 1) {
     try {
-      return await rewriteOnce(groqKey, item);
+      return await rewriteOnce(item);
     } catch (error) {
       lastError = error;
       if (!isRetryableError(error) || attempt === MAX_AI_ATTEMPTS) {
@@ -644,13 +644,7 @@ Deno.serve(async () => {
 
       skipped = 1;
     } else {
-      const groqKey = await vaultKey("GROQ_API_KEY");
-
-      if (!groqKey) {
-        throw new Error("GROQ_API_KEY not available in api_vault");
-      }
-
-      const rewritten = await rewrite(groqKey, queueItem);
+      const rewritten = await rewrite(queueItem);
       const publishDecision = decision(
         rewritten.title_bn,
         rewritten.content_bn,
@@ -706,7 +700,7 @@ Deno.serve(async () => {
           image_is_representational: Boolean(image),
           media_type: image ? "image" : "none",
 
-          ai_model: AI_MODEL,
+          ai_model: "ai-gateway/news_rewrite",
           ai_confidence: rewritten.confidence,
 
           published_at:
@@ -733,8 +727,8 @@ Deno.serve(async () => {
         .eq("id", queueItem.id);
 
       await supabase.from("ai_audit_log").insert({
-        model: AI_MODEL,
-        provider: "groq",
+        model: "openai/gpt-oss-120b",
+        provider: "ai-gateway",
         input_tokens: 0,
         output_tokens: 0,
         cost_usd: 0,
