@@ -112,7 +112,7 @@ export function LearningHub() {
       const res = await fetch('/api/learning-hub', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed }),
+        body: JSON.stringify({ question: trimmed, history: messages.slice(-6).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text.slice(0, 600) })) }),
       });
       const data = await res.json();
       setMessages((m) => [...m, { role: 'bot', text: data?.answer || answer(trimmed), sources: data?.sources || [] }]);
