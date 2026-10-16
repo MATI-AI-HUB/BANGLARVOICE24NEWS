@@ -316,7 +316,7 @@ export async function POST(request: Request) {
     const eligibility = ineligibleReason(article);
     if (eligibility) {
       const now = new Date().toISOString();
-      await supabase.from('social_posts').update({
+      const { error: skipErr } = await supabase.from('social_posts').update({
         status: 'skipped',
         error_message: eligibility,
         reconciliation_class: 'skip',
@@ -325,6 +325,7 @@ export async function POST(request: Request) {
         reconciled_by: 'social-dispatch-eligibility-guard',
         updated_at: now,
       }).eq('id', row.id).eq('status', 'pending');
+      if (skipErr) console.error('[social] eligibility skip update failed', { id: row.id, skipErr });
       results.push({ platform: row.platform, status: 'skipped', article_id: row.article_id, error: eligibility });
       continue;
     }
@@ -339,14 +340,34 @@ export async function POST(request: Request) {
     try {
       const result = await publish(row.platform, article, article.video_id ? videoMap.get(article.video_id) : undefined);
       const now = new Date().toISOString();
-      await supabase.from('social_posts').update({
+      let reconciliation_class: 'retry' | 'skip' | 'needs-credential' | null = null;
+      let reconciliation_reason: string | null = result.error || null;
+      if (result.status === 'skipped') {
+        const err = (result.error || '').toLowerCase();
+        reconciliation_class =
+          err.includes('missing') || err.includes('not_configured') || err.includes('credential')
+            ? 'needs-credential'
+            : 'skip';
+      } else if (result.status === 'failed') {
+        reconciliation_class = 'retry';
+      }
+      const { error: updErr } = await supabase.from('social_posts').update({
         status: result.status,
         external_post_id: result.external_post_id || null,
         error_message: result.error || null,
         attempt_count: row.attempt_count + 1,
         updated_at: now,
         posted_at: result.status === 'published' ? now : null,
+        ...(reconciliation_class
+          ? {
+              reconciliation_class,
+              reconciliation_reason,
+              reconciled_at: now,
+              reconciled_by: 'social-dispatch',
+            }
+          : {}),
       }).eq('id', row.id);
+      if (updErr) console.error('[social] post update failed', { id: row.id, updErr });
       if (result.status === 'published') {
         dailyCount.set(row.platform, (dailyCount.get(row.platform) || 0) + 1);
         lastPosted.set(row.platform, Date.now());
@@ -354,7 +375,18 @@ export async function POST(request: Request) {
       results.push({ platform: row.platform, status: result.status, article_id: row.article_id, error: result.error });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown publish error';
-      await supabase.from('social_posts').update({ status: 'failed', error_message: message, attempt_count: row.attempt_count + 1, updated_at: new Date().toISOString() }).eq('id', row.id);
+      const now = new Date().toISOString();
+      const { error: failErr } = await supabase.from('social_posts').update({
+        status: 'failed',
+        error_message: message,
+        attempt_count: row.attempt_count + 1,
+        updated_at: now,
+        reconciliation_class: 'retry',
+        reconciliation_reason: message,
+        reconciled_at: now,
+        reconciled_by: 'social-dispatch',
+      }).eq('id', row.id);
+      if (failErr) console.error('[social] fail update failed', { id: row.id, failErr });
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: message });
     }
   }
