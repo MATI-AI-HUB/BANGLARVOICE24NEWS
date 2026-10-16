@@ -319,7 +319,7 @@ export async function POST(request: Request) {
       await supabase.from('social_posts').update({
         status: 'skipped',
         error_message: eligibility,
-        reconciliation_class: 'stale_or_ineligible',
+        reconciliation_class: 'skip',
         reconciliation_reason: eligibility,
         reconciled_at: now,
         reconciled_by: 'social-dispatch-eligibility-guard',
