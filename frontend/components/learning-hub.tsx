@@ -108,6 +108,16 @@ export function LearningHub() {
     setInput('');
     setBusy(true);
 
+    // Keep deterministic product/help FAQs authoritative. Archive search can
+    // return a weakly related article for short Bengali questions (for example
+    // “ই-পেপার কোথায় পাবো?”), which must not override the canonical answer.
+    const localAnswer = answer(trimmed);
+    if (!localAnswer.startsWith('দুঃখিত')) {
+      setMessages((m) => [...m, { role: 'bot', text: localAnswer }]);
+      setBusy(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/learning-hub', {
         method: 'POST',
