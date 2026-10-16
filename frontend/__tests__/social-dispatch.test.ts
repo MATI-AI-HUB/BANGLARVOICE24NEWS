@@ -61,7 +61,7 @@ describe('POST /api/social/dispatch', () => {
     expect(await res.json()).toEqual({ ok: true, processed: 0, disabled: true });
   });
 
-  it('falls back to vault credentials when readiness is unreadable', async () => {
+  it('fails closed when readiness is unreadable', async () => {
     maybeSingle.mockResolvedValue({ data: { key_encrypted: 'vault-ref' } });
     rpc.mockResolvedValue({ data: 'test-secret' });
     const res = await post({ Authorization: 'Bearer test-secret' });
@@ -69,6 +69,8 @@ describe('POST /api/social/dispatch', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.processed).toBe(0);
-    expect(body.ready).toBeGreaterThan(0);
+    expect(body.ready).toBe(0);
+    expect(body.degraded).toBe(true);
+    expect(body.reason).toBe('no_ready_platforms');
   });
 });

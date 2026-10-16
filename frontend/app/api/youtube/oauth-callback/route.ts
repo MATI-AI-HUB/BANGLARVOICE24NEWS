@@ -43,11 +43,8 @@ export async function GET(req: Request) {
     return new Response('Invalid CSRF state', { status: 400 });
   }
 
-  // Vault first, env fallback
-  let clientId = await getVaultSecret('OAUTH_CLIENT_ID');
-  let clientSecret = await getVaultSecret('OAUTH_CLIENT_SECRET');
-  if (!clientId) clientId = process.env.OAUTH_CLIENT_ID || null;
-  if (!clientSecret) clientSecret = process.env.OAUTH_CLIENT_SECRET || null;
+  const clientId = await getVaultSecret('OAUTH_CLIENT_ID');
+  const clientSecret = await getVaultSecret('OAUTH_CLIENT_SECRET');
 
   if (!clientId || !clientSecret) {
     return new Response(

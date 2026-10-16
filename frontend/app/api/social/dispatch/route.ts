@@ -226,27 +226,8 @@ export async function POST(request: Request) {
   // name-verified and fully credentialled are read from or written to.
   const snapshot = await fetchReadiness(supabase);
   let { ready, limits, degraded } = snapshot;
-  if (degraded) console.error('[social] readiness registry unavailable; trying vault credentials');
-  if (!ready.length) {
-    const vaultReady: string[] = [];
-    const checks: Array<{ platform: Platform; services: string[] }> = [
-      { platform: 'facebook', services: ['SOCIAL_FACEBOOK_PAGE_ID', 'SOCIAL_FACEBOOK_PAGE_TOKEN'] },
-      { platform: 'instagram', services: ['SOCIAL_INSTAGRAM_BUSINESS_ACCOUNT_ID', 'SOCIAL_INSTAGRAM_ACCESS_TOKEN'] },
-      { platform: 'x', services: ['SOCIAL_X_ACCESS_TOKEN'] },
-      { platform: 'linkedin', services: ['SOCIAL_LINKEDIN_ACCESS_TOKEN', 'SOCIAL_LINKEDIN_ORGANIZATION_ID'] },
-      { platform: 'telegram', services: ['SOCIAL_TELEGRAM_BOT_TOKEN', 'SOCIAL_TELEGRAM_CHANNEL_ID'] },
-    ];
-    for (const check of checks) {
-      const values = await Promise.all(check.services.map((name) => vaultSecret(name)));
-      if (values.every((value) => Boolean(value))) vaultReady.push(check.platform);
-    }
-    if (!vaultReady.length) {
-      return NextResponse.json({ ok: true, processed: 0, ready: 0, degraded, reason: 'no_ready_platforms' });
-    }
-    ready = vaultReady;
-    limits = Object.fromEntries(vaultReady.map((platform) => [platform, { daily: 24, minGapMinutes: 20 }]));
-    degraded = false;
-  }
+  if (degraded) console.error('[social] readiness registry unavailable; fail-closed with no publishing');
+  if (!ready.length) return NextResponse.json({ ok: true, processed: 0, ready: 0, degraded, reason: 'no_ready_platforms' });
 
   const queue = await supabase
     .from('social_posts')
