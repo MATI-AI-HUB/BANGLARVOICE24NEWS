@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const BASE_URL = 'https://www.banglarvoice24news.com';
+const FACEBOOK_GRAPH_VERSION = 'v26.0';
 type Platform = 'facebook' | 'instagram' | 'x' | 'linkedin' | 'telegram' | 'tiktok';
 
 type QueueRow = {
@@ -19,6 +20,7 @@ type Article = {
   id: string;
   slug?: string | null;
   title_bn: string;
+  excerpt_bn?: string | null;
   status?: string | null;
   created_at?: string | null;
   published_at?: string | null;
@@ -72,7 +74,7 @@ async function authorized(request: Request): Promise<boolean> {
 }
 
 async function graph(path: string, body: Record<string, string>) {
-  const response = await fetch(`https://graph.facebook.com/v19.0/${path}`, {
+  const response = await fetch(`https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -101,7 +103,9 @@ function ineligibleReason(article: Article): string | null {
 // Facebook suppresses reach on posts that carry an outbound link, so the post
 // body stays link-free and the URL is added as the first comment instead.
 function facebookCaption(article: Article): string {
-  return article.title_bn.slice(0, 450);
+  const title = article.title_bn.trim();
+  const excerpt = (article.excerpt_bn || '').trim();
+  return [title, excerpt].filter(Boolean).join('\n\n').slice(0, 450);
 }
 
 // Instagram captions cannot carry clickable links; point readers to the bio and
@@ -118,12 +122,18 @@ async function publish(platform: Platform, article: Article, youtubeId?: string)
   if (platform === 'facebook') {
     const [pageId, token] = await Promise.all([vaultSecret('SOCIAL_FACEBOOK_PAGE_ID'), vaultSecret('SOCIAL_FACEBOOK_PAGE_TOKEN')]);
     if (!pageId || !token) return { status: 'skipped', error: 'missing Facebook credentials' };
-    const post = await graph(`${pageId}/feed`, { message: facebookCaption(article), access_token: token });
-    if (!post.response.ok || !post.data?.id) return { status: 'failed', error: post.data?.error?.message || 'Facebook publish failed' };
+    const post = await graph(`${pageId}/photos`, {
+      url: cardUrl,
+      caption: facebookCaption(article),
+      alt_text_custom: article.title_bn.slice(0, 200),
+      access_token: token,
+    });
+    const postId = typeof post.data?.post_id === 'string' ? post.data.post_id : post.data?.id;
+    if (!post.response.ok || !postId) return { status: 'failed', error: post.data?.error?.message || 'Facebook photo publish failed' };
     // Link goes in the first comment. A comment failure must not fail the post.
-    const comment = await graph(`${post.data.id}/comments`, { message: url, access_token: token });
+    const comment = await graph(`${postId}/comments`, { message: url, access_token: token });
     if (!comment.response.ok) console.error('[social] facebook first-comment failed', { article_id: article.id });
-    return { status: 'published', external_post_id: post.data.id };
+    return { status: 'published', external_post_id: postId };
   }
 
   if (platform === 'instagram') {
@@ -251,7 +261,7 @@ export async function POST(request: Request) {
   if (!pendingRows.length) return NextResponse.json({ ok: true, processed: 0, ready: ready.length });
 
   const articleIds = [...new Set(pendingRows.map((row) => row.article_id))];
-  const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,status,created_at,published_at,thumbnail_url,featured_image,image_rights_verified,category_key,video_id').in('id', articleIds);
+  const { data: articles } = await supabase.from('articles').select('id,slug,title_bn,excerpt_bn,status,created_at,published_at,thumbnail_url,featured_image,image_rights_verified,category_key,video_id').in('id', articleIds);
   const articleMap = new Map(((articles as Article[]) || []).map((article) => [article.id, article]));
   const videoIds = ((articles as Article[]) || []).map((article) => article.video_id).filter((id): id is string => Boolean(id));
   const { data: videos } = videoIds.length ? await supabase.from('videos').select('id,youtube_id').in('id', videoIds) : { data: [] };
