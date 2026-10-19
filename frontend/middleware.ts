@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
         { status: 503, headers: { 'Cache-Control': 'no-store' } },
       )
     }
-    return NextResponse.next()
+    return redirectToLogin(request, path, 'auth_unconfigured')
   }
 
   let supabaseResponse = NextResponse.next({ request })
@@ -55,10 +55,7 @@ export async function middleware(request: NextRequest) {
           { status: 401, headers: { 'Cache-Control': 'no-store' } },
         )
       }
-      const loginUrl = request.nextUrl.clone()
-      loginUrl.pathname = '/login'
-      loginUrl.searchParams.set('redirectedFrom', path)
-      return NextResponse.redirect(loginUrl)
+      return redirectToLogin(request, path)
     }
 
     const { data: profile } = await supabase
@@ -85,8 +82,17 @@ export async function middleware(request: NextRequest) {
         { status: 503, headers: { 'Cache-Control': 'no-store' } },
       )
     }
-    return NextResponse.next()
+    return redirectToLogin(request, path, 'auth_unavailable')
   }
+}
+
+function redirectToLogin(request: NextRequest, path: string, reason?: string) {
+  const loginUrl = request.nextUrl.clone()
+  loginUrl.pathname = '/login'
+  loginUrl.search = ''
+  loginUrl.searchParams.set('redirectedFrom', path)
+  if (reason) loginUrl.searchParams.set('error', reason)
+  return NextResponse.redirect(loginUrl)
 }
 
 export const config = {

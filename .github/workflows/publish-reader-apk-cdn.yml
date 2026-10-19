@@ -1,0 +1,53 @@
+name: Publish Reader APK to CDN
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (defaults to latest)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require Supabase secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=""
+          [ -n "$SUPABASE_URL" ] || missing="$missing SUPABASE_URL"
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing repository secrets::Add the following under Settings > Secrets and variables > Actions:$missing"
+            exit 1
+          fi
+      - name: Download Reader APK from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          if [ -n "$TAG" ]; then
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'banglar-voice-reader.apk' --output banglar-voice-reader.apk
+          else
+            gh release download --repo "$GITHUB_REPOSITORY" --pattern 'banglar-voice-reader.apk' --output banglar-voice-reader.apk
+          fi
+          test -s banglar-voice-reader.apk
+      - name: Upload to Supabase Storage (public CDN)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "$SUPABASE_URL/storage/v1/object/app-releases/banglar-voice-reader.apk" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            -H "cache-control: max-age=300" \
+            --data-binary @banglar-voice-reader.apk

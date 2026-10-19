@@ -14,6 +14,7 @@ import { RelatedArticles } from '../../../components/related-articles';
 import { ArticleComments } from '../../../components/article-comments';
 import { ShareButtons } from '../../../components/share-buttons';
 import { canonicalSiteUrl } from '../../../lib/site';
+import { sanitizeHtml } from '../../../lib/sanitize-html';
 
 export const revalidate = 60;
 
@@ -69,20 +70,6 @@ function toPlainText(html: string): string {
     .replace(/&#0?39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-// ─── Lightweight server-safe HTML sanitizer ───
-function sanitizeHtml(html: string): string {
-  if (!html) return '';
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe\b[^>]*>.*?<\/iframe>/gi, '')
-    .replace(/<object\b[^>]*>.*?<\/object>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '')
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/data:text\/html/gi, '');
 }
 
 type LoadResult =

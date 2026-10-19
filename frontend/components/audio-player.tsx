@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { t, type Locale } from '@/lib/i18n';
+import { chunkForSpeech, pickBengaliVoice, stripForSpeech } from '@/lib/tts-text';
 
 /**
  * AudioPlayerWidget — floating bottom bar for Bengali text-to-speech narration.
@@ -38,7 +39,7 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
     };
   }, [supported]);
 
-  const bnVoice = voices.find((v) => v.lang?.toLowerCase().startsWith('bn')) || null;
+  const bnVoice = pickBengaliVoice(voices);
 
   const stop = () => {
     window.speechSynthesis.cancel();
@@ -70,8 +71,8 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
       stop();
       return;
     }
-    const normalized = text.replace(/\s+/g, ' ').trim();
-    chunksRef.current = normalized.match(/.{1,700}(?:\s+|$)/g)?.map((chunk) => chunk.trim()).filter(Boolean) || [normalized.slice(0, 700)];
+    chunksRef.current = chunkForSpeech(stripForSpeech(text));
+    if (chunksRef.current.length === 0) return;
     chunkIndexRef.current = 0;
     window.speechSynthesis.cancel();
     speakNext(0);

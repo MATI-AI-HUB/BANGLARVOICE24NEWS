@@ -6,6 +6,12 @@
 import { Suspense, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { safeRedirectPath } from '@/lib/safe-redirect';
+
+const NOTICES: Record<string, string> = {
+  auth_unconfigured: 'লগইন সেবা এই মুহূর্তে কনফিগার করা নেই। অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।',
+  auth_unavailable: 'লগইন সেবা সাময়িকভাবে অনুপলব্ধ। কিছুক্ষণ পরে আবার চেষ্টা করুন।',
+};
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -14,35 +20,47 @@ function LoginForm() {
   const [error, setError] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectedFrom') || '/';
+  const redirectTo = safeRedirectPath(searchParams.get('redirectedFrom'));
+  const notice = NOTICES[searchParams.get('error') ?? ''] ?? '';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push(redirectTo);
-      router.refresh();
+      if (error) {
+        setError('ইমেইল বা পাসওয়ার্ড সঠিক নয়।');
+      } else {
+        router.push(redirectTo);
+        router.refresh();
+      }
+    } catch {
+      setError(NOTICES.auth_unconfigured);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-center mb-6">লগইন করুন</h1>
-        {error && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+        {(error || notice) && (
+          <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {error || notice}
+          </div>
+        )}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700">ইমেইল</label>
+            <label htmlFor="email" className="block text-sm font-medium text-neutral-700">ইমেইল</label>
             <input
+              id="email"
               type="email"
+              autoComplete="email"
               required
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
               value={email}
@@ -50,9 +68,11 @@ function LoginForm() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-700">পাসওয়ার্ড</label>
+            <label htmlFor="password" className="block text-sm font-medium text-neutral-700">পাসওয়ার্ড</label>
             <input
+              id="password"
               type="password"
+              autoComplete="current-password"
               required
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
               value={password}
@@ -68,7 +88,7 @@ function LoginForm() {
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-neutral-500">
-          অ্যাক্সেস নেই? <a href="/register" className="text-blue-600 hover:underline">রেজিস্ট্রেশন করুন</a>
+          অ্যাক্সেস নেই? অ্যাকাউন্টের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।
         </p>
       </div>
     </main>

@@ -39,8 +39,29 @@ async function resolveReaderApkUrl(): Promise<string | null> {
   return url;
 }
 
+/** Supabase Storage public CDN object, uploaded by the release workflow. */
+async function resolveCdnApkUrl(): Promise<string | null> {
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim().replace(/\/$/, '');
+  if (!base.startsWith('https://')) return null;
+  const url = `${base}/storage/v1/object/public/app-releases/${READER_FILENAME}`;
+  try {
+    const head = await fetch(url, { method: 'HEAD', next: { revalidate: 300 } });
+    return head.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   try {
+    const cdnUrl = await resolveCdnApkUrl();
+    if (cdnUrl) {
+      return NextResponse.redirect(cdnUrl, {
+        status: 302,
+        headers: { 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
     const url = await resolveReaderApkUrl();
     if (!url) {
       return NextResponse.json({ error: 'apk_unavailable' }, { status: 404 });

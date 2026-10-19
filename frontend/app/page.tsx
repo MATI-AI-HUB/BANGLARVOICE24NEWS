@@ -9,6 +9,7 @@ import { CategoryModules } from '../components/category-modules';
 import { AudioPlayerWidget } from '../components/audio-player';
 import { LiveBlog, type LiveEntry } from '../components/live-blog';
 import { VideoHub, type VideoItem } from '../components/video-hub';
+import { resolveVideoThumbnail } from '../lib/video-thumbnail';
 import { AINewsAnchor } from '../components/ai-anchor';
 import { NewsletterCta } from '../components/newsletter-cta';
 // Local Fallback Mock Data Engine — rich Bengali corpus used whenever the
@@ -95,8 +96,7 @@ export default async function HomePage() {
         '@type': 'VideoObject',
         name: v.title_bn || 'ভিডিও',
         description: v.description || v.title_bn || '',
-        thumbnailUrl:
-          v.thumbnail_url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        thumbnailUrl: resolveVideoThumbnail(v),
         uploadDate: v.published_at || new Date(0).toISOString(),
         embedUrl: `https://www.youtube-nocookie.com/embed/${id}`,
         contentUrl: `https://www.youtube.com/watch?v=${id}`,

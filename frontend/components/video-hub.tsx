@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { youtubeHqThumbnail } from '../lib/video-thumbnail';
 
 export type VideoItem = {
   id?: string;
@@ -18,21 +19,29 @@ export type VideoItem = {
   published_at?: string;
 };
 
-/** Zero-CLS thumbnail: gradient art when no image is available. */
-function Thumb({ src, alt }: { src?: string; alt: string }) {
+/**
+ * Zero-CLS thumbnail: gradient art when no image is available. A broken
+ * stored thumbnail is retried once with the YouTube HQ default.
+ */
+function Thumb({ src, fallbackSrc, alt }: { src?: string; fallbackSrc?: string; alt: string }) {
+  const [current, setCurrent] = useState(src || fallbackSrc);
+  const [failed, setFailed] = useState(false);
+  const visible = Boolean(current) && !failed;
+
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-neutral-800 via-neutral-700 to-neutral-900">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src || undefined}
+        src={visible ? current : undefined}
         alt={alt}
         loading="lazy"
-        className={`h-full w-full object-cover ${src ? 'opacity-100' : 'opacity-0'}`}
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.display = 'none';
+        className={`h-full w-full object-cover ${visible ? 'opacity-100' : 'opacity-0'}`}
+        onError={() => {
+          if (fallbackSrc && current !== fallbackSrc) setCurrent(fallbackSrc);
+          else setFailed(true);
         }}
       />
-      {!src && (
+      {!visible && (
         <span className="absolute inset-0 grid place-items-center text-3xl opacity-60" aria-hidden>
           ▶
         </span>
@@ -54,13 +63,15 @@ function Player({ video }: { video?: VideoItem }) {
   // Prefer the privacy-enhanced nocookie domain for real YouTube IDs; only
   // fall back to a stored embed_url (e.g. Facebook/Vimeo) when we have no ID.
   const src = video.youtube_id
-    ? `https://www.youtube-nocookie.com/embed/${video.youtube_id}?autoplay=1&rel=0`
+    ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.youtube_id)}?autoplay=1&rel=0&modestbranding=1&playsinline=1`
     : video.embed_url || null;
+  const poster = video.thumbnail_url || youtubeHqThumbnail(video.youtube_id);
+  const posterFallback = youtubeHqThumbnail(video.youtube_id);
 
   if (!src) {
     return (
       <div className="relative overflow-hidden rounded-2xl border border-white/10">
-        <Thumb src={video.thumbnail_url} alt={video.title_bn || 'ভিডিও'} />
+        <Thumb src={poster} fallbackSrc={posterFallback} alt={video.title_bn || 'ভিডিও'} />
       </div>
     );
   }
@@ -73,7 +84,7 @@ function Player({ video }: { video?: VideoItem }) {
         aria-label={video.title_bn ? `${video.title_bn} — ভিডিও চালান` : 'ভিডিও চালান'}
         className="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
       >
-        <Thumb src={video.thumbnail_url} alt={video.title_bn || 'ভিডিও'} />
+        <Thumb src={poster} fallbackSrc={posterFallback} alt={video.title_bn || 'ভিডিও'} />
         <span className="absolute inset-0 grid place-items-center bg-black/20 transition-colors group-hover:bg-black/40">
           <span className="grid h-16 w-16 place-items-center rounded-full bg-black/60 text-white shadow-lg ring-2 ring-white/70 transition-transform group-hover:scale-110 group-hover:bg-[#CC0000]">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -168,7 +179,12 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
                 }`}
               >
                 <div className="w-28 shrink-0 overflow-hidden rounded-lg">
-                  <Thumb src={v.thumbnail_url} alt={v.title_bn || ''} />
+                  <Thumb
+                    key={v.id ?? v.title_bn ?? v.embed_url}
+                    src={v.thumbnail_url}
+                    fallbackSrc={youtubeHqThumbnail(v.youtube_id)}
+                    alt={v.title_bn || ''}
+                  />
                 </div>
                 <div className="min-w-0">
                   {v.is_live && (

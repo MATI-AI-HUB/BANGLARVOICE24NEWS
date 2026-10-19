@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/server/require-admin';
+import { sanitizeHtml } from '@/lib/sanitize-html';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
@@ -201,7 +202,7 @@ export default async function VerificationDetailPage({
           <div
             className="prose prose-sm max-w-none rounded-xl border border-border bg-paper p-5 dark:border-white/10 dark:bg-neutral-900 dark:prose-invert"
             dangerouslySetInnerHTML={{
-              __html: article.content_bn.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''),
+              __html: sanitizeHtml(article.content_bn),
             }}
           />
         </section>
