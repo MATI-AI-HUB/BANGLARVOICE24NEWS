@@ -11,6 +11,7 @@ import { AudioPlayerWidget } from '../../../components/audio-player';
 import { TrustSignals } from '../../../components/trust-signals';
 import { Breadcrumb } from '../../../components/breadcrumb';
 import { RelatedArticles } from '../../../components/related-articles';
+import { ArticleComments } from '../../../components/article-comments';
 import { ShareButtons } from '../../../components/share-buttons';
 import { canonicalSiteUrl } from '../../../lib/site';
 
@@ -290,6 +291,7 @@ export default async function ArticlePage({ params }: PageProps) {
         <ShareButtons title={displayTitle} />
       </div>
 
+      <ArticleComments articleSlug={a.slug} locale={locale} />
       <RelatedArticles currentSlug={a.slug} category={a.category} locale={locale} />
     </article>
   );
