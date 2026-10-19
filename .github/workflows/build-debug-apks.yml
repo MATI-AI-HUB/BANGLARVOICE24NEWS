@@ -51,7 +51,7 @@ jobs:
             flutter pub get
             # Flutter debug APKs use the Android debug signing key and are
             # intended only for testing; they are not production releases.
-            flutter build apk --debug --target "$target"
+            flutter build apk --debug --target "$target" --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }} --dart-define=BV_AI_PROCESS_URL=${{ vars.BV_AI_PROCESS_URL }}
             cp build/app/outputs/flutter-apk/app-debug.apk "../../../debug-apks/app-$name-debug.apk"
             flutter clean
             rm -rf android/.gradle

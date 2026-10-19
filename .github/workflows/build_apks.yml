@@ -102,7 +102,7 @@ jobs:
             app="${apps[$i]}"; target="${targets[$i]}"; name="${names[$i]}"
             pushd "mobile_monorepo/apps/$app" >/dev/null
             flutter pub get
-            flutter build apk --release --target "$target"
+            flutter build apk --release --target "$target" --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }} --dart-define=BV_AI_PROCESS_URL=${{ vars.BV_AI_PROCESS_URL }}
             cp build/app/outputs/flutter-apk/app-release.apk "../../../apks/banglar-voice-$name.apk"
             # Keep only the copied APK; Gradle and Flutter intermediates from
             # each app otherwise exhaust the hosted runner disk before app 5.

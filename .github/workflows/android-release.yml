@@ -33,7 +33,7 @@ jobs:
           printf 'storeFile=keystore/banglar-voice-release.jks\nkeyAlias=%s\nkeyPassword=%s\nstorePassword=%s\n' "$ALIAS" "$KEY_PASS" "$STORE_PASS" > "$D/key.properties"
       - name: Build AAB
         working-directory: mobile_monorepo/apps/${{ matrix.app }}
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }} --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }} --dart-define=BV_AI_PROCESS_URL=${{ vars.BV_AI_PROCESS_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}-release
