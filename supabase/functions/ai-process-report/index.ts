@@ -46,6 +46,10 @@ async function vaultKey(serviceName: string): Promise<string | null> {
 
 // --- whisper: audio/video -> Bangla text --------------------------------------
 async function transcribe(mediaUrl: string, openaiKey: string): Promise<string> {
+  const mu = new URL(mediaUrl);
+  if (mu.origin !== new URL(SUPABASE_URL).origin || !mu.pathname.startsWith("/storage/v1/object/")) {
+    throw new Error("media url not allowed");
+  }
   const bytes = await fetch(mediaUrl).then((r) => r.arrayBuffer());
   const form = new FormData();
   form.append("file", new Blob([bytes]), "field-report-media");
@@ -83,6 +87,7 @@ async function chat(openaiKey: string, system: string, user: string): Promise<st
   return data.choices?.[0]?.message?.content ?? "";
 }
 
+const STAFF_ROLES = ["admin", "chief_editor", "desk_editor"];
 Deno.serve(async (req: Request) => {
   const cors = handleCors(req);
   if (cors) return cors;
@@ -90,6 +95,15 @@ Deno.serve(async (req: Request) => {
   try {
     const { report_id } = await req.json();
     if (!report_id) return json({ error: "report_id required" }, 400);
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (!token) return json({ error: "unauthorized" }, 401);
+    const internal = token === SERVICE_ROLE;
+    let callerId = "";
+    if (!internal) {
+      const { data: { user }, error: uErr } = await supabase.auth.getUser(token);
+      if (uErr || !user) return json({ error: "unauthorized" }, 401);
+      callerId = user.id;
+    }
 
     const { data: report, error: fetchErr } = await supabase
       .from("field_reports")
@@ -97,6 +111,10 @@ Deno.serve(async (req: Request) => {
       .eq("id", report_id)
       .maybeSingle();
     if (fetchErr || !report) return json({ error: "report not found" }, 404);
+    if (!internal && report.reporter_id !== callerId) {
+      const { data: me } = await supabase.from("profiles").select("role").eq("id", callerId).maybeSingle();
+      if (!STAFF_ROLES.includes(me?.role ?? "")) return json({ error: "forbidden" }, 403);
+    }
 
     const openaiKey = await vaultKey("OPENAI_API_KEY");
     const patch: Record<string, unknown> = {};
