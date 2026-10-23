@@ -24,6 +24,7 @@ async function getVaultSecret(serviceName: string): Promise<string | null> {
 
 export async function GET(req: Request) {
   try {
+    // OAuth client credentials are resolved only from Supabase Vault.
     const clientId = await getVaultSecret('OAUTH_CLIENT_ID');
     if (!clientId) {
       console.error('[oauth-start] OAUTH_CLIENT_ID is not configured in Vault.');
