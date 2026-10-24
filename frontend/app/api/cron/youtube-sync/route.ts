@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { evaluateYouTubePublishGate } from '../../../../lib/youtube-contract';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -24,7 +25,7 @@ type VideoInventoryRow = {
   duration_sec: number | null;
   is_live: boolean;
   view_count: number;
-  status: 'needs_enrichment' | 'quarantined';
+  status: 'published' | 'quarantined';
   audit_reason: string | null;
   published_at: string;
   updated_at: string;
@@ -123,13 +124,28 @@ export async function POST(request: Request) {
       } catch {
         embeddable = false;
       }
-      if (!embeddable) continue;
+      let thumbnailReachable = false;
+      const thumbnailUrl = attr(entry, 'media:thumbnail', 'url') || `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
+      try {
+        const thumbnail = await fetch(thumbnailUrl, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
+        thumbnailReachable = thumbnail.ok;
+      } catch {
+        thumbnailReachable = false;
+      }
+      const gate = evaluateYouTubePublishGate({
+        videoId: youtubeId,
+        title,
+        channelId: CHANNEL_ID,
+        expectedChannelId: CHANNEL_ID,
+        embeddable,
+        thumbnailReachable,
+      });
       rows.push({
         title_bn: title,
         title_en: '',
         description_bn: '',
         category_key: category(title),
-        thumbnail_url: attr(entry, 'media:thumbnail', 'url') || `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+        thumbnail_url: thumbnailUrl,
         video_url: `https://www.youtube.com/watch?v=${youtubeId}`,
         embed_url: `https://www.youtube-nocookie.com/embed/${youtubeId}`,
         youtube_id: youtubeId,
@@ -138,8 +154,8 @@ export async function POST(request: Request) {
         duration_sec: null,
         is_live: false,
         view_count: 0,
-        status: 'needs_enrichment',
-        audit_reason: null,
+        status: gate.publishable ? 'published' : 'quarantined',
+        audit_reason: gate.reason,
         published_at: publishedAt,
         updated_at: new Date().toISOString(),
       });
@@ -166,7 +182,7 @@ export async function POST(request: Request) {
         inserted_count += 1;
       }
     }
-    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, processed_count: Math.min(entries.length, 15), synced_count: rows.length, inserted_count, updated_count, quarantined_count: rows.filter((row) => row.status === 'quarantined').length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
+    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, processed_count: Math.min(entries.length, 15), synced_count: rows.length, inserted_count, updated_count, published_count: rows.filter((row) => row.status === 'published').length, quarantined_count: rows.filter((row) => row.status === 'quarantined').length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'youtube_sync_failed' }, { status: 500 });
   }

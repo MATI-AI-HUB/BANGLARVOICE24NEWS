@@ -23,7 +23,9 @@ export async function GET(req: Request) {
     const { data: videos, error } = await supabase
       .from('videos')
       .select('id, title_bn, title_en, description_bn, category_key, thumbnail_url, video_url, embed_url, youtube_id, duration_sec, is_live, view_count, published_at')
-      .in('status', ['published', 'live', 'needs_enrichment'])
+      // Never expose inventory awaiting enrichment or editorial review.
+      // YouTube follows the same fail-closed publication contract as news.
+      .in('status', ['published', 'live'])
       .order('is_live', { ascending: false })
       .order('published_at', { ascending: false })
       .limit(limit);
