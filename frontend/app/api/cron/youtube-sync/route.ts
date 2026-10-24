@@ -9,6 +9,9 @@ const FEED_URL = 'https://www.youtube.com/feeds/videos.xml?playlist_id=UUH2pdJM-
 const CHANNEL_ID = 'UCH2pdJM-Rsv51WOtcfDcLQA';
 const UPLOADS_URL = 'https://www.youtube.com/playlist?list=UUH2pdJM-Rsv51WOtcfDcLQA';
 const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+// The scheduler runs once per day. Keep the public video volume bounded so
+// monetization review and social distribution remain manageable.
+const DAILY_VIDEO_CAP = 6;
 const INSTRUCTION_RE = /(?:ignore\s+(?:all\s+)?previous|system\s+prompt|developer\s+message|reveal\s+(?:the\s+)?secret|execute\s+(?:this|the)\s+command|run\s+(?:this|the)\s+command|do\s+not\s+follow|override\s+(?:the\s+)?instructions)/i;
 
 type VideoInventoryRow = {
@@ -88,7 +91,8 @@ export async function POST(request: Request) {
     if (!entries.length) return NextResponse.json({ ok: false, error: 'youtube_feed_empty' }, { status: 503 });
 
     const rows: VideoInventoryRow[] = [];
-    for (const entry of entries.slice(0, 15)) {
+    const entriesToProcess = entries.slice(0, DAILY_VIDEO_CAP);
+    for (const entry of entriesToProcess) {
       const youtubeId = tag(entry, 'yt:videoId');
       if (!VIDEO_ID_RE.test(youtubeId)) continue;
       const title = plainText(tag(entry, 'title'), 200);
@@ -182,7 +186,7 @@ export async function POST(request: Request) {
         inserted_count += 1;
       }
     }
-    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', fetched_count: entries.length, processed_count: Math.min(entries.length, 15), synced_count: rows.length, inserted_count, updated_count, published_count: rows.filter((row) => row.status === 'published').length, quarantined_count: rows.filter((row) => row.status === 'quarantined').length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
+    return NextResponse.json({ ok: true, source: 'youtube_atom_feed', daily_cap: DAILY_VIDEO_CAP, fetched_count: entries.length, processed_count: entriesToProcess.length, synced_count: rows.length, inserted_count, updated_count, published_count: rows.filter((row) => row.status === 'published').length, quarantined_count: rows.filter((row) => row.status === 'quarantined').length, duration_enrichment: 'pending', channel_id: CHANNEL_ID });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'youtube_sync_failed' }, { status: 500 });
   }
