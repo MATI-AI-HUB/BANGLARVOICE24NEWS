@@ -21,3 +21,6 @@ node_modules/
 worker/node_modules/
 
 mobile_monorepo/apps/*/android/app/keystore/
+
+# Generated media stays local/private unless explicitly reviewed for release.
+scripts/pipeline/output/

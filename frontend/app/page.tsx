@@ -51,7 +51,7 @@ export default async function HomePage() {
   let videoItems: VideoItem[] = [];
 
   try {
-    const data = await api.articles(20);
+    const data = await api.articles(20, locale);
     items = data.items || [];
   } catch (e) {
     error = e instanceof Error ? e.message : 'connection failed';
@@ -239,7 +239,7 @@ export default async function HomePage() {
       ) : null}
 
       {/* Membership / newsletter hook */}
-      <NewsletterCta />
+      <NewsletterCta locale={locale} />
 
       <AudioPlayerWidget text={feed.map((a) => `${a.title_bn}। ${a.dek_bn || ''}`).join(' ')} title={t(locale, 'audio_today_headlines')} locale={locale} />
     </main>

@@ -23,15 +23,13 @@ type AnchorScript = {
   body: string;
 };
 
-const ELEVENLABS_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || '';
-const ELEVENLABS_VOICE = process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID || '';
-
 export function AINewsAnchor({ script, enable3d = true }: { script: AnchorScript; enable3d?: boolean }) {
   const [state, setState] = useState<'idle' | 'loading' | 'speaking' | 'paused'>('idle');
   const [rate, setRate] = useState(1);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [error, setError] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const [supported] = useState(
     () => typeof window !== 'undefined' && 'speechSynthesis' in window,
   );
@@ -46,14 +44,21 @@ export function AINewsAnchor({ script, enable3d = true }: { script: AnchorScript
     window.speechSynthesis.addEventListener('voiceschanged', load);
     return () => {
       window.speechSynthesis.removeEventListener('voiceschanged', load);
-      window.speechSynthesis.cancel();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      audioRef.current?.pause();
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     };
   }, [supported]);
+
+  useEffect(() => () => {
+    audioRef.current?.pause();
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+  }, []);
 
   const bnVoice = voices.find((v) => v.lang?.toLowerCase().startsWith('bn')) || null;
 
   const stop = () => {
-    window.speechSynthesis.cancel();
+    if (supported) window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -71,7 +76,10 @@ export function AINewsAnchor({ script, enable3d = true }: { script: AnchorScript
     if (bnVoice) u.voice = bnVoice;
     u.rate = rate;
     u.onend = () => setState('idle');
-    u.onerror = () => setState('idle');
+    u.onerror = () => {
+      setState('idle');
+      void speakWithElevenLabs();
+    };
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
     setState('speaking');
@@ -80,35 +88,40 @@ export function AINewsAnchor({ script, enable3d = true }: { script: AnchorScript
   const speakWithElevenLabs = async () => {
     setState('loading');
     try {
-      const res = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'xi-api-key': ELEVENLABS_KEY,
-          },
-          body: JSON.stringify({
-            text: fullText.slice(0, 5000),
-            model_id: 'eleven_multilingual_v2',
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-          }),
-        },
-      );
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: fullText.slice(0, 3500) }),
+        signal: AbortSignal.timeout(30_000),
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.playbackRate = rate;
-      audio.onended = () => setState('idle');
-      audio.onerror = () => setState('idle');
+      audio.onended = () => {
+        setState('idle');
+        if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      };
+      audio.onerror = () => {
+        setState('idle');
+        if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      };
       await audio.play();
       setState('speaking');
     } catch {
-      // Fall back to Web Speech if the key is invalid / network fails.
-      setError('ElevenLabs ব্যর্থ — Web Speech fallback ব্যবহার হচ্ছে।');
-      speakWithWebSpeech();
+      if (supported) {
+        setError('ক্লাউড অডিও পাওয়া যায়নি — ব্রাউজারের ভয়েস ব্যবহার হচ্ছে।');
+        speakWithWebSpeech();
+      } else {
+        setError('এই ব্রাউজারে ভয়েস সুবিধা নেই এবং ক্লাউড অডিও সাময়িকভাবে বন্ধ।');
+        setState('idle');
+      }
     }
   };
 
@@ -127,10 +140,10 @@ export function AINewsAnchor({ script, enable3d = true }: { script: AnchorScript
       }
       return;
     }
-    if (ELEVENLABS_KEY && ELEVENLABS_VOICE) {
-      speakWithElevenLabs();
-    } else {
+    if (supported) {
       speakWithWebSpeech();
+    } else {
+      speakWithElevenLabs();
     }
   };
 

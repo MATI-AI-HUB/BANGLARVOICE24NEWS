@@ -48,8 +48,5 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: false },
   outputFileTracingRoot: path.join(__dirname),
   allowedDevOrigins: ['.monkeycode-ai.live'],
-  experimental: {
-    allowedHosts: ['.monkeycode-ai.live'],
-  },
 }
 module.exports = nextConfig

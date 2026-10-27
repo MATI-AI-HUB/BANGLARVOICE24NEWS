@@ -18,7 +18,7 @@ export async function RelatedArticles({
 }) {
   let feed: FeedArticle[] = [];
   try {
-    const res = await api.articles(12);
+    const res = await api.articles(12, locale);
     feed = res.items ?? [];
   } catch {
     feed = [];

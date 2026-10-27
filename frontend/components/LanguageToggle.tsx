@@ -8,13 +8,13 @@ function readCookie(name: string): string | undefined {
   return m ? decodeURIComponent(m[1]) : undefined;
 }
 
-export function LanguageToggle() {
-  const [current, setCurrent] = useState<Locale>(DEFAULT_LOCALE);
+export function LanguageToggle({ locale = DEFAULT_LOCALE }: { locale?: Locale }) {
+  const [current, setCurrent] = useState<Locale>(locale);
 
   useEffect(() => {
     const v = readCookie(LOCALE_COOKIE);
-    if (isLocale(v)) setCurrent(v);
-  }, []);
+    setCurrent(isLocale(v) ? v : locale);
+  }, [locale]);
 
   return (
     <form

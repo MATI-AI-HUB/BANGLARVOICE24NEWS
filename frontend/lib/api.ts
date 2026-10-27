@@ -2,6 +2,7 @@ import type { FeedArticle } from './mockData';
 import type { LiveEntry } from '../components/live-blog';
 import type { VideoItem } from '../components/video-hub';
 import { createClient } from '@supabase/supabase-js';
+import type { Locale } from './i18n';
 
 /**
  * Banglar Voice — typed API client.
@@ -175,7 +176,11 @@ type PublicFeedItem = {
   id: string;
   url?: string;
   title?: string;
+  title_bn?: string;
+  title_en?: string;
   summary?: string;
+  summary_bn?: string;
+  summary_en?: string;
   content_text?: string;
   date_published?: string;
   category_key?: string;
@@ -204,8 +209,10 @@ export function publicFeedItemToArticle(item: PublicFeedItem): FeedArticle {
   return {
     id: item.id,
     slug: fallbackSlug,
-    title_bn: item.title || 'শিরোনাম পাওয়া যায়নি',
-    dek_bn: item.summary || stripHtml(content).slice(0, 220),
+    title_bn: item.title_bn || item.title || 'শিরোনাম পাওয়া যায়নি',
+    title_en: item.title_en || undefined,
+    dek_bn: item.summary_bn || item.summary || stripHtml(content).slice(0, 220),
+    dek_en: item.summary_en || undefined,
     category: categoryLabel(item.category_label || item.category_key),
     featured_image: item.banner_image || '',
     reading_time_min: readingTime,
@@ -225,7 +232,7 @@ export function publicFeedItemToArticle(item: PublicFeedItem): FeedArticle {
 export const api = {
   base: PB_BASE,
 
-  async articles(limit = 20): Promise<ArticleResponse> {
+  async articles(limit = 20, locale: Locale = 'bn'): Promise<ArticleResponse> {
     try {
       const { fetchPublishedArticlesFeed } = await import('./supabase/published-articles');
       const rows = await fetchPublishedArticlesFeed();
@@ -241,7 +248,7 @@ export const api = {
     const { canonicalSiteUrl } = await import('./site');
     const siteOrigin = canonicalSiteUrl();
 
-    const response = await fetch(`${siteOrigin}/api/public/feed.json`, {
+    const response = await fetch(`${siteOrigin}/api/public/feed.json?locale=${encodeURIComponent(locale)}`, {
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(8000),
       headers: { Accept: 'application/feed+json, application/json' },

@@ -65,8 +65,8 @@ export default async function RootLayout({
         <Header locale={locale} />
         <main className="flex-1">{children}</main>
         <Footer locale={locale} />
-        <CookieBanner />
-        <LearningHub />
+        <CookieBanner locale={locale} />
+        <LearningHub locale={locale} />
       </body>
     </html>
   );

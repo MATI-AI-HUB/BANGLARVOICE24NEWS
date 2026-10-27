@@ -148,16 +148,16 @@ export function LeadCard({ article, href, locale }: { article: Article; href: st
         )}
         <div className="mt-auto flex flex-wrap items-center gap-3 pt-4 text-xs text-neutral-500 dark:text-neutral-400">
           <span className="rounded-full border border-border px-2 py-0.5 font-semibold text-ink dark:border-white/15 dark:text-paper">
-            {article.source_name || article.author || 'সূত্র'}
+            {article.source_name || article.author || t(locale, 'source_label')}
           </span>
           {article.read_time ? <span>• {fmtNum(article.read_time, locale)} {t(locale, 'min_read')}</span> : null}
           <span>• <ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
         {article.image_is_representational ? (
-          <p className="pt-2 text-[10px] font-semibold text-neutral-500">প্রতীকী ছবি</p>
+          <p className="pt-2 text-[10px] font-semibold text-neutral-500">{t(locale, 'representative_image')}</p>
         ) : null}
         {article.image_credit ? (
-          <p className="pt-2 text-[10px] text-neutral-400">ছবি: {article.image_credit}</p>
+          <p className="pt-2 text-[10px] text-neutral-400">{t(locale, 'image_credit')}: {article.image_credit}</p>
         ) : null}
       </div>
     </a>
@@ -184,17 +184,17 @@ export function ArticleCard({ article, href, locale }: { article: Article; href:
         </h3>
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-3 text-[11px] text-neutral-500 dark:text-neutral-400">
           <span className="rounded-full border border-border px-2 py-0.5 font-semibold text-ink dark:border-white/15 dark:text-paper">
-            {article.source_name || article.author || 'সূত্র'}
+            {article.source_name || article.author || t(locale, 'source_label')}
           </span>
           {article.read_time ? <span>{fmtNum(article.read_time, locale)} {t(locale, 'min_short')}</span> : null}
           <span>•</span>
           <span><ClientTimeAgo iso={article.published_at} locale={locale} /></span>
         </div>
         {article.image_is_representational ? (
-          <p className="pt-2 text-[10px] font-semibold text-neutral-500">প্রতীকী ছবি</p>
+          <p className="pt-2 text-[10px] font-semibold text-neutral-500">{t(locale, 'representative_image')}</p>
         ) : null}
         {article.image_credit ? (
-          <p className="pt-2 text-[10px] text-neutral-400">ছবি: {article.image_credit}</p>
+          <p className="pt-2 text-[10px] text-neutral-400">{t(locale, 'image_credit')}: {article.image_credit}</p>
         ) : null}
       </div>
     </a>
@@ -218,7 +218,7 @@ export function TrendingItem({ rank, article, href, locale }: { rank?: number; a
           {article.title}
         </h4>
         <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-neutral-500">
-          <span className="font-semibold text-ink dark:text-paper">{article.source_name || article.author || 'সূত্র'}</span>
+          <span className="font-semibold text-ink dark:text-paper">{article.source_name || article.author || t(locale, 'source_label')}</span>
           <span>•</span>
           <ClientTimeAgo iso={article.published_at} locale={locale} />
         </div>
@@ -233,7 +233,7 @@ export function TrendingItem({ rank, article, href, locale }: { rank?: number; a
  * (passed as props) so ISR caching applies once.
  */
 export function HeroBentoGrid({ articles, locale }: { articles: Article[]; locale: Locale }) {
-  // Tabbed right rail: "সর্বশেষ" (recency) vs "ট্রেন্ডিং" (by bias, desc).
+  // Tabbed right rail: latest stories vs the current client-side ranked list.
   const [tab, setTab] = useState<'latest' | 'trending'>('latest');
   const lead = articles[0];
   const secondary = articles.slice(1, 3);
@@ -252,7 +252,7 @@ export function HeroBentoGrid({ articles, locale }: { articles: Article[]; local
   if (!lead) {
     return (
       <div className="rounded-3xl border border-dashed border-border p-10 text-center text-neutral-500">
-        কোনো সংবাদ এখনও প্রকাশিত হয়নি — API সংযোগ নেই?
+        {t(locale, 'no_published_stories')}
       </div>
     );
   }
@@ -276,13 +276,13 @@ export function HeroBentoGrid({ articles, locale }: { articles: Article[]; local
         >
           <div
             role="tablist"
-            aria-label="পাশের কলাম"
+            aria-label={t(locale, 'side_column')}
             className="mb-2 flex gap-1 rounded-full bg-muted p-1 dark:bg-neutral-800"
           >
             {(
               [
-                ['latest', 'সর্বশেষ'],
-                ['trending', 'ট্রেন্ডিং'],
+                ['latest', t(locale, 'latest_tab')],
+                ['trending', t(locale, 'trending_tab')],
               ] as const
             ).map(([key, label]) => (
               <button

@@ -19,3 +19,8 @@ verify_jwt = true
 # then isServiceRole() still rejects anonymous callers.
 [functions.ai-gateway]
 verify_jwt = false
+
+# Newsletter queue worker requires both a verified Supabase service JWT and
+# NEWSLETTER_WORKER_SECRET; it is not scheduled until provider secrets exist.
+[functions.send-newsletter]
+verify_jwt = true

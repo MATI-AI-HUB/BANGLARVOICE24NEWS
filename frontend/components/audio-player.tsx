@@ -15,7 +15,10 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [mounted, setMounted] = useState(false);
   const [supported, setSupported] = useState(false);
+  const [error, setError] = useState('');
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const remoteUrlRef = useRef<string | null>(null);
   const chunksRef = useRef<string[]>([]);
   const chunkIndexRef = useRef(0);
 
@@ -29,13 +32,13 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
   }, []);
 
   useEffect(() => {
-    if (!mounted || !supported) return;
+    if (!mounted) return;
     const previousPadding = document.body.style.paddingBottom;
-    document.body.style.paddingBottom = 'calc(5rem + env(safe-area-inset-bottom, 0px))';
+    document.body.style.paddingBottom = 'calc(9rem + env(safe-area-inset-bottom, 0px))';
     return () => {
       document.body.style.paddingBottom = previousPadding;
     };
-  }, [mounted, supported]);
+  }, [mounted]);
 
   useEffect(() => {
     if (!supported) return;
@@ -45,14 +48,58 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
     return () => {
       window.speechSynthesis.removeEventListener('voiceschanged', load);
       window.speechSynthesis.cancel();
+      remoteAudioRef.current?.pause();
+      if (remoteUrlRef.current) URL.revokeObjectURL(remoteUrlRef.current);
     };
   }, [supported]);
+
+  useEffect(() => () => {
+    if (remoteUrlRef.current) URL.revokeObjectURL(remoteUrlRef.current);
+  }, []);
 
   const bnVoice = pickBengaliVoice(voices);
 
   const stop = () => {
-    window.speechSynthesis.cancel();
+    if (supported) window.speechSynthesis.cancel();
+    remoteAudioRef.current?.pause();
+    if (remoteAudioRef.current) remoteAudioRef.current.currentTime = 0;
     setSpeaking(false);
+  };
+
+  const speakWithCloud = async () => {
+    setError('');
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: stripForSpeech(text).slice(0, 3500) }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok) throw new Error('tts_unavailable');
+      const blob = await response.blob();
+      if (remoteUrlRef.current) URL.revokeObjectURL(remoteUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      remoteUrlRef.current = url;
+      const audio = new Audio(url);
+      audio.playbackRate = rate;
+      audio.onended = () => {
+        setSpeaking(false);
+        if (remoteUrlRef.current) URL.revokeObjectURL(remoteUrlRef.current);
+        remoteUrlRef.current = null;
+      };
+      audio.onerror = () => {
+        setSpeaking(false);
+        setError('অডিও চালানো যায়নি। পরে আবার চেষ্টা করুন।');
+        if (remoteUrlRef.current) URL.revokeObjectURL(remoteUrlRef.current);
+        remoteUrlRef.current = null;
+      };
+      remoteAudioRef.current = audio;
+      await audio.play();
+      setSpeaking(true);
+    } catch {
+      setSpeaking(false);
+      setError('এই ডিভাইসে ভয়েস সুবিধা নেই বা অডিও সেবা সাময়িকভাবে বন্ধ।');
+    }
   };
 
   const speakNext = (chunkIndex: number, nextRate = rate) => {
@@ -69,15 +116,21 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
       chunkIndexRef.current += 1;
       speakNext(chunkIndexRef.current, nextRate);
     };
-    u.onerror = () => setSpeaking(false);
+    u.onerror = () => {
+      setSpeaking(false);
+      void speakWithCloud();
+    };
     utteranceRef.current = u;
     window.speechSynthesis.speak(u);
   };
 
   const toggle = () => {
-    if (!supported) return;
     if (speaking) {
       stop();
+      return;
+    }
+    if (!supported) {
+      void speakWithCloud();
       return;
     }
     chunksRef.current = chunkForSpeech(stripForSpeech(text));
@@ -88,14 +141,14 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
     setSpeaking(true);
   };
 
-  if (!mounted || !supported) return null;
+  if (!mounted) return null;
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-paper/95 backdrop-blur-md dark:border-neutral-800 dark:bg-ink/95"
+      className="fixed inset-x-0 bottom-20 z-40 border-t border-border bg-paper/95 backdrop-blur-md dark:border-neutral-800 dark:bg-ink/95 md:bottom-6"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 pr-20 sm:gap-3 md:pr-20">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 pr-4 sm:gap-3 md:pr-20">
         {/* fake waveform */}
         <div className="hidden h-6 items-center gap-0.5 sm:flex" aria-hidden>
           {Array.from({ length: 18 }).map((_, i) => (
@@ -131,11 +184,15 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
               onClick={() => {
                 setRate(r);
                 if (speaking) {
-                  stop();
-                  setTimeout(() => {
-                    speakNext(0, r);
-                    setSpeaking(true);
-                  }, 50);
+                  if (remoteAudioRef.current) {
+                    remoteAudioRef.current.playbackRate = r;
+                  } else {
+                    stop();
+                    setTimeout(() => {
+                      speakNext(0, r);
+                      setSpeaking(true);
+                    }, 50);
+                  }
                 }
               }}
               className={`rounded-full px-2 py-1 text-[11px] font-semibold ${rate === r ? 'bg-ink text-paper dark:bg-paper dark:text-ink' : 'text-neutral-500'}`}
@@ -151,7 +208,8 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
+        </div>
+        {error ? <p role="status" className="mx-auto max-w-6xl px-4 pb-2 text-xs text-amber-700 dark:text-amber-300">{error}</p> : null}
       </div>
-    </div>
   );
 }

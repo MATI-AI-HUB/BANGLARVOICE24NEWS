@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import type { Locale } from '@/lib/i18n';
 
 /**
  * বাংলার ভয়েস লার্নিং হাব — server-backed research assistant.
@@ -12,17 +13,18 @@ import { useState, useRef, useEffect } from 'react';
 
 type ChatMessage = { role: 'user' | 'bot'; text: string; sources?: { title: string; url: string }[] };
 
-const SUGGESTIONS = [
-  'বাংলার ভয়েস কী?',
-  'সংবাদ কীভাবে যাচাই করা হয়?',
-  'AI অ্যাংকর কী?',
-  'কীভাবে রিপোর্ট পাঠাবো?',
-  'ই-পেপার কোথায় পাবো?',
-];
+const SUGGESTIONS: Record<Locale, string[]> = {
+  bn: ['বাংলার ভয়েস কী?', 'সংবাদ কীভাবে যাচাই করা হয়?', 'AI অ্যাংকর কী?', 'কীভাবে রিপোর্ট পাঠাবো?', 'ই-পেপার কোথায় পাবো?'],
+  en: ['What is Banglar Voice?', 'How are reports verified?', 'What is the AI anchor?', 'How can I submit a report?', 'Where can I find the e-paper?'],
+};
 
 /** Deterministic Bengali answer engine — instant, offline, no API key needed. */
 export function answer(question: string): string {
   const q = question.toLowerCase();
+
+  if (/^(hi|hello|hey|সালাম|আসসালামু আলাইকুম|আসসালামু আলাইকুম ভাই|কেমন আছেন)[!,.?\s।]*$/i.test(q)) {
+    return 'ওয়ালাইকুম আসসালাম! আমি বাংলার ভয়েস AI সহকারী। আজ আপনাকে কীভাবে সাহায্য করতে পারি? সর্বশেষ সংবাদ জানতে কোনো বিষয় লিখে অনুসন্ধান করুন।';
+  }
 
   if (/(বাংলার ভয়েস|banglar voice|পরিচয়|about)/.test(q) && /(কী|কি|about|পরিচয়|কেমন|কেন)/.test(q)) {
     return (
@@ -88,11 +90,14 @@ export function answer(question: string): string {
   );
 }
 
-export function LearningHub() {
+export function LearningHub({ locale = 'bn' }: { locale?: Locale }) {
+  const en = locale === 'en';
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'bot', text: 'সালাম! আমি বাংলার ভয়েসের সহকারী। সংবাদ, যাচাই, AI অ্যাংকর, ই-পেপার — যেকোনো বিষয়ে জিজ্ঞাসা করুন।' },
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    { role: 'bot', text: en
+      ? 'Hello! I am the Banglar Voice assistant. Ask me about news, verification, the AI anchor, or the e-paper.'
+      : 'সালাম! আমি বাংলার ভয়েসের সহকারী। সংবাদ, যাচাই, AI অ্যাংকর, ই-পেপার — যেকোনো বিষয়ে জিজ্ঞাসা করুন।' },
   ]);
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -111,8 +116,8 @@ export function LearningHub() {
     // Keep deterministic product/help FAQs authoritative. Archive search can
     // return a weakly related article for short Bengali questions (for example
     // “ই-পেপার কোথায় পাবো?”), which must not override the canonical answer.
-    const localAnswer = answer(trimmed);
-    if (!localAnswer.startsWith('দুঃখিত')) {
+    const localAnswer = en ? '' : answer(trimmed);
+    if (!en && !localAnswer.startsWith('দুঃখিত')) {
       setMessages((m) => [...m, { role: 'bot', text: localAnswer }]);
       setBusy(false);
       return;
@@ -122,14 +127,21 @@ export function LearningHub() {
       const res = await fetch('/api/learning-hub', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: trimmed, history: messages.slice(-6).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text.slice(0, 600) })) }),
+        signal: AbortSignal.timeout(15_000),
+        body: JSON.stringify({ question: trimmed, locale, history: messages.slice(-6).map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text.slice(0, 600) })) }),
       });
-      const data = await res.json();
-      setMessages((m) => [...m, { role: 'bot', text: data?.answer || answer(trimmed), sources: data?.sources || [] }]);
+      const data = await res.json().catch(() => ({}));
+      const safeAnswer = typeof data?.answer === 'string' && data.answer.trim()
+        ? data.answer
+        : (en
+          ? 'No reliable source was found for this question. Try rephrasing it or search the latest news.'
+          : 'এই প্রশ্নের নির্ভরযোগ্য সূত্র এখন পাওয়া যায়নি। অন্যভাবে প্রশ্নটি লিখে চেষ্টা করুন অথবা সর্বশেষ সংবাদ অনুসন্ধান করুন।');
+      setMessages((m) => [...m, { role: 'bot', text: safeAnswer, sources: Array.isArray(data?.sources) ? data.sources : [] }]);
     } catch {
-      setMessages((m) => [...m, { role: 'bot', text: answer(trimmed) }]);
+      setMessages((m) => [...m, { role: 'bot', text: en ? 'The assistant is temporarily unavailable. Please try again shortly.' : 'সহকারী সাময়িকভাবে সংযোগ করতে পারছে না। কিছুক্ষণ পর আবার চেষ্টা করুন।' }]);
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   return (
@@ -138,7 +150,7 @@ export function LearningHub() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label={open ? 'বাংলার ভয়েস লার্নিং হাব বন্ধ করুন' : 'বাংলার ভয়েস লার্নিং হাব খুলুন'}
+        aria-label={open ? (en ? 'Close Banglar Voice assistant' : 'বাংলার ভয়েস লার্নিং হাব বন্ধ করুন') : (en ? 'Open Banglar Voice assistant' : 'বাংলার ভয়েস লার্নিং হাব খুলুন')}
         className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-card transition-transform hover:scale-105 dark:bg-primary"
       >
         {open ? (
@@ -151,15 +163,15 @@ export function LearningHub() {
       {open && (
         <div
           role="dialog"
-          aria-label="বাংলার ভয়েস লার্নিং হাব"
+          aria-label={en ? 'Banglar Voice Learning Hub' : 'বাংলার ভয়েস লার্নিং হাব'}
           className="fixed bottom-24 right-4 z-50 flex h-[520px] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-border bg-paper shadow-card dark:border-white/10 dark:bg-ink"
         >
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-border bg-primary px-4 py-3 text-white dark:border-white/10">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-sm font-bold">ব</div>
             <div>
-              <div className="text-sm font-bold">বাংলার ভয়েস লার্নিং হাব</div>
-              <div className="text-[11px] text-white/80">ওয়েব গবেষণা AI সহকারী</div>
+              <div className="text-sm font-bold">{en ? 'Banglar Voice Learning Hub' : 'বাংলার ভয়েস লার্নিং হাব'}</div>
+              <div className="text-[11px] text-white/80">{en ? 'Web research AI assistant' : 'ওয়েব গবেষণা AI সহকারী'}</div>
             </div>
           </div>
 
@@ -188,7 +200,7 @@ export function LearningHub() {
             {busy && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2.5 text-[13px] text-ink/60 dark:bg-white/10 dark:text-white/60">
-                  লিখছি…
+                  {en ? 'Thinking…' : 'লিখছি…'}
                 </div>
               </div>
             )}
@@ -196,7 +208,7 @@ export function LearningHub() {
 
           {/* Suggestions */}
           <div className="flex flex-wrap gap-1.5 px-4 pb-2">
-            {SUGGESTIONS.map((s) => (
+            {SUGGESTIONS[locale].map((s) => (
               <button
                 key={s}
                 type="button"
@@ -219,15 +231,15 @@ export function LearningHub() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="প্রশ্ন লিখুন…"
-              aria-label="প্রশ্ন"
+              placeholder={en ? 'Ask a question…' : 'প্রশ্ন লিখুন…'}
+              aria-label={en ? 'Question' : 'প্রশ্ন'}
               className="flex-1 rounded-full border border-border bg-muted px-4 py-2.5 text-[13px] text-ink outline-none focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
             <button
               type="submit"
               disabled={busy || !input.trim()}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-opacity disabled:opacity-40"
-              aria-label="পাঠান"
+              aria-label={en ? 'Send' : 'পাঠান'}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
             </button>

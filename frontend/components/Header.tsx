@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ThemeToggle } from './theme-toggle';
 import { LanguageToggle } from './LanguageToggle';
 import { BreakingMarquee } from './breaking-marquee';
+import { WeatherWidget } from './weather-widget';
 import { t, type Locale } from '@/lib/i18n';
 import { formatBanglaCalendarDate } from '@/lib/bn-date';
 
@@ -96,11 +97,14 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
     <>
       <div className="bg-crimson text-white">
         <div className="mx-auto flex min-h-8 max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1">
-          <LiveBanglaClock locale={locale} />
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <LiveBanglaClock locale={locale} />
+            <WeatherWidget locale={locale} />
+          </div>
           <div className="flex items-center gap-2 text-[10px] font-medium sm:gap-4 sm:text-[11px]">
-            <a href="/about" className="hover:underline">{t(locale, 'about')}</a>
-            <a href="/contact" className="hover:underline">{t(locale, 'contact')}</a>
-            <LanguageToggle />
+            <a href="/about" className="hidden hover:underline sm:inline">{t(locale, 'about')}</a>
+            <a href="/contact" className="hidden hover:underline sm:inline">{t(locale, 'contact')}</a>
+            <LanguageToggle locale={locale} />
           </div>
         </div>
       </div>
@@ -114,7 +118,7 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
               onClick={() => setMenuOpen((v) => !v)}
               aria-expanded={menuOpen}
               aria-controls="mobile-menu"
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-label={t(locale, menuOpen ? 'menu_close' : 'menu_open')}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-ink transition-colors hover:bg-muted md:hidden dark:border-white/20 dark:text-white dark:hover:bg-white/10"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -125,7 +129,7 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
             <Link
               href="/"
               className="inline-flex shrink-0 items-center gap-2 md:gap-2.5"
-              aria-label="Banglar Voice 24NEWS — Home"
+              aria-label={`Banglar Voice 24NEWS — ${t(locale, 'home')}`}
             >
               <Image
                 src="/banglar-voice-logo.png"
@@ -159,10 +163,20 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
 
           <div className="flex shrink-0 items-center gap-2">
             <a
+              href="/#live"
+              className="hidden rounded-full border border-crimson/30 px-3 py-2 text-xs font-bold text-crimson hover:bg-crimson/5 sm:inline-flex dark:text-red-300"
+            >
+              <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-crimson" aria-hidden="true" />
+              {t(locale, 'live_tv')}
+            </a>
+            <a
               href="/#latest"
               className="hidden rounded-full bg-crimson px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-crimson-dark sm:inline-flex"
             >
               {t(locale, 'latest')}
+            </a>
+            <a href="/login" aria-label={t(locale, 'account')} title={t(locale, 'account')} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-ink hover:bg-muted dark:border-white/20 dark:text-white dark:hover:bg-white/10">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>
             </a>
             <ThemeToggle />
           </div>
@@ -172,7 +186,7 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
           <>
             <button
               type="button"
-              aria-label="Close menu"
+              aria-label={t(locale, 'menu_close')}
               onClick={() => setMenuOpen(false)}
               className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
             />

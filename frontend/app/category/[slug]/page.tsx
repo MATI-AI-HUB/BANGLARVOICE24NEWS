@@ -19,7 +19,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
   let items: FeedArticle[] = [];
   try {
-    const data = await api.articles(50);
+    const data = await api.articles(50, locale);
     items = data.items || [];
   } catch {
     items = [];
@@ -43,8 +43,8 @@ export default async function CategoryPage({ params }: PageProps) {
               article={{
                 id: a.id,
                 slug: a.slug,
-                title: a.title_bn,
-                summary: a.dek_bn,
+                title: locale === 'en' ? (a.title_en || a.title_bn) : a.title_bn,
+                summary: locale === 'en' ? (a.dek_en || a.dek_bn) : a.dek_bn,
                 category: a.category,
                 image_url: a.featured_image,
                 image_credit: a.image_credit,

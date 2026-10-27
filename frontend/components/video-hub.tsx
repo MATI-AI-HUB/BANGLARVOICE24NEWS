@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { youtubeHqThumbnail } from '../lib/video-thumbnail';
 
 export type VideoItem = {
@@ -124,12 +124,49 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
   }, [videos]);
 
   const [active, setActive] = useState<VideoItem | null>(null);
-  const feature = active ?? ordered[0];
+  const [liveVideo, setLiveVideo] = useState<VideoItem | null>(null);
+  const [resolvedFallback, setResolvedFallback] = useState<VideoItem | null>(null);
 
-  if (ordered.length === 0) return null;
+  useEffect(() => {
+    let mounted = true;
+    const refresh = async () => {
+      try {
+        const result = await fetch('/api/youtube/live', { cache: 'no-store' });
+        if (!result.ok) return;
+        const payload = (await result.json()) as {
+          isLive?: boolean;
+          video?: VideoItem | null;
+          fallback?: VideoItem | null;
+        };
+        if (!mounted) return;
+        setLiveVideo(payload.isLive && payload.video ? payload.video : null);
+        setResolvedFallback(payload.fallback ?? null);
+      } catch {
+        // Keep server-rendered published videos on network or API failure.
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 120_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const playlist = useMemo(() => {
+    const rows = liveVideo
+      ? [liveVideo, ...ordered.filter((video) => video.youtube_id !== liveVideo.youtube_id)]
+      : [...ordered];
+    if (!rows.length && resolvedFallback) rows.push(resolvedFallback);
+    return rows.slice(0, 5);
+  }, [liveVideo, ordered, resolvedFallback]);
+  const feature = active ?? liveVideo ?? ordered[0] ?? resolvedFallback;
+
+  if (!feature) return null;
 
   return (
     <section
+      id="live"
       aria-labelledby="videohub-heading"
       className="my-14 overflow-hidden rounded-3xl bg-neutral-950 p-5 text-white md:p-8"
     >
@@ -165,7 +202,7 @@ export function VideoHub({ videos }: { videos: VideoItem[] }) {
 
         {/* Playlist */}
         <div className="flex flex-col gap-2 lg:col-span-2">
-          {ordered.map((v) => {
+          {playlist.map((v) => {
             const isActive =
               feature?.id === v.id && feature?.title_bn === v.title_bn;
             return (

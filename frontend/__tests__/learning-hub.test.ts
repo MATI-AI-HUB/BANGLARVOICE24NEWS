@@ -2,6 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { answer } from '../components/learning-hub';
 
 describe('learning-hub answer engine', () => {
+  it('answers standard greetings without returning the unknown-question fallback', () => {
+    expect(answer('Hi')).toContain('ওয়ালাইকুম আসসালাম');
+    expect(answer('Hello!')).toContain('AI সহকারী');
+    expect(answer('সালাম')).toContain('সর্বশেষ সংবাদ');
+  });
+
   it('answers about the organization', () => {
     const a = answer('বাংলার ভয়েস কী?');
     expect(a).toContain('বাংলার ভয়েস');

@@ -17,8 +17,10 @@ describe('GET /api/public/feed.json', () => {
         {
           id: '1',
           title_bn: 'শিরোনাম',
+          title_en: 'Headline',
           excerpt_bn: 'সারাংশ',
           content_bn: 'বিস্তারিত',
+          content_en: 'English summary',
           category_key: 'national',
           category: 'জাতীয়',
           published_at: '2026-09-29T00:00:00.000Z',
@@ -52,7 +54,7 @@ describe('GET /api/public/feed.json', () => {
 
   it('maps source_name and image_credit onto feed items', async () => {
     const { GET } = await import('../app/api/public/feed.json/route');
-    const res = await GET();
+    const res = await GET(new Request('https://example.com/api/public/feed.json'));
     expect(res.status).toBe(200);
     expect(from).toHaveBeenCalledWith('articles');
     const body = await res.json();
@@ -62,11 +64,21 @@ describe('GET /api/public/feed.json', () => {
     expect(body.items[0].banner_image).toBe('');
   });
 
+  it('returns English content when locale=en is requested', async () => {
+    const { GET } = await import('../app/api/public/feed.json/route');
+    const res = await GET(new Request('https://example.com/api/public/feed.json?locale=en'));
+    const body = await res.json();
+    expect(body.language).toBe('en');
+    expect(body.items[0].title).toBe('Headline');
+    expect(body.items[0].summary).toContain('English summary');
+    expect(body.items[0].title_bn).toBe('শিরোনাম');
+  });
+
   it('returns 503 when supabase is unconfigured', async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const { GET } = await import('../app/api/public/feed.json/route');
-    const res = await GET();
+    const res = await GET(new Request('https://example.com/api/public/feed.json'));
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBe('feed_unavailable');

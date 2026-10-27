@@ -1,90 +1,75 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
 import { createClient } from '@/lib/supabase/client';
 import { t, type Locale } from '@/lib/i18n';
+import { FALLBACK_TICKER_TEXT, resolveBreakingTicker } from '@/lib/breaking-ticker';
 
-/**
- * BreakingMarquee — BBC-style scrolling ticker.
- *
- * Layout fix (overlap bug):
- *  - Parent `.group` is the ONLY overflow container, but the actual clipping
- *    happens in the flex-1 track (overflow-hidden), NOT the parent — so the
- *    black BREAKING badge (z-20, shrink-0) can never be overlapped.
- *  - Only the INNER text div is animated (Tailwind arbitrary animation
- *    `marquee 30s linear infinite`); the track container itself never moves.
- *  - Short ticker rows are padded, then duplicated; `marquee` keyframes
- *    translate -50% for a seamless infinite loop. Hover pauses via `.group:hover .marquee-track`
- *    (see globals.css). Motion is disabled under prefers-reduced-motion.
- *
- * Live ticker source: the `breaking_ticker` table (is_active = true). The
- * component subscribes to postgres_changes so an editor flipping a ticker row
- * updates the header in real time — no hardcoded text. When Supabase is not
- * configured (no env keys) the fetch fails gracefully and we render the
- * fallback line below instead (never crashes the build or the page).
- */
-
-const FALLBACK_TEXTS: Record<Locale, string[]> = {
-  bn: ['এআই অটোমেশন এর মাধ্যমে পরিচালিত বাংলার ভয়েস এর পরীক্ষামূলক সম্প্রচার চলছে।'],
-  en: ['Banglar Voice is running an experimental broadcast powered by AI automation.'],
-};
-
+/** Editorial ticker with article fallbacks and realtime refresh. */
 export function BreakingMarquee({ locale = 'bn' as Locale }: { locale?: Locale }) {
-  const [texts, setTexts] = useState<string[]>(FALLBACK_TEXTS[locale]);
+  const [texts, setTexts] = useState<string[]>([FALLBACK_TICKER_TEXT[locale]]);
 
   useEffect(() => {
-    // Lazy init: createClient() throws if env keys are missing. Client-only
-    // effect, so this never runs during SSR / static prerender — the build
-    // is safe. We swallow the error and keep FALLBACK_TEXTS visible.
     let sb: ReturnType<typeof createClient>;
     try {
       sb = createClient();
     } catch {
-      return; // no env keys → keep fallback, no crash
+      setTexts([FALLBACK_TICKER_TEXT[locale]]);
+      return;
     }
 
+    let disposed = false;
     const load = async () => {
-      const { data } = await sb
-        .from('breaking_ticker')
-        .select('*')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(10);
-      if (data?.length) {
-        const picked = data
-          .map((d: { text?: string; text_bn?: string; text_en?: string }) =>
-            locale === 'en'
-              ? (d.text_en ?? d.text_bn ?? d.text ?? '')
-              : (d.text_bn ?? d.text ?? ''),
-          )
-          .filter((x: string) => x.length > 0);
-        if (picked.length) setTexts(picked);
-      }
+      const result = await resolveBreakingTicker({
+        activeTicker: async () => {
+          const { data, error } = await sb
+            .from('breaking_ticker')
+            .select('text_bn, is_active, updated_at')
+            .eq('is_active', true)
+            .order('updated_at', { ascending: false })
+            .limit(10);
+          return { data, error };
+        },
+        breakingArticles: async () => {
+          const { data, error } = await sb
+            .from('articles')
+            .select('title_bn, title_en')
+            .eq('status', 'published')
+            .eq('is_breaking', true)
+            .order('published_at', { ascending: false })
+            .limit(5);
+          return { data, error };
+        },
+        recentArticles: async () => {
+          const { data, error } = await sb
+            .from('articles')
+            .select('title_bn, title_en')
+            .eq('status', 'published')
+            .order('published_at', { ascending: false })
+            .limit(5);
+          return { data, error };
+        },
+      }, locale);
+      if (!disposed) setTexts(result);
     };
 
-    load();
-
+    void load();
     const channel = sb
       .channel('breaking_ticker')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'breaking_ticker' },
-        load,
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'breaking_ticker' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'articles' }, load)
       .subscribe();
 
     return () => {
-      sb.removeChannel(channel);
+      disposed = true;
+      void sb.removeChannel(channel);
     };
   }, [locale]);
 
-  const loopTexts =
-    texts.length >= 3 ? texts : [...texts, ...texts, ...texts].slice(0, 6);
+  const loopTexts = texts.length >= 3 ? texts : [...texts, ...texts, ...texts].slice(0, 6);
 
   return (
     <div className="group relative flex h-9 overflow-hidden bg-[#CC0000]">
-      {/* Fixed BREAKING badge — never overlapped (z-20, shrink-0) */}
       <div
         className="z-20 flex h-full shrink-0 items-center bg-black px-6 shadow-[6px_0_12px_rgba(0,0,0,0.4)]"
         role="status"
@@ -95,25 +80,18 @@ export function BreakingMarquee({ locale = 'bn' as Locale }: { locale?: Locale }
           {t(locale, 'breaking_badge')}
         </span>
       </div>
-
-      {/* Track — the ONLY clipping container (flex-1, overflow-hidden) */}
       <div
         className="relative h-full flex-1 overflow-hidden bg-[#CC0000]"
         role="region"
         aria-label={t(locale, 'marquee_aria')}
       >
         <p className="sr-only">{texts[0]}</p>
-        {/* Only this inner text div animates; the track never moves */}
         <div className="absolute inset-0 flex items-center">
           <div className="marquee-track flex items-center whitespace-nowrap will-change-transform animate-[marquee_30s_linear_infinite]">
             {[0, 1].map((copy) => (
-              <span
-                key={copy}
-                className="flex items-center whitespace-nowrap text-sm font-medium text-white"
-                aria-hidden
-              >
-                {loopTexts.map((text, i) => (
-                  <span key={`${copy}-${i}`} className="flex items-center">
+              <span key={copy} className="flex items-center whitespace-nowrap text-sm font-medium text-white" aria-hidden>
+                {loopTexts.map((text, index) => (
+                  <span key={`${copy}-${index}`} className="flex items-center">
                     {text}
                     <span className="mx-8 h-1 w-1 shrink-0 rounded-full bg-white/60" />
                   </span>
