@@ -7,6 +7,7 @@ import { ThemeToggle } from './theme-toggle';
 import { LanguageToggle } from './LanguageToggle';
 import { BreakingMarquee } from './breaking-marquee';
 import { t, type Locale } from '@/lib/i18n';
+import { formatBanglaCalendarDate } from '@/lib/bn-date';
 
 const NAV_KEYS = [
   { href: '/#latest', key: 'latest' as const },
@@ -29,12 +30,9 @@ function LiveBanglaClock({ locale }: { locale: Locale }) {
 
   if (!now) return null;
   const bcp47 = locale === 'en' ? 'en-US' : 'bn-BD';
-  const bengaliCalendarDate = new Intl.DateTimeFormat('bn-BD-u-ca-bengali', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(now);
+  const bengaliCalendarDate = formatBanglaCalendarDate(now, locale);
   const gregorianDate = new Intl.DateTimeFormat(bcp47, {
+    timeZone: 'Asia/Dhaka',
     calendar: 'gregory',
     day: 'numeric',
     month: 'long',
@@ -49,7 +47,7 @@ function LiveBanglaClock({ locale }: { locale: Locale }) {
       <span className="mx-1" aria-hidden="true">•</span>
       <span>{gregorianDate}</span>
       <span className="mx-1" aria-hidden="true">•</span>
-      {now.toLocaleTimeString(bcp47, { hour: 'numeric', minute: '2-digit' })}
+      {now.toLocaleTimeString(bcp47, { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit' })}
     </time>
   );
 }
