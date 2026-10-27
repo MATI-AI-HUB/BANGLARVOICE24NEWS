@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { HeroGlobe } from '@/components/canvas/HeroGlobe';
 
 /**
  * AINewsAnchor — a virtual news-anchor (HeyGen / D-ID style presenter) with
@@ -25,7 +26,7 @@ type AnchorScript = {
 const ELEVENLABS_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || '';
 const ELEVENLABS_VOICE = process.env.NEXT_PUBLIC_ELEVENLABS_VOICE_ID || '';
 
-export function AINewsAnchor({ script }: { script: AnchorScript }) {
+export function AINewsAnchor({ script, enable3d = true }: { script: AnchorScript; enable3d?: boolean }) {
   const [state, setState] = useState<'idle' | 'loading' | 'speaking' | 'paused'>('idle');
   const [rate, setRate] = useState(1);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -175,6 +176,7 @@ export function AINewsAnchor({ script }: { script: AnchorScript }) {
               className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(196,30,30,0.35),transparent_60%)]"
               aria-hidden
             />
+            {enable3d ? <HeroGlobe className="absolute right-1 top-2 z-0 h-52 w-52 opacity-75" /> : null}
             {/* Presenter silhouette */}
             <div className="absolute inset-x-0 bottom-0 flex flex-col items-center" aria-hidden>
               <div className="relative h-40 w-40 rounded-full border-4 border-white/20 bg-gradient-to-br from-neutral-500 to-neutral-700">

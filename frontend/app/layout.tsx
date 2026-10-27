@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
-import { notoSerifBengali, hindSiliguri } from '@/lib/fonts';
+import { notoSerifBengali, hindSiliguri, inter } from '@/lib/fonts';
 import { cookies } from 'next/headers';
 import { LOCALE_COOKIE, getLocaleFromCookie } from '@/lib/i18n';
 import { Header } from '@/components/Header';
@@ -49,8 +49,9 @@ export default async function RootLayout({
 }) {
   const cookieStore = await cookies();
   const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
+  const savedTheme = cookieStore.get('bv-theme')?.value;
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html lang={locale} className={savedTheme === 'dark' ? 'dark' : undefined} suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -58,7 +59,7 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${notoSerifBengali.variable} ${hindSiliguri.variable} bg-paper font-sansbn text-ink antialiased min-h-screen flex flex-col`}
+        className={`${notoSerifBengali.variable} ${hindSiliguri.variable} ${inter.variable} bg-paper font-sansbn text-ink antialiased min-h-screen flex flex-col`}
       >
         <PlausibleAnalytics />
         <Header locale={locale} />

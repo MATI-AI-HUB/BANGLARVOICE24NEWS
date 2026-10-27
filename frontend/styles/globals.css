@@ -18,7 +18,8 @@ html {
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans-bn), 'Hind Siliguri', system-ui, sans-serif;
+  font-family: var(--font-sans-bn), var(--font-inter), 'Hind Siliguri', system-ui, sans-serif;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -64,7 +65,7 @@ body {
 
 .font-serifbn {
   font-family: var(--font-serif-bn), 'Noto Serif Bengali', 'Noto Sans Bengali', serif;
-  line-height: 1.5;
+  line-height: 1.7;
   font-feature-settings: 'kern' 1, 'liga' 1, 'locl' 1;
   text-rendering: optimizeLegibility;
 }

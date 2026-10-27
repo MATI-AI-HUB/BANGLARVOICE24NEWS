@@ -29,6 +29,15 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
   }, []);
 
   useEffect(() => {
+    if (!mounted || !supported) return;
+    const previousPadding = document.body.style.paddingBottom;
+    document.body.style.paddingBottom = 'calc(5rem + env(safe-area-inset-bottom, 0px))';
+    return () => {
+      document.body.style.paddingBottom = previousPadding;
+    };
+  }, [mounted, supported]);
+
+  useEffect(() => {
     if (!supported) return;
     const load = () => setVoices(window.speechSynthesis.getVoices());
     load();
@@ -82,10 +91,13 @@ export function AudioPlayerWidget({ text, title, locale = 'bn' }: { text: string
   if (!mounted || !supported) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-paper/95 backdrop-blur-md dark:border-neutral-800 dark:bg-ink/95">
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
+    <div
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-paper/95 backdrop-blur-md dark:border-neutral-800 dark:bg-ink/95"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 pr-20 sm:gap-3 md:pr-20">
         {/* fake waveform */}
-        <div className="flex h-6 items-center gap-0.5" aria-hidden>
+        <div className="hidden h-6 items-center gap-0.5 sm:flex" aria-hidden>
           {Array.from({ length: 18 }).map((_, i) => (
             <span
               key={i}

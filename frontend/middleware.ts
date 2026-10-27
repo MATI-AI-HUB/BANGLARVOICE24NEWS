@@ -6,21 +6,42 @@ const ALLOWED_ROLES = ['admin', 'chief_editor', 'desk_editor']
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.delete('x-deployment-id')
+  requestHeaders.delete('x-ff-3d-visuals')
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID
+  const visualsFlag = request.cookies.get('ff_3d_visuals')?.value
+  if (deploymentId) requestHeaders.set('x-deployment-id', deploymentId)
+  if (visualsFlag === '0' || visualsFlag === '1') {
+    requestHeaders.set('x-ff-3d-visuals', visualsFlag)
+  }
+  const decorate = (response: NextResponse) => {
+    if (deploymentId) response.headers.set('x-deployment-id', deploymentId)
+    if (visualsFlag === '0' || visualsFlag === '1') {
+      response.headers.set('x-ff-3d-visuals', visualsFlag)
+    }
+    return response
+  }
   const isApiRoute = path.startsWith('/api/admin')
+  const isAdminRoute = isApiRoute || path === '/admin' || path.startsWith('/admin/')
+
+  if (!isAdminRoute) {
+    return decorate(NextResponse.next({ request: { headers: requestHeaders } }))
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseAnonKey) {
     if (isApiRoute) {
-      return NextResponse.json(
+      return decorate(NextResponse.json(
         { error: 'auth_unconfigured' },
         { status: 503, headers: { 'Cache-Control': 'no-store' } },
-      )
+      ))
     }
-    return redirectToLogin(request, path, 'auth_unconfigured')
+    return decorate(redirectToLogin(request, path, 'auth_unconfigured'))
   }
 
-  let supabaseResponse = NextResponse.next({ request })
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } })
 
   try {
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -31,6 +52,10 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
+          })
+          requestHeaders.set('cookie', request.cookies.toString())
+          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } })
+          cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options)
           })
         },
@@ -50,12 +75,12 @@ export async function middleware(request: NextRequest) {
 
     if (!user) {
       if (isApiRoute) {
-        return NextResponse.json(
+        return decorate(NextResponse.json(
           { error: 'Unauthorized' },
           { status: 401, headers: { 'Cache-Control': 'no-store' } },
-        )
+        ))
       }
-      return redirectToLogin(request, path)
+      return decorate(redirectToLogin(request, path))
     }
 
     const { data: profile } = await supabase
@@ -66,23 +91,23 @@ export async function middleware(request: NextRequest) {
 
     if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
       if (isApiRoute) {
-        return NextResponse.json(
+        return decorate(NextResponse.json(
           { error: 'Forbidden' },
           { status: 403, headers: { 'Cache-Control': 'no-store' } },
-        )
+        ))
       }
-      return NextResponse.redirect(new URL('/', request.url))
+      return decorate(NextResponse.redirect(new URL('/', request.url)))
     }
 
-    return supabaseResponse
+    return decorate(supabaseResponse)
   } catch {
     if (isApiRoute) {
-      return NextResponse.json(
+      return decorate(NextResponse.json(
         { error: 'auth_unavailable' },
         { status: 503, headers: { 'Cache-Control': 'no-store' } },
-      )
+      ))
     }
-    return redirectToLogin(request, path, 'auth_unavailable')
+    return decorate(redirectToLogin(request, path, 'auth_unavailable'))
   }
 }
 
@@ -96,5 +121,5 @@ function redirectToLogin(request: NextRequest, path: string, reason?: string) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

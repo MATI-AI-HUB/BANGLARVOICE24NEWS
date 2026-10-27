@@ -572,7 +572,7 @@ export async function enqueueDueSlots(
         attempt_count: 1,
         updated_at: now.toISOString(),
       },
-      { onConflict: 'article_id,platform' },
+      { onConflict: 'article_id,platform', ignoreDuplicates: true },
     )
     if (error) continue
     await supabase

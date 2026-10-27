@@ -8,6 +8,7 @@ describe('categorySlug', () => {
     expect(categorySlug('national')).toBe('national');
     expect(categorySlug('বিশ্ব')).toBe('international');
     expect(categorySlug('আন্তর্জাতিক')).toBe('international');
+    expect(categorySlug('tech')).toBe('technology');
   });
 
   it('rejects unknown slugs', () => {

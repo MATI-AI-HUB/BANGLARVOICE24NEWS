@@ -29,18 +29,26 @@ function LiveBanglaClock({ locale }: { locale: Locale }) {
 
   if (!now) return null;
   const bcp47 = locale === 'en' ? 'en-US' : 'bn-BD';
+  const bengaliCalendarDate = new Intl.DateTimeFormat('bn-BD-u-ca-bengali', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(now);
+  const gregorianDate = new Intl.DateTimeFormat(bcp47, {
+    calendar: 'gregory',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(now);
   return (
     <time
-      dateTime={now.toISOString().slice(0, 10)}
-      className="hidden text-xs font-medium text-white/90 lg:block"
+      dateTime={now.toISOString()}
+      className="max-w-full text-[10px] font-medium leading-tight text-white/90 sm:text-xs"
     >
-      {now.toLocaleDateString(bcp47, {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })}{' '}
-      •{' '}
+      <span>{bengaliCalendarDate}</span>
+      <span className="mx-1" aria-hidden="true">•</span>
+      <span>{gregorianDate}</span>
+      <span className="mx-1" aria-hidden="true">•</span>
       {now.toLocaleTimeString(bcp47, { hour: 'numeric', minute: '2-digit' })}
     </time>
   );
@@ -89,9 +97,9 @@ export function Header({ locale = 'bn' as Locale }: { locale?: Locale }) {
   return (
     <>
       <div className="bg-crimson text-white">
-        <div className="mx-auto flex h-8 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex min-h-8 max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1">
           <LiveBanglaClock locale={locale} />
-          <div className="flex items-center gap-4 text-[11px] font-medium">
+          <div className="flex items-center gap-2 text-[10px] font-medium sm:gap-4 sm:text-[11px]">
             <a href="/about" className="hover:underline">{t(locale, 'about')}</a>
             <a href="/contact" className="hover:underline">{t(locale, 'contact')}</a>
             <LanguageToggle />

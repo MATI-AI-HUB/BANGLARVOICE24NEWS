@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const maybeSingle = vi.fn();
 const rpc = vi.fn();
+const readiness = vi.hoisted(() => vi.fn());
 
 function chain() {
   const c: Record<string, unknown> = {};
@@ -22,11 +23,20 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: () => chain(), rpc }),
 }));
 
+vi.mock('../lib/social-platforms', () => ({
+  fetchReadiness: readiness,
+  dhakaDayStartIso: () => '2026-10-28T00:00:00.000Z',
+  rateLimitReason: () => null,
+  ineligibleReason: () => null,
+}));
+
 describe('POST /api/social/dispatch', () => {
   beforeEach(() => {
     vi.resetModules();
     maybeSingle.mockReset();
     rpc.mockReset();
+    readiness.mockReset();
+    readiness.mockResolvedValue({ ready: [], limits: {}, degraded: true });
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role';
   });
@@ -72,5 +82,26 @@ describe('POST /api/social/dispatch', () => {
     expect(body.ready).toBe(0);
     expect(body.degraded).toBe(true);
     expect(body.reason).toBe('no_ready_platforms');
+  });
+
+  it('fails closed when the atomic claim RPC is unavailable', async () => {
+    maybeSingle.mockResolvedValue({ data: { key_encrypted: 'vault-ref' } });
+    readiness.mockResolvedValue({
+      ready: ['facebook'],
+      limits: { facebook: { daily: 12, minGapMinutes: 45 } },
+      degraded: false,
+    });
+    rpc.mockImplementation((name: string) => {
+      if (name === 'decrypt_vault_secret') return Promise.resolve({ data: 'test-secret' });
+      return Promise.resolve({ data: null, error: { message: 'function not found' } });
+    });
+    const res = await post({ Authorization: 'Bearer test-secret' });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'queue_claim_failed' });
+    expect(rpc).toHaveBeenCalledWith('claim_social_posts', {
+      p_platforms: ['facebook'],
+      p_limit: 40,
+      p_lease_seconds: 900,
+    });
   });
 });

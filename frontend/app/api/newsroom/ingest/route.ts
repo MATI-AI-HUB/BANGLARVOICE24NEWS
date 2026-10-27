@@ -333,7 +333,7 @@ export async function POST(req: Request) {
           payload: { title: title.slice(0, 250), image_url: imageUrl },
           updated_at: now,
         })),
-        { onConflict: 'article_id,platform' },
+        { onConflict: 'article_id,platform', ignoreDuplicates: true },
       );
       if (queueError) return json({ error: 'social_queue_failed', detail: queueError.message }, 500);
     }

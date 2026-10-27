@@ -36,6 +36,7 @@ export function categorySlug(name: string): string {
   const raw = (name || '').trim();
   if (!raw) return '';
   const lower = raw.toLowerCase();
+  if (lower === 'tech') return 'technology';
   if (SLUGS.has(lower)) return lower;
   return SLUG_BY_LABEL[raw] ?? `cat-${raw.replace(/\s+/g, '-')}`;
 }

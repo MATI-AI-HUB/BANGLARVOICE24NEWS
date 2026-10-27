@@ -44,6 +44,7 @@ const toBento = (a: FeedArticle, locale: Locale) => ({
 export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = getLocaleFromCookie(cookieStore.get(LOCALE_COOKIE)?.value);
+  const enable3dVisuals = cookieStore.get('ff_3d_visuals')?.value !== '0';
   let items: FeedArticle[] = [];
   let error = '';
   let liveEntries: LiveEntry[] = [];
@@ -226,6 +227,7 @@ export default async function HomePage() {
 
       {items.length > 0 ? (
         <AINewsAnchor
+          enable3d={enable3dVisuals}
           script={{
             title: 'আজকের প্রধান সংবাদ — AI অ্যাংকরের সাথে',
             body: items

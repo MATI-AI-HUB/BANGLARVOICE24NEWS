@@ -14,6 +14,7 @@ type QueueRow = {
   article_id: string;
   platform: Platform;
   attempt_count: number;
+  claim_token: string;
 };
 
 type Article = {
@@ -44,6 +45,14 @@ function admin(): SupabaseClient {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Supabase admin credentials are not configured');
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+async function updateClaim(supabase: SupabaseClient, row: QueueRow, values: Record<string, unknown>) {
+  return supabase
+    .from('social_posts')
+    .update({ ...values, claim_token: null, claimed_at: null, updated_at: values.updated_at || new Date().toISOString() })
+    .eq('id', row.id)
+    .eq('claim_token', row.claim_token);
 }
 
 async function vaultSecret(serviceName: string): Promise<string | null> {
@@ -239,25 +248,17 @@ export async function POST(request: Request) {
   if (degraded) console.error('[social] readiness registry unavailable; fail-closed with no publishing');
   if (!ready.length) return NextResponse.json({ ok: true, processed: 0, ready: 0, degraded, reason: 'no_ready_platforms' });
 
-  const queue = await supabase
-    .from('social_posts')
-    .select('id, article_id, platform, attempt_count')
-    .eq('status', 'pending')
-    .in('platform', ready)
-    .order('created_at', { ascending: true })
-    .limit(30);
-  if (queue.error) return NextResponse.json({ error: 'queue_read_failed' }, { status: 500 });
+  const claim = await supabase.rpc('claim_social_posts', {
+    p_platforms: ready,
+    p_limit: 40,
+    p_lease_seconds: 900,
+  });
+  if (claim.error) {
+    console.error('[social] atomic queue claim failed', { message: claim.error.message });
+    return NextResponse.json({ error: 'queue_claim_failed' }, { status: 503 });
+  }
 
-  const retryable = await supabase
-    .from('social_posts')
-    .select('id, article_id, platform, attempt_count')
-    .eq('status', 'failed')
-    .in('platform', ready)
-    .lt('attempt_count', 5)
-    .order('updated_at', { ascending: true })
-    .limit(10);
-
-  const pendingRows = [...((queue.data || []) as QueueRow[]), ...((retryable.data || []) as QueueRow[])];
+  const pendingRows = (claim.data || []) as QueueRow[];
   if (!pendingRows.length) return NextResponse.json({ ok: true, processed: 0, ready: ready.length });
 
   const articleIds = [...new Set(pendingRows.map((row) => row.article_id))];
@@ -300,6 +301,17 @@ export async function POST(request: Request) {
   for (const row of pendingRows) {
     const article = articleMap.get(row.article_id);
     if (!article) {
+      const now = new Date().toISOString();
+      const { error } = await updateClaim(supabase, row, {
+        status: 'failed',
+        error_message: 'article_not_found',
+        attempt_count: row.attempt_count + 1,
+        reconciliation_class: 'retry',
+        reconciliation_reason: 'article_not_found',
+        reconciled_at: now,
+        reconciled_by: 'social-dispatch',
+      });
+      if (error) console.error('[social] missing-article update failed', { id: row.id, error });
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: 'article_not_found' });
       continue;
     }
@@ -307,7 +319,7 @@ export async function POST(request: Request) {
     const eligibility = ineligibleReason(article);
     if (eligibility) {
       const now = new Date().toISOString();
-      const { error: skipErr } = await supabase.from('social_posts').update({
+      const { error: skipErr } = await updateClaim(supabase, row, {
         status: 'skipped',
         error_message: eligibility,
         reconciliation_class: 'skip',
@@ -315,7 +327,7 @@ export async function POST(request: Request) {
         reconciled_at: now,
         reconciled_by: 'social-dispatch-eligibility-guard',
         updated_at: now,
-      }).eq('id', row.id).eq('status', 'pending');
+      });
       if (skipErr) console.error('[social] eligibility skip update failed', { id: row.id, skipErr });
       results.push({ platform: row.platform, status: 'skipped', article_id: row.article_id, error: eligibility });
       continue;
@@ -323,7 +335,9 @@ export async function POST(request: Request) {
 
     const reason = rateLimitReason(row.platform, limits, dailyCount, lastPosted);
     if (reason) {
-      // Left pending on purpose so it is retried once the window clears.
+      // Release immediately; the row stays pending/failed and is retried after the window clears.
+      const { error } = await updateClaim(supabase, row, {});
+      if (error) console.error('[social] deferred claim release failed', { id: row.id, error });
       results.push({ platform: row.platform, status: 'deferred', article_id: row.article_id, error: reason });
       continue;
     }
@@ -342,7 +356,7 @@ export async function POST(request: Request) {
       } else if (result.status === 'failed') {
         reconciliation_class = 'retry';
       }
-      const { error: updErr } = await supabase.from('social_posts').update({
+      const { error: updErr } = await updateClaim(supabase, row, {
         status: result.status,
         external_post_id: result.external_post_id || null,
         error_message: result.error || null,
@@ -357,7 +371,7 @@ export async function POST(request: Request) {
               reconciled_by: 'social-dispatch',
             }
           : {}),
-      }).eq('id', row.id);
+      });
       if (updErr) console.error('[social] post update failed', { id: row.id, updErr });
       if (result.status === 'published') {
         dailyCount.set(row.platform, (dailyCount.get(row.platform) || 0) + 1);
@@ -376,7 +390,11 @@ export async function POST(request: Request) {
         reconciliation_reason: message,
         reconciled_at: now,
         reconciled_by: 'social-dispatch',
-      }).eq('id', row.id);
+      }).eq('id', row.id).eq('claim_token', row.claim_token);
+      if (!failErr) {
+        const { error: releaseErr } = await supabase.from('social_posts').update({ claim_token: null, claimed_at: null }).eq('id', row.id).eq('claim_token', row.claim_token);
+        if (releaseErr) console.error('[social] failed-claim release failed', { id: row.id, releaseErr });
+      }
       if (failErr) console.error('[social] fail update failed', { id: row.id, failErr });
       results.push({ platform: row.platform, status: 'failed', article_id: row.article_id, error: message });
     }

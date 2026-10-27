@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { api } from '../../../lib/api';
 import { LOCALE_COOKIE, getLocaleFromCookie, t, translateCategory } from '../../../lib/i18n';
 import { ArticleCard } from '../../../components/hero-bento';
+import { FallbackFeed } from '../../../components/feed/FallbackFeed';
 import { categorySlug, isKnownCategorySlug } from '../../../lib/category';
 import type { FeedArticle } from '../../../lib/mockData';
 
@@ -32,30 +33,31 @@ export default async function CategoryPage({ params }: PageProps) {
     <main className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="font-serifbn text-3xl font-extrabold">{label}</h1>
       {matches.length === 0 ? (
-        <p className="mt-8 text-neutral-500">{t(locale, 'no_articles')}</p>
-      ) : null}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {matches.map((a) => (
-          <ArticleCard
-            key={a.id}
-            locale={locale}
-            article={{
-              id: a.id,
-              slug: a.slug,
-              title: a.title_bn,
-              summary: a.dek_bn,
-              category: a.category,
-              image_url: a.featured_image,
-              image_credit: a.image_credit,
-              read_time: a.reading_time_min,
-              published_at: a.published_at,
-              source_name: a.source_name,
-              source_url: a.source_url,
-            }}
-            href={`/article/${a.slug}`}
-          />
-        ))}
-      </div>
+        <FallbackFeed category={label} locale={locale} candidates={items} />
+      ) : (
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {matches.map((a) => (
+            <ArticleCard
+              key={a.id}
+              locale={locale}
+              article={{
+                id: a.id,
+                slug: a.slug,
+                title: a.title_bn,
+                summary: a.dek_bn,
+                category: a.category,
+                image_url: a.featured_image,
+                image_credit: a.image_credit,
+                read_time: a.reading_time_min,
+                published_at: a.published_at,
+                source_name: a.source_name,
+                source_url: a.source_url,
+              }}
+              href={`/article/${a.slug}`}
+            />
+          ))}
+        </div>
+      )}
       <p className="mt-8">
         <Link href="/" className="text-sm font-semibold text-primary underline">
           {t(locale, 'back_home')}

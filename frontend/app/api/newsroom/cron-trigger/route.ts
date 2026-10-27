@@ -1875,7 +1875,7 @@ async function runCronTrigger(request: Request) {
                 payload: { title: rewrite.title_bn.slice(0, 250), image_url: image.url },
                 updated_at: new Date().toISOString(),
               })),
-              { onConflict: 'article_id,platform' },
+              { onConflict: 'article_id,platform', ignoreDuplicates: true },
             )
             if (socialQueueError) {
               errorCodes.add('social_queue_failed')
@@ -2013,7 +2013,7 @@ async function runCronTrigger(request: Request) {
                   payload: { title: rewrite.title_bn.slice(0, 250), image_url: imageUrl },
                   updated_at: new Date().toISOString(),
                 })),
-                { onConflict: 'article_id,platform' },
+                { onConflict: 'article_id,platform', ignoreDuplicates: true },
               )
             }
           } else {
