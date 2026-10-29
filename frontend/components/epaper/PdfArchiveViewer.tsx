@@ -5,13 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 type Props = {
   url: string;
   label: string;
+  locale?: 'bn' | 'en';
 };
 
 /**
  * Renders the archived vector PDF page-by-page with pdf.js onto canvases
  * (lazy-loaded, device-pixel-ratio aware) so text stays sharp when zooming.
  */
-export default function PdfArchiveViewer({ url, label }: Props) {
+export default function PdfArchiveViewer({ url, label, locale = 'bn' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [pages, setPages] = useState(0);
@@ -47,7 +48,7 @@ export default function PdfArchiveViewer({ url, label }: Props) {
           canvas.style.height = 'auto';
           canvas.className = 'mx-auto mb-4 block bg-white shadow';
           canvas.setAttribute('role', 'img');
-          canvas.setAttribute('aria-label', `${label} — পাতা ${number}`);
+          canvas.setAttribute('aria-label', `${label} — ${locale === 'en' ? 'page' : 'পাতা'} ${number}`);
           container.appendChild(canvas);
 
           const context = canvas.getContext('2d');
@@ -64,20 +65,21 @@ export default function PdfArchiveViewer({ url, label }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [url, label]);
+  }, [url, label, locale]);
 
   return (
     <section aria-label={label} className="mb-8">
       <div className="mb-3 flex items-center justify-between text-sm">
         <h2 className="font-serifbn text-xl font-bold">{label}</h2>
         <a href={url} download className="rounded border border-[#1a1a1a] px-3 py-1 text-xs font-semibold hover:bg-[#1a1a1a] hover:text-white">
-          PDF ডাউনলোড{pages ? ` (${pages} পাতা)` : ''}
+          {locale === 'en' ? 'Download PDF' : 'PDF ডাউনলোড'}{pages ? ` (${pages} ${locale === 'en' ? 'pages' : 'পাতা'})` : ''}
         </a>
       </div>
-      {status === 'loading' && <p className="py-10 text-center text-sm text-neutral-500">আর্কাইভ লোড হচ্ছে…</p>}
+      {status === 'loading' && <p className="py-10 text-center text-sm text-neutral-500">{locale === 'en' ? 'Loading archive…' : 'আর্কাইভ লোড হচ্ছে…'}</p>}
       {status === 'error' && (
         <p className="py-10 text-center text-sm text-neutral-500">
-          আর্কাইভ দেখানো যায়নি। <a className="underline" href={url}>সরাসরি PDF খুলুন</a>
+          {locale === 'en' ? 'The archive could not be shown. ' : 'আর্কাইভ দেখানো যায়নি। '}
+          <a className="underline" href={url}>{locale === 'en' ? 'Open the PDF directly' : 'সরাসরি PDF খুলুন'}</a>
         </p>
       )}
       <div ref={containerRef} />

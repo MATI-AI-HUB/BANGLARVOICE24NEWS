@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useClientLocale } from '@/lib/use-client-locale';
 
 /**
  * ErrorBoundary (route-level) — Banglar Voice.
@@ -16,6 +17,7 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const locale = useClientLocale();
   useEffect(() => {
     // eslint-disable-next-line no-console
     console.error('Banglar Voice route error:', error);
@@ -28,18 +30,19 @@ export default function Error({
           ⚠️
         </div>
         <h1 className="mb-3 text-2xl font-bold tracking-tight text-[#0F0F0F]">
-          কিছু ভুল হয়েছে — Dosh somporke dukkhito
+          {locale === 'en' ? 'Something went wrong' : 'কিছু ভুল হয়েছে'}
         </h1>
         <p className="mb-6 text-sm leading-relaxed text-black/60">
-          পৃষ্ঠাটি লোড করতে সমস্যা হয়েছে। আবার চেষ্টা করুন, অথবা কিছুক্ষণ পর
-          দেখুন।
+          {locale === 'en'
+            ? 'We could not load this page. Try again, or come back in a little while.'
+            : 'পৃষ্ঠাটি লোড করতে সমস্যা হয়েছে। আবার চেষ্টা করুন, অথবা কিছুক্ষণ পর দেখুন।'}
         </p>
         <button
           type="button"
           onClick={reset}
           className="rounded-full bg-[#CC0000] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#CC0000]/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#CC0000] focus-visible:ring-offset-2"
         >
-          আবার চেষ্টা করুন
+          {locale === 'en' ? 'Try again' : 'আবার চেষ্টা করুন'}
         </button>
       </div>
     </main>

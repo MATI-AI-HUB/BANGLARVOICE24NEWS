@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { callAiGateway } from '../../../lib/ai-gateway';
+import { createQueryEmbedding } from '../../../lib/query-embeddings';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 45;
 
 type Source = { title: string; url: string; snippet: string; kind: 'site' | 'web' };
-type ArticleRow = { id: string; slug: string | null; title_bn: string | null; title_en: string | null; excerpt_bn: string | null; content_en: string | null };
+type ArticleRow = { id: string; slug: string | null; title_bn: string | null; title_en: string | null; excerpt_bn: string | null; content_bn?: string | null; content_en: string | null };
 
 const SITE = 'https://www.banglarvoice24news.com';
 const SUFFIXES = ['গুলোর', 'গুলো', 'দের', 'ের', 'কে', 'তে', 'র', 'ে', 'য়', 'ও'];
@@ -39,8 +40,47 @@ function variants(term: string): string[] {
 
 async function searchArchive(question: string, locale: 'bn' | 'en'): Promise<Source[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return [];
+  const client = createClient(url, key, { auth: { persistSession: false } });
+
+  // The hybrid RPC is service-role-only. The configured embedding model must
+  // match the model/dimension used to populate article_embeddings. If any
+  // prerequisite is absent, continue with the public lexical archive search.
+  if (serviceKey) {
+    try {
+      const embedding = await createQueryEmbedding(question);
+      if (embedding) {
+        const { data, error } = await client.rpc('hybrid_search_articles', {
+          p_query: question,
+          p_query_embedding: embedding,
+          p_match_count: 5,
+        });
+        if (!error && data?.length) {
+          const ranked = data as ArticleRow[];
+          const full = await client
+            .from('articles')
+            .select('id, content_bn, content_en, excerpt_bn')
+            .in('id', ranked.map((row) => row.id));
+          const bodies = new Map<string, { content_bn?: string | null; content_en?: string | null; excerpt_bn?: string | null }>();
+          for (const row of full.data || []) bodies.set(row.id, row);
+          return ranked.map((row) => {
+            const body = bodies.get(row.id);
+            return {
+              title: locale === 'en' ? (row.title_en || row.title_bn || 'Banglar Voice report') : (row.title_bn || 'বাংলার ভয়েস সংবাদ'),
+              url: `${SITE}/article/${encodeURIComponent(row.slug || row.id)}`,
+              snippet: ((locale === 'en' ? (body?.content_en || body?.excerpt_bn) : (body?.content_bn || body?.excerpt_bn)) || '').slice(0, 700),
+              kind: 'site' as const,
+            };
+          });
+        }
+      }
+    } catch {
+      // Optional vector search must never prevent the lexical fallback.
+    }
+  }
+
   const terms = question.toLowerCase().split(/\s+/).map(clean).filter((term) => term.length > 2).slice(0, 6);
   if (!terms.length) return [];
   const patterns: string[] = [];
@@ -51,7 +91,6 @@ async function searchArchive(question: string, locale: 'bn' | 'en'): Promise<Sou
   const bodyColumn = locale === 'en' ? 'content_en' : 'excerpt_bn';
   const filter = patterns.map((p) => `${titleColumn}.ilike.*${p}*,${bodyColumn}.ilike.*${p}*`).join(',');
   try {
-    const client = createClient(url, key, { auth: { persistSession: false } });
     const { data, error } = await client
       .from('articles')
       .select(`id, slug, title_bn, title_en, excerpt_bn, content_en`)

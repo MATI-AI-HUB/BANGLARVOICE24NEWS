@@ -17,7 +17,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   let items: FeedArticle[] = [];
   try {
-    const data = await api.articles(50);
+    const data = await api.articles(50, locale);
     items = data.items || [];
   } catch {
     items = [];
@@ -26,7 +26,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
   const needle = query.toLowerCase();
   const hits = needle
     ? items.filter((a) =>
-        [a.title_bn, a.dek_bn, a.source_name, a.category]
+        [locale === 'en' ? a.title_en || a.title_bn : a.title_bn, locale === 'en' ? a.dek_en || a.dek_bn : a.dek_bn, a.source_name, a.category]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(needle)),
       )
@@ -47,12 +47,12 @@ export default async function SearchPage({ searchParams }: PageProps) {
           className="w-full rounded-full border border-border bg-white px-4 py-2 text-sm dark:border-white/15 dark:bg-neutral-900"
         />
         <button type="submit" className="rounded-full bg-crimson px-5 py-2 text-sm font-bold text-white">
-          খুঁজুন
+          {locale === 'en' ? 'Search' : 'খুঁজুন'}
         </button>
       </form>
-      {!query && <p className="mt-6 text-neutral-500">একটি শব্দ লিখে খুঁজুন।</p>}
+      {!query && <p className="mt-6 text-neutral-500">{locale === 'en' ? 'Enter a word or phrase to search.' : 'একটি শব্দ লিখে খুঁজুন।'}</p>}
       {query && hits.length === 0 && (
-        <p className="mt-6 text-neutral-500">কোনো ফলাফল নেই।</p>
+        <p className="mt-6 text-neutral-500">{locale === 'en' ? 'No results found.' : 'কোনো ফলাফল নেই।'}</p>
       )}
       <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {hits.map((a) => (
@@ -62,8 +62,8 @@ export default async function SearchPage({ searchParams }: PageProps) {
             article={{
               id: a.id,
               slug: a.slug,
-              title: a.title_bn,
-              summary: a.dek_bn,
+              title: locale === 'en' ? a.title_en || a.title_bn : a.title_bn,
+              summary: locale === 'en' ? a.dek_en || a.dek_bn : a.dek_bn,
               category: a.category,
               image_url: a.featured_image,
               image_credit: a.image_credit,

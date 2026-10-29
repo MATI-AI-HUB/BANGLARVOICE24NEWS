@@ -39,6 +39,13 @@ function LiveBanglaClock({ locale }: { locale: Locale }) {
     month: 'long',
     year: 'numeric',
   }).format(now);
+  const hijriDate = new Intl.DateTimeFormat(bcp47, {
+    timeZone: 'Asia/Dhaka',
+    calendar: 'islamic-umalqura',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(now);
   return (
     <time
       dateTime={now.toISOString()}
@@ -47,6 +54,8 @@ function LiveBanglaClock({ locale }: { locale: Locale }) {
       <span>{bengaliCalendarDate}</span>
       <span className="mx-1" aria-hidden="true">•</span>
       <span>{gregorianDate}</span>
+      <span className="mx-1" aria-hidden="true">•</span>
+      <span>{t(locale, 'hijri_calendar')}: {hijriDate}</span>
       <span className="mx-1" aria-hidden="true">•</span>
       {now.toLocaleTimeString(bcp47, { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit' })}
     </time>
